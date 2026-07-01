@@ -1,0 +1,67 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.diffplug.spotless' version '6.25.0'
+}
+
+group = 'com.bookshelves'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// Web / REST API (카카오·Gemini 외부 API 호출용 RestClient 포함)
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// JPA + DB (User / Book / ReadingRecord / Meeting 엔티티)
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// Redis (검색 캐시 / 세션·토큰 / 모임 타이머 TTL / 채팅 Pub-Sub)
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	// Security + 소셜 로그인 (구글·카카오 OAuth2)
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	// 요청 검증 (닉네임·모임 설정값 등)
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// 실시간 채팅 (토론방)
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// MySQL 드라이버
+	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	// 테스트
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+spotless {
+	java {
+		googleJavaFormat('1.22.0')
+		importOrder()
+		removeUnusedImports()
+		trimTrailingWhitespace()
+		endWithNewline()
+	}
+}

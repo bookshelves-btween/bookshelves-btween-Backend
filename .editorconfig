@@ -1,0 +1,25 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Java — Google Java Format 기준 (2-space, no tab). 최종 포맷은 Spotless가 강제한다.
+[*.java]
+indent_style = space
+indent_size = 2
+
+[*.{yml,yaml,json}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{gradle,groovy}]
+indent_style = tab
+
+[Makefile]
+indent_style = tab
