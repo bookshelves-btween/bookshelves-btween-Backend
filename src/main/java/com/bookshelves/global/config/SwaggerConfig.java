@@ -12,25 +12,28 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SwaggerConfig {
 
-    @Bean
-    public OpenAPI swagger() {
-        Info info = new Info().title("책장사이").description("UMC 10기 프로젝트, 책장사이 스웨거입니다.").version("0.0.1");
+  @Bean
+  public OpenAPI swagger() {
+    Info info = new Info().title("책장사이").description("UMC 10기 프로젝트, 책장사이 스웨거입니다.").version("0.0.1");
 
-        // JWT 토큰 헤더 방식
-        String securityScheme = "JWT TOKEN";
-        SecurityRequirement securityRequirement = new SecurityRequirement().addList(securityScheme);
+    // JWT 토큰 헤더 방식
+    String securityScheme = "JWT TOKEN";
+    SecurityRequirement securityRequirement = new SecurityRequirement().addList(securityScheme);
 
-        Components components = new Components()
-                .addSecuritySchemes(securityScheme, new SecurityScheme()
-                        .name(securityScheme)
-                        .type(SecurityScheme.Type.HTTP)
-                        .scheme("Bearer")
-                        .bearerFormat("JWT"));
+    Components components =
+        new Components()
+            .addSecuritySchemes(
+                securityScheme,
+                new SecurityScheme()
+                    .name(securityScheme)
+                    .type(SecurityScheme.Type.HTTP)
+                    .scheme("Bearer")
+                    .bearerFormat("JWT"));
 
-        return new OpenAPI()
-                .info(info)
-                .addServersItem(new Server().url("/"))
-                .addSecurityItem(securityRequirement)
-                .components(components);
-    }
+    return new OpenAPI()
+        .info(info)
+        .addServersItem(new Server().url("/"))
+        .addSecurityItem(securityRequirement)
+        .components(components);
+  }
 }
