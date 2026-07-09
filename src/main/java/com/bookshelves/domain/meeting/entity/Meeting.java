@@ -1,4 +1,3 @@
 package com.bookshelves.domain.meeting.entity;
 
-public class Meeting {
-}
+public class Meeting {}

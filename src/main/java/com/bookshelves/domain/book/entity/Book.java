@@ -1,4 +1,3 @@
 package com.bookshelves.domain.book.entity;
 
-public class Book {
-}
+public class Book {}

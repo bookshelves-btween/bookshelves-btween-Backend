@@ -1,4 +1,3 @@
 package com.bookshelves.domain.ai.entity;
 
-public class MeetingSummary {
-}
+public class MeetingSummary {}

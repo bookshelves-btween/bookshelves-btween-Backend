@@ -1,4 +1,3 @@
 package com.bookshelves.domain.chat.entity;
 
-public class Report {
-}
+public class Report {}
