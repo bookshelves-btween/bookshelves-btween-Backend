@@ -4,13 +4,7 @@ import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.global.entity.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -18,6 +12,12 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
+@Table(
+    uniqueConstraints = {
+      @UniqueConstraint(
+          name = "uk_member_provider_provider_id",
+          columnNames = {"provider", "provider_id"})
+    })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Member extends BaseEntity {
 

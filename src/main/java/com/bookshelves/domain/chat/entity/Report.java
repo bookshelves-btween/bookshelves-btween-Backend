@@ -2,7 +2,7 @@ package com.bookshelves.domain.chat.entity;
 
 import com.bookshelves.domain.chat.enums.ReportStatus;
 import com.bookshelves.domain.member.entity.Member;
-import com.bookshelves.global.entity.CreatedEntity;
+import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,7 +20,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Report extends CreatedEntity {
+public class Report extends BaseEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
