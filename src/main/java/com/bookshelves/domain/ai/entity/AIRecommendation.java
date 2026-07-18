@@ -1,5 +1,6 @@
-package com.bookshelves.domain.book.entity;
+package com.bookshelves.domain.ai.entity;
 
+import com.bookshelves.domain.book.entity.Book;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;

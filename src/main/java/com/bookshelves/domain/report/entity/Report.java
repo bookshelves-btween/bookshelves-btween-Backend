@@ -1,7 +1,8 @@
-package com.bookshelves.domain.chat.entity;
+package com.bookshelves.domain.report.entity;
 
-import com.bookshelves.domain.chat.enums.ReportStatus;
+import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.member.entity.Member;
+import com.bookshelves.domain.report.enums.ReportStatus;
 import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
