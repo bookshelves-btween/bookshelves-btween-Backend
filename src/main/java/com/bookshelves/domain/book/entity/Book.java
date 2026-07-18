@@ -3,12 +3,9 @@ package com.bookshelves.domain.book.entity;
 import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -23,11 +20,7 @@ public class Book extends BaseEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "category_id")
-  private Category category;
-
-  @Column(name = "isbn", length = 20)
+  @Column(name = "isbn", nullable = false, unique = true, length = 20)
   private String isbn;
 
   @Column(name = "title", nullable = false)
@@ -47,4 +40,13 @@ public class Book extends BaseEntity {
 
   @Column(name = "cover_image_url", length = 500)
   private String coverImageUrl;
+
+  // Detailed KDC classification held directly; Category is only a 10-genre roll-up
+  // master for preferences/statistics, so no FK is needed (parent-child is implied
+  // by the code itself, e.g. 813 belongs to 800).
+  @Column(name = "kdc_code", length = 20)
+  private String kdcCode;
+
+  @Column(name = "kdc_name", length = 100)
+  private String kdcName;
 }
