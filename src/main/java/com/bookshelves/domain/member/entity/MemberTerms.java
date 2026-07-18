@@ -38,7 +38,7 @@ public class MemberTerms {
   @JoinColumn(name = "member_id", nullable = false)
   private Member member;
 
-  @Column(name = "agreed_at")
+  @Column(name = "agreed_at", nullable = false)
   private LocalDateTime agreedAt;
 
   @Column(name = "withdrawn_at")
