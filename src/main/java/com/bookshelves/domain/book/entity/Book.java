@@ -41,9 +41,8 @@ public class Book extends BaseEntity {
   @Column(name = "cover_image_url", length = 500)
   private String coverImageUrl;
 
-  // Detailed KDC classification held directly; Category is only a 10-genre roll-up
-  // master for preferences/statistics, so no FK is needed (parent-child is implied
-  // by the code itself, e.g. 813 belongs to 800).
+  // 세부 KDC 분류를 직접 보유한다. Category는 선호 장르·통계용 100단위(10개)
+  // FK를 걸지 않는다 — KDC는 코드 자체로 부모·자식이 정해진다 (예: 813은 800의 하위).
   @Column(name = "kdc_code", length = 20)
   private String kdcCode;
 
