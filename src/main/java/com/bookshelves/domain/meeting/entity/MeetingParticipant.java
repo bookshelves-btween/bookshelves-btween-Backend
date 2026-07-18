@@ -47,7 +47,7 @@ public class MeetingParticipant {
   @CreatedDate
   private LocalDateTime joinedAt;
 
-  @Column(name = "isLeader", nullable = false)
+  @Column(name = "is_leader", nullable = false)
   private Boolean isLeader = false;
 
   @Column(name = "attended")
