@@ -41,7 +41,7 @@ public class MemberBook extends BaseEntity {
   @JoinColumn(name = "member_id", nullable = false)
   private Member member;
 
-  @Column(name = "progress")
+  @Column(name = "progress", nullable = false)
   private Integer progress = 0;
 
   @Column(name = "rating", precision = 2, scale = 1)

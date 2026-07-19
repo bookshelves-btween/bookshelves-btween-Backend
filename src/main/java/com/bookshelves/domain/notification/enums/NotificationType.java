@@ -1,6 +1,8 @@
 package com.bookshelves.domain.notification.enums;
 
 public enum NotificationType {
-  MEETING,
+  MEETING_CANCELED,
+  MEETING_STARTED,
+  MEETING_SUMMARY_DONE,
   SYSTEM
 }

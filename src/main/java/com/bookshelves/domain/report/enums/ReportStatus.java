@@ -1,4 +1,4 @@
-package com.bookshelves.domain.chat.enums;
+package com.bookshelves.domain.report.enums;
 
 public enum ReportStatus {
   PENDING,
