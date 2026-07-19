@@ -4,5 +4,6 @@ public enum MemberStatus {
   PENDING_ONBOARDING,
   ACTIVE,
   SUSPENDED,
-  WITHDRAWN
+  WITHDRAWN,
+  ANONYMIZED
 }
