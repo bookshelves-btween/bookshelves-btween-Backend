@@ -1,8 +1,8 @@
 ---
 name: "✨ 기능 요청"
-about: 새 기능 또는 작업 단위를 제안해요
+about: 새 기능을 제안해요
 title: "[Feature] "
-labels: feature
+labels: "✨Feature"
 assignees: ""
 ---
 
