@@ -62,6 +62,7 @@ docs(readme): document required env vars
 - **1 이슈 → 1 PR → N 커밋.** 하나의 작업 단위는 이슈로 만들고, 그 이슈를 해결하는 브랜치에서 여러 커밋을 쌓아 PR 하나로 올린다.
 - 이슈/PR 템플릿은 자동으로 채워진다(`.github/`). 빈칸을 채워 작성한다.
 - PR 본문에 `Closes #<이슈번호>`를 넣어 머지 시 이슈가 자동 종료되게 한다.
+- **PR 제목은 이슈와 동일한 `[Type]` prefix**를 붙인다 (`[Feature]` / `[Bug]` / `[Refactor]` / `[Chore]`).
 
 ### 머지 방식 — Merge commit (`--no-ff`)
 
