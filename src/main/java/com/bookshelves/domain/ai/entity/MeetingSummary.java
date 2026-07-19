@@ -1,6 +1,5 @@
 package com.bookshelves.domain.ai.entity;
 
-import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.global.entity.CreatedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,8 +20,8 @@ import lombok.NoArgsConstructor;
 @Table(
     uniqueConstraints = {
       @UniqueConstraint(
-          name = "uk_meeting_summary_meeting",
-          columnNames = {"meeting_id"})
+          name = "uk_meeting_summary_ai_question",
+          columnNames = {"ai_question_id"})
     })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MeetingSummary extends CreatedEntity {
@@ -31,9 +30,10 @@ public class MeetingSummary extends CreatedEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  // 모임 요약은 질문(AIQuestion)별 섹션 row의 집합 — 질문당 요약 1개
   @OneToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "meeting_id", nullable = false)
-  private Meeting meeting;
+  @JoinColumn(name = "ai_question_id", nullable = false)
+  private AIQuestion aiQuestion;
 
   @Column(name = "content", columnDefinition = "TEXT")
   private String content;
