@@ -26,11 +26,12 @@ hotfix/45-oauth-token-refresh
 
 ## 2. 커밋 컨벤션 — Conventional Commits
 
-형식: `<type>(<scope>): <description>` — 영어로 작성.
+형식: `<type>(<scope>): <description>` — 한글 또는 영어로 작성.
 
 ```
 feat(book): add ISBN normalization on lazy persistence
-fix(auth): handle expired kakao access token
+feat(meeting): 모임 자동 폭파 스케줄러 추가
+fix(auth): 만료된 카카오 액세스 토큰 갱신 처리
 docs(readme): document required env vars
 ```
 
@@ -49,7 +50,7 @@ docs(readme): document required env vars
 | `ci`       | CI 설정 변경                    |
 | `perf`     | 성능 개선                       |
 
-- **description:** 명령형 현재시제, 소문자 시작, 마침표 없음 (`add`, `fix` — not `added`, `Fixes`).
+- **description:** 마침표 없음. 영어는 명령형 현재시제·소문자 시작 (`add`, `fix` — not `added`, `Fixes`), 한글은 `~추가`·`~수정`처럼 간결한 명사형 종결.
 - **scope:** 선택. 도메인 단위 권장 (`book`, `meeting`, `auth`, `chat`, `ai`, `notification`).
 - 커밋 본문(body)이 필요하면 제목 아래 한 줄 띄우고 상세 설명.
 
