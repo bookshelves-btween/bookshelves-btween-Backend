@@ -1,7 +1,7 @@
 package com.bookshelves.domain.chat.entity;
 
 import com.bookshelves.domain.meeting.entity.Meeting;
-import com.bookshelves.global.entity.CreatedEntity;
+import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -24,7 +24,7 @@ import lombok.NoArgsConstructor;
           columnNames = {"meeting_id"})
     })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ChatRoom extends CreatedEntity {
+public class ChatRoom extends BaseEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)

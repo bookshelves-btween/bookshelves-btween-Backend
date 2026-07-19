@@ -1,5 +1,6 @@
 package com.bookshelves.domain.member.entity;
 
+import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -24,7 +25,7 @@ import lombok.NoArgsConstructor;
           columnNames = {"member_id", "terms_id"})
     })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MemberTerms {
+public class MemberTerms extends BaseEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,9 +38,6 @@ public class MemberTerms {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "member_id", nullable = false)
   private Member member;
-
-  @Column(name = "agreed_at", nullable = false)
-  private LocalDateTime agreedAt;
 
   @Column(name = "withdrawn_at")
   private LocalDateTime withdrawnAt;

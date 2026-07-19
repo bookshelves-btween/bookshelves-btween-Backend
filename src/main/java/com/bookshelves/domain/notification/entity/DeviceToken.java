@@ -2,7 +2,7 @@ package com.bookshelves.domain.notification.entity;
 
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.notification.enums.Platform;
-import com.bookshelves.global.entity.CreatedEntity;
+import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
           columnNames = {"fcm_token"})
     })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class DeviceToken extends CreatedEntity {
+public class DeviceToken extends BaseEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
