@@ -1,9 +1,12 @@
 package com.bookshelves.domain.notification.entity;
 
 import com.bookshelves.domain.member.entity.Member;
+import com.bookshelves.domain.notification.enums.Platform;
 import com.bookshelves.global.entity.CreatedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,11 +24,11 @@ import lombok.NoArgsConstructor;
 @Table(
     uniqueConstraints = {
       @UniqueConstraint(
-          name = "uk_fcm_token_token",
-          columnNames = {"token"})
+          name = "uk_device_token_fcm_token",
+          columnNames = {"fcm_token"})
     })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class FcmToken extends CreatedEntity {
+public class DeviceToken extends CreatedEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,6 +38,10 @@ public class FcmToken extends CreatedEntity {
   @JoinColumn(name = "member_id", nullable = false)
   private Member member;
 
-  @Column(name = "token", nullable = false, length = 512)
-  private String token;
+  @Column(name = "fcm_token", nullable = false, length = 255)
+  private String fcmToken;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "platform", nullable = false)
+  private Platform platform = Platform.IOS;
 }
