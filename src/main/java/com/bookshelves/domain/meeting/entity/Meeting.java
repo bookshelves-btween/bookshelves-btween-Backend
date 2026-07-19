@@ -43,6 +43,9 @@ public class Meeting extends BaseEntity {
   @Column(name = "cur_participants", nullable = false)
   private Integer curParticipants;
 
+  @Column(name = "real_participants", nullable = false)
+  private Integer realParticipants = 0;
+
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false)
   private MeetingStatus status = MeetingStatus.RECRUITING;

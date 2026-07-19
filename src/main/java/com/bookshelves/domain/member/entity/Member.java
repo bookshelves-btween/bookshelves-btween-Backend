@@ -43,7 +43,7 @@ public class Member extends BaseEntity {
 
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false)
-  private MemberStatus status = MemberStatus.ACTIVE;
+  private MemberStatus status = MemberStatus.PENDING_ONBOARDING;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "provider")

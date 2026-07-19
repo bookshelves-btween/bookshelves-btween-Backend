@@ -1,6 +1,6 @@
 package com.bookshelves.domain.book.entity;
 
-import com.bookshelves.global.entity.CreatedEntity;
+import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MemberBookHistory extends CreatedEntity {
+public class MemberBookHistory extends BaseEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)

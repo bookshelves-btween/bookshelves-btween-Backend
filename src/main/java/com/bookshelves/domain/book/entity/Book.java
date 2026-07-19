@@ -3,12 +3,9 @@ package com.bookshelves.domain.book.entity;
 import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -23,11 +20,7 @@ public class Book extends BaseEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "category_id")
-  private Category category;
-
-  @Column(name = "isbn", length = 20)
+  @Column(name = "isbn", nullable = false, unique = true, length = 20)
   private String isbn;
 
   @Column(name = "title", nullable = false)
@@ -47,4 +40,12 @@ public class Book extends BaseEntity {
 
   @Column(name = "cover_image_url", length = 500)
   private String coverImageUrl;
+
+  // 세부 KDC 분류를 직접 보유한다. Category는 선호 장르·통계용 100단위(10개)
+  // FK를 걸지 않는다 — KDC는 코드 자체로 부모·자식이 정해진다 (예: 813은 800의 하위).
+  @Column(name = "kdc_code", length = 20)
+  private String kdcCode;
+
+  @Column(name = "kdc_name", length = 100)
+  private String kdcName;
 }

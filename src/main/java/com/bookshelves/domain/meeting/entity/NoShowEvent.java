@@ -1,7 +1,7 @@
 package com.bookshelves.domain.meeting.entity;
 
 import com.bookshelves.domain.member.entity.Member;
-import com.bookshelves.global.entity.CreatedEntity;
+import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class NoShowEvent extends CreatedEntity {
+public class NoShowEvent extends BaseEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
