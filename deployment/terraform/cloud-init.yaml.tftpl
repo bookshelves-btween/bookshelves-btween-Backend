@@ -56,13 +56,22 @@ write_files:
       fi
 
       if ! systemctl list-unit-files | grep -q amazon-ssm-agent; then
-        snap install amazon-ssm-agent --classic || true
+        snap install amazon-ssm-agent --classic
       fi
 
       if systemctl list-unit-files | grep -q '^amazon-ssm-agent.service'; then
-        systemctl enable --now amazon-ssm-agent
+        ssm_service='amazon-ssm-agent.service'
       elif systemctl list-unit-files | grep -q '^snap.amazon-ssm-agent.amazon-ssm-agent.service'; then
-        systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service
+        ssm_service='snap.amazon-ssm-agent.amazon-ssm-agent.service'
+      else
+        echo 'ERROR: amazon-ssm-agent service was not found after installation.' >&2
+        exit 1
+      fi
+
+      systemctl enable --now "$ssm_service"
+      if ! systemctl is-active --quiet "$ssm_service"; then
+        echo 'ERROR: amazon-ssm-agent failed to start.' >&2
+        exit 1
       fi
 
       install -d -o ubuntu -g ubuntu /opt/${project_name}/bootstrap/html
@@ -89,7 +98,7 @@ write_files:
       cat > /opt/${project_name}/bootstrap/compose.yml <<'YAML'
       services:
         landing:
-          image: nginx:stable-alpine
+          image: nginx:stable-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46
           container_name: bookshelf-bootstrap
           ports:
             - "80:80"
