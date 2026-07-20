@@ -74,6 +74,28 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+resource "aws_subnet" "database" {
+  count = 2
+
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.20.${count.index + 11}.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "${local.name_prefix}-database-${count.index + 1}"
+  }
+}
+
+resource "aws_db_subnet_group" "database" {
+  name       = "${local.name_prefix}-database"
+  subnet_ids = aws_subnet.database[*].id
+
+  tags = {
+    Name = "${local.name_prefix}-database"
+  }
+}
+
 resource "aws_security_group" "server" {
   name        = "${local.name_prefix}-server-sg"
   description = "Public HTTP/HTTPS and optional administrator SSH"
@@ -82,6 +104,32 @@ resource "aws_security_group" "server" {
   tags = {
     Name = "${local.name_prefix}-server-sg"
   }
+}
+
+resource "aws_security_group" "database" {
+  name        = "${local.name_prefix}-database-sg"
+  description = "RDS MySQL access from the application server only"
+  vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name = "${local.name_prefix}-database-sg"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "database_mysql" {
+  security_group_id            = aws_security_group.database.id
+  description                  = "MySQL from the application server"
+  referenced_security_group_id = aws_security_group.server.id
+  from_port                    = 3306
+  to_port                      = 3306
+  ip_protocol                  = "tcp"
+}
+
+resource "aws_vpc_security_group_egress_rule" "database_all" {
+  security_group_id = aws_security_group.database.id
+  description       = "RDS managed outbound traffic"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
 }
 
 resource "aws_vpc_security_group_ingress_rule" "http" {
@@ -200,4 +248,47 @@ resource "aws_eip" "server" {
 resource "aws_eip_association" "server" {
   allocation_id = aws_eip.server.id
   instance_id   = aws_instance.server.id
+}
+
+resource "random_password" "database" {
+  length           = 32
+  special          = true
+  override_special = "_%@-"
+}
+
+resource "aws_db_instance" "database" {
+  identifier = "${local.name_prefix}-mysql"
+
+  engine         = "mysql"
+  engine_version = var.db_engine_version
+  instance_class = var.db_instance_class
+
+  db_name  = var.db_name
+  username = var.db_master_username
+  password = random_password.database.result
+  port     = 3306
+
+  allocated_storage = var.db_allocated_storage
+  storage_type      = "gp3"
+  storage_encrypted = true
+
+  db_subnet_group_name   = aws_db_subnet_group.database.name
+  vpc_security_group_ids = [aws_security_group.database.id]
+  publicly_accessible    = false
+  multi_az               = false
+
+  backup_retention_period    = var.db_backup_retention_days
+  copy_tags_to_snapshot      = true
+  auto_minor_version_upgrade = true
+
+  deletion_protection = false
+  skip_final_snapshot = true
+  apply_immediately   = true
+
+  performance_insights_enabled = false
+  monitoring_interval          = 0
+
+  tags = {
+    Name = "${local.name_prefix}-mysql"
+  }
 }

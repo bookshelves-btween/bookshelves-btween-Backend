@@ -11,13 +11,44 @@ source .env
 set +a
 
 install -d -m 0700 "$BACKUP_DIR"
-timestamp="$(date +%Y%m%d-%H%M%S)"
+exec 9>"$BACKUP_DIR/.backup.lock"
+if ! flock -n 9; then
+  echo "Another MySQL backup is already running."
+  exit 1
+fi
+
+timestamp="$(date +%Y%m%d-%H%M%S-%N)"
 target="$BACKUP_DIR/${MYSQL_DATABASE}-${timestamp}.sql.gz"
+temporary_target="$(mktemp "$BACKUP_DIR/.${MYSQL_DATABASE}-${timestamp}.XXXXXX.sql.gz")"
+credentials_file="$(mktemp "$BACKUP_DIR/.mysql-client.XXXXXX.cnf")"
+cutoff_file="$(mktemp "$BACKUP_DIR/.retention-cutoff.XXXXXX")"
+cleanup() {
+  rm -f -- "$temporary_target" "$credentials_file" "$cutoff_file"
+}
+trap cleanup EXIT
 
-docker compose --env-file .env exec -T mysql \
-  mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" \
+chmod 0600 "$credentials_file"
+escaped_password="${MYSQL_PASSWORD//\\/\\\\}"
+escaped_password="${escaped_password//\"/\\\"}"
+cat > "$credentials_file" <<EOF
+[client]
+user=$MYSQL_USER
+password="$escaped_password"
+host=$MYSQL_HOST
+port=${MYSQL_PORT:-3306}
+ssl-mode=REQUIRED
+EOF
+
+docker run --rm --network host \
+  -v "$credentials_file:/run/secrets/mysql-client.cnf:ro" \
+  mysql:8.4@sha256:c592c15aaf4a1961e15d82eb31ea5987dda862d1c4b1e93424438c0e91dc1f8d \
+  mysqldump \
+  --defaults-extra-file=/run/secrets/mysql-client.cnf \
   --single-transaction --routines --triggers "$MYSQL_DATABASE" \
-  | gzip > "$target"
+  | gzip > "$temporary_target"
 
-find "$BACKUP_DIR" -type f -name '*.sql.gz' -mtime "+$RETENTION_DAYS" -delete
+mv -- "$temporary_target" "$target"
+
+touch --date="$RETENTION_DAYS days ago" "$cutoff_file"
+find "$BACKUP_DIR" -type f -name '*.sql.gz' ! -newer "$cutoff_file" -delete
 echo "Backup created: $target"

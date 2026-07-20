@@ -4,6 +4,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Assert-NativeCommandSucceeded {
+    param([string]$CommandName, [int]$ExitCode)
+
+    if ($ExitCode -ne 0) {
+        throw "$CommandName failed with exit code $ExitCode."
+    }
+}
+
 $required = @('terraform', 'aws', 'git', 'ssh-keygen')
 $missing = @()
 
@@ -29,6 +37,7 @@ if ($missing.Count -gt 0) {
 Write-Host ''
 Write-Host "Checking AWS authentication for profile '$AwsProfile'..."
 aws sts get-caller-identity --profile $AwsProfile
+Assert-NativeCommandSucceeded -CommandName 'aws sts get-caller-identity' -ExitCode $LASTEXITCODE
 
 Write-Host ''
 Write-Host 'Prerequisites are ready.' -ForegroundColor Green
