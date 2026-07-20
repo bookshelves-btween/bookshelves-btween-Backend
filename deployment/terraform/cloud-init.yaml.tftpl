@@ -1,0 +1,107 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+timezone: Asia/Seoul
+
+packages:
+  - ca-certificates
+  - curl
+  - unzip
+
+write_files:
+  - path: /usr/local/sbin/bootstrap-bookshelf.sh
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -Eeuxo pipefail
+
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+
+      . /etc/os-release
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $${UBUNTU_CODENAME:-$VERSION_CODENAME} stable" \
+        > /etc/apt/sources.list.d/docker.list
+
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        docker-ce \
+        docker-ce-cli \
+        containerd.io \
+        docker-buildx-plugin \
+        docker-compose-plugin
+
+      install -d /etc/docker
+      cat > /etc/docker/daemon.json <<'JSON'
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+      JSON
+
+      systemctl enable docker
+      systemctl restart docker
+      usermod -aG docker ubuntu
+
+      if ! swapon --show | grep -q /swapfile; then
+        fallocate -l 2G /swapfile
+        chmod 600 /swapfile
+        mkswap /swapfile
+        swapon /swapfile
+        echo '/swapfile none swap sw 0 0' >> /etc/fstab
+      fi
+
+      if ! systemctl list-unit-files | grep -q amazon-ssm-agent; then
+        snap install amazon-ssm-agent --classic || true
+      fi
+
+      if systemctl list-unit-files | grep -q '^amazon-ssm-agent.service'; then
+        systemctl enable --now amazon-ssm-agent
+      elif systemctl list-unit-files | grep -q '^snap.amazon-ssm-agent.amazon-ssm-agent.service'; then
+        systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service
+      fi
+
+      install -d -o ubuntu -g ubuntu /opt/${project_name}/bootstrap/html
+      cat > /opt/${project_name}/bootstrap/html/index.html <<'HTML'
+      <!doctype html>
+      <html lang="ko">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>책장사이 배포 준비 완료</title>
+          <style>
+            body { font-family: sans-serif; max-width: 720px; margin: 80px auto; padding: 0 24px; color: #173d2b; }
+            code { background: #eef6f1; padding: 3px 7px; border-radius: 5px; }
+          </style>
+        </head>
+        <body>
+          <h1>책장사이 ${environment} 서버 준비 완료</h1>
+          <p>EC2, Docker Compose, Nginx 부트스트랩이 정상적으로 완료되었습니다.</p>
+          <p>다음 단계는 Spring Boot 이미지를 <code>deployment/runtime/compose.yml</code>로 배포하는 것입니다.</p>
+        </body>
+      </html>
+      HTML
+
+      cat > /opt/${project_name}/bootstrap/compose.yml <<'YAML'
+      services:
+        landing:
+          image: nginx:stable-alpine
+          container_name: bookshelf-bootstrap
+          ports:
+            - "80:80"
+          volumes:
+            - ./html:/usr/share/nginx/html:ro
+          restart: unless-stopped
+      YAML
+
+      chown -R ubuntu:ubuntu /opt/${project_name}
+      docker compose -f /opt/${project_name}/bootstrap/compose.yml up -d
+
+runcmd:
+  - [bash, /usr/local/sbin/bootstrap-bookshelf.sh]
+
+final_message: "Bookshelf EC2 bootstrap finished. Check /var/log/cloud-init-output.log for details."
