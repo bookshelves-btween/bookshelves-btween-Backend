@@ -31,9 +31,11 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	// Redis (검색 캐시 / 세션·토큰 / 모임 타이머 TTL / 채팅 Pub-Sub)
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	// Security + 소셜 로그인 (구글·카카오 OAuth2)
+	// Security (JWT 기반 인증 — 소셜 로그인은 클라이언트가 전달한 providerToken을 서버가 직접 검증)
 	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	// 요청 검증 (닉네임·모임 설정값 등)
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	// 실시간 채팅 (토론방)
