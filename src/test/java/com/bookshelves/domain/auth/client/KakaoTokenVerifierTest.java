@@ -17,6 +17,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
 class KakaoTokenVerifierTest {
@@ -57,5 +58,16 @@ class KakaoTokenVerifierTest {
 
     assertThatThrownBy(() -> kakaoTokenVerifier.verify("invalid-token"))
         .isInstanceOf(ProjectException.class);
+  }
+
+  @Test
+  void verifyPropagatesOriginalExceptionForKakaoServerError() {
+    mockServer
+        .expect(requestTo(USER_INFO_URI))
+        .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+    assertThatThrownBy(() -> kakaoTokenVerifier.verify("any-token"))
+        .isInstanceOf(HttpServerErrorException.class)
+        .isNotInstanceOf(ProjectException.class);
   }
 }
