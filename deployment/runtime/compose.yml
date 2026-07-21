@@ -37,7 +37,7 @@ services:
       TZ: Asia/Seoul
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: 8080
-      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE}?sslMode=REQUIRED&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE}?sslMode=VERIFY_IDENTITY&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
@@ -47,12 +47,18 @@ services:
       SPRING_FLYWAY_ENABLED: "true"
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      JAVA_TOOL_OPTIONS: -XX:+UseContainerSupport -Xms256m -Xmx768m -Duser.timezone=Asia/Seoul
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+UseContainerSupport -Xms256m -Xmx768m
+        -Duser.timezone=Asia/Seoul
+        -Djavax.net.ssl.trustStore=/etc/ssl/certs/rds-truststore.jks
+        -Djavax.net.ssl.trustStorePassword=${RDS_TRUSTSTORE_PASSWORD}
     depends_on:
       redis:
         condition: service_healthy
     expose:
       - "8080"
+    volumes:
+      - ${RDS_TRUSTSTORE_PATH}:/etc/ssl/certs/rds-truststore.jks:ro
     healthcheck:
       test:
         - CMD-SHELL

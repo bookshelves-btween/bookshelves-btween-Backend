@@ -16,6 +16,8 @@ if grep -Eq 'CHANGE_TO_|example\.com' .env; then
   exit 1
 fi
 
+bash "$RUNTIME_DIR/scripts/prepare-rds-truststore.sh"
+
 docker compose --env-file .env config >/dev/null
 
 app_image="$(grep -E '^APP_IMAGE=' .env | tail -n 1 | cut -d= -f2-)"

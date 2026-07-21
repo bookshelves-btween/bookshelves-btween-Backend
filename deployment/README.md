@@ -189,6 +189,7 @@ curl http://127.0.0.1
 - 애플리케이션 로그는 파일이 아니라 표준 출력
 - 애플리케이션 이미지는 GitHub Container Registry 등에서 다운로드
 - 애플리케이션 이미지에는 Actuator 상태 확인에 사용할 `curl` 또는 `wget` 포함
+- MySQL 연결은 AWS RDS CA truststore와 `VERIFY_IDENTITY`를 사용해 서버 인증서와 호스트명을 검증
 
 서버에 저장소를 받은 후 런타임 디렉터리를 준비합니다.
 
@@ -218,6 +219,8 @@ terraform output -raw database_password
 ```
 
 출력된 값을 서버의 `.env`에 있는 `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`에 각각 입력합니다. 데이터베이스 비밀번호는 화면 공유, 채팅, Git에 남기지 않습니다.
+
+`deploy.sh`는 AWS 공식 global RDS CA 번들을 HTTPS로 내려받고 Java truststore를 생성합니다. 생성 경로와 truststore 비밀번호는 `.env`의 `RDS_CA_BUNDLE_PATH`, `RDS_TRUSTSTORE_PATH`, `RDS_TRUSTSTORE_PASSWORD`로 지정합니다. 애플리케이션과 SQL 백업은 모두 해당 CA를 이용해 RDS 인증서와 엔드포인트 호스트명을 검증합니다.
 
 공개 API 도메인의 TLS 인증서를 먼저 발급하고 서버의 `.env`에 호스트 경로를 입력합니다. 예를 들어 Let's Encrypt를 사용한다면 `TLS_CERT_PATH`는 `fullchain.pem`, `TLS_PRIVATE_KEY_PATH`는 `privkey.pem`의 절대 경로입니다. 인증서나 개인 키는 Git에 추가하지 않습니다.
 

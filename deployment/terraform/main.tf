@@ -253,7 +253,7 @@ resource "aws_eip_association" "server" {
 resource "random_password" "database" {
   length           = 32
   special          = true
-  override_special = "_%@-"
+  override_special = "_%-"
 }
 
 resource "aws_db_instance" "database" {
