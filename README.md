@@ -45,6 +45,7 @@
 | `KAKAO_REST_API_KEY`                                              | 카카오 책 검색 API   |
 | `DATA4LIBRARY_AUTH_KEY`                                           | 도서관 정보나루 API  |
 | `GEMINI_API_KEY`                                                  | Gemini API           |
+| `JWT_SECRET`                                                      | JWT 서명 키 (HS256, 최소 32바이트 이상 랜덤 문자열 권장) |
 
 ## 코드 포맷
 

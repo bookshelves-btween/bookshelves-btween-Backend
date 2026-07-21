@@ -39,7 +39,7 @@ server:
   port: 8080
 
 jwt:
-  secret: ${JWT_SECRET:bookshelves-local-jwt-secret-key-for-dev}
+  secret: ${JWT_SECRET}
   access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:3600}
   refresh-token-expiration-seconds: ${JWT_REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
   restore-token-expiration-seconds: ${JWT_RESTORE_TOKEN_EXPIRATION_SECONDS:600}
