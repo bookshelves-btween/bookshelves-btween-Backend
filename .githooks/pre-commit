@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+if [ -x /usr/libexec/java_home ]; then
+  JAVA_HOME="$(/usr/libexec/java_home -v 21)"
+  export JAVA_HOME
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
+./gradlew spotlessCheck
