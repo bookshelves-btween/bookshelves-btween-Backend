@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import lombok.Builder;
 
 @Builder
+@Schema(description = "모임 생성 요청")
 public record MeetingCreateReqDTO(
     @Schema(description = "모임 시작 날짜", example = "2026-08-01")
         @NotNull(message = "시작 날짜는 필수입니다.")
