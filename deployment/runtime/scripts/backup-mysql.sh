@@ -10,6 +10,12 @@ set -a
 source .env
 set +a
 
+if [[ ! -f "$RDS_CA_BUNDLE_PATH" ]]; then
+  echo "RDS CA bundle not found: $RDS_CA_BUNDLE_PATH"
+  echo "Run scripts/prepare-rds-truststore.sh before creating a backup."
+  exit 1
+fi
+
 install -d -m 0700 "$BACKUP_DIR"
 exec 9>"$BACKUP_DIR/.backup.lock"
 if ! flock -n 9; then
@@ -36,11 +42,13 @@ user=$MYSQL_USER
 password="$escaped_password"
 host=$MYSQL_HOST
 port=${MYSQL_PORT:-3306}
-ssl-mode=REQUIRED
+ssl-mode=VERIFY_IDENTITY
+ssl-ca=/run/secrets/rds-ca.pem
 EOF
 
 docker run --rm --network host \
   -v "$credentials_file:/run/secrets/mysql-client.cnf:ro" \
+  -v "$RDS_CA_BUNDLE_PATH:/run/secrets/rds-ca.pem:ro" \
   mysql:8.4@sha256:c592c15aaf4a1961e15d82eb31ea5987dda862d1c4b1e93424438c0e91dc1f8d \
   mysqldump \
   --defaults-extra-file=/run/secrets/mysql-client.cnf \
