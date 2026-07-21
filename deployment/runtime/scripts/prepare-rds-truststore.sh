@@ -26,7 +26,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-curl --proto '=https' --tlsv1.2 -fsSL "$RDS_CA_URL" -o "$work_dir/global-bundle.pem"
+curl --proto '=https' --tlsv1.2 \
+  --connect-timeout 10 \
+  --max-time 60 \
+  -fsSL "$RDS_CA_URL" \
+  -o "$work_dir/global-bundle.pem"
 if ! grep -q -- '-----BEGIN CERTIFICATE-----' "$work_dir/global-bundle.pem"; then
   echo 'Downloaded RDS CA bundle does not contain a certificate.' >&2
   exit 1
@@ -38,9 +42,12 @@ fi
 )
 
 rm -f -- "$temporary_truststore"
+password_file="$(mktemp "$work_dir/.store-password.XXXXXX")"
+chmod 0600 "$password_file"
+printf 'STORE_PASSWORD=%s\n' "$RDS_TRUSTSTORE_PASSWORD" > "$password_file"
 docker run --rm \
   --user "$(id -u):$(id -g)" \
-  -e STORE_PASSWORD="$RDS_TRUSTSTORE_PASSWORD" \
+  --env-file "$password_file" \
   -v "$work_dir:/work" \
   "$JDK_IMAGE" \
   bash -c '
