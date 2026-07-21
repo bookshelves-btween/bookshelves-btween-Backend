@@ -6,8 +6,8 @@ import com.bookshelves.global.exception.ProjectException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 @Component
 public class KakaoTokenVerifier implements ProviderTokenVerifier {
@@ -36,7 +36,9 @@ public class KakaoTokenVerifier implements ProviderTokenVerifier {
               .header(HttpHeaders.AUTHORIZATION, "Bearer " + providerToken)
               .retrieve()
               .body(KakaoUserResponse.class);
-    } catch (RestClientException e) {
+    } catch (HttpClientErrorException e) {
+      // 카카오가 4xx로 요청을 거부한 경우 = 토큰 자체가 유효하지 않음.
+      // 5xx/연결실패/응답변환실패 등은 토큰 문제가 아니므로 여기서 잡지 않고 그대로 전파한다.
       throw new ProjectException(AuthErrorCode.INVALID_PROVIDER_TOKEN);
     }
 
