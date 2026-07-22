@@ -44,5 +44,16 @@ jwt:
   refresh-token-expiration-seconds: ${JWT_REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
   restore-token-expiration-seconds: ${JWT_RESTORE_TOKEN_EXPIRATION_SECONDS:600}
 
+# 소셜 로그인 ID Token(JWT) 검증 — 구글·애플 모두 JWKS 기반 서명 검증
+oauth2:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+    issuer: https://accounts.google.com
+  apple:
+    client-id: ${APPLE_CLIENT_ID:}
+    jwk-set-uri: https://appleid.apple.com/auth/keys
+    issuer: https://appleid.apple.com
+
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:}
