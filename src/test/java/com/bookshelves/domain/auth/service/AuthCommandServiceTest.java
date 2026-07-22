@@ -30,6 +30,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.dao.DataIntegrityViolationException;
 
 class AuthCommandServiceTest {
@@ -50,32 +52,36 @@ class AuthCommandServiceTest {
           jwtTokenProvider,
           redisTokenRepository);
 
-  @Test
-  void newMemberIsCreatedAndIssuedTokens() {
-    ProviderTokenVerifier verifier = stubVerifier("provider-token", "kakao-id");
-    when(memberRepository.findByProviderAndProviderId(Provider.KAKAO, "kakao-id"))
+  @ParameterizedTest
+  @EnumSource(Provider.class)
+  void newMemberIsCreatedAndIssuedTokens(Provider provider) {
+    String providerId = provider.name().toLowerCase() + "-id";
+    stubVerifier(provider, "provider-token", providerId);
+    when(memberRepository.findByProviderAndProviderId(provider, providerId))
         .thenReturn(Optional.empty());
     Member savedMember = mock(Member.class);
     when(savedMember.getId()).thenReturn(1L);
     when(savedMember.getStatus()).thenReturn(MemberStatus.PENDING_ONBOARDING);
-    when(memberCommandService.createSocialMember(Provider.KAKAO, "kakao-id"))
-        .thenReturn(savedMember);
+    when(memberCommandService.createSocialMember(provider, providerId)).thenReturn(savedMember);
 
     SocialLoginResponse response =
         authCommandService.socialLogin(
-            SocialLoginRequest.builder().provider("KAKAO").providerToken("provider-token").build());
+            SocialLoginRequest.builder()
+                .provider(provider.name())
+                .providerToken("provider-token")
+                .build());
 
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.PENDING_ONBOARDING);
     assertThat(response.getAccessToken()).isNotNull();
     assertThat(response.getRefreshToken()).isNotNull();
     assertThat(response.getRestoreToken()).isNull();
-    verify(memberCommandService).createSocialMember(Provider.KAKAO, "kakao-id");
+    verify(memberCommandService).createSocialMember(provider, providerId);
     verify(redisTokenRepository).saveRefreshToken(eq(1L), any(), eq(Duration.ofSeconds(1209600)));
   }
 
   @Test
   void concurrentFirstLoginFallsBackToExistingMemberOnUniqueConstraintViolation() {
-    stubVerifier("provider-token", "kakao-id");
+    stubVerifier(Provider.KAKAO, "provider-token", "kakao-id");
     Member memberCreatedByConcurrentRequest = mock(Member.class);
     when(memberCreatedByConcurrentRequest.getId()).thenReturn(1L);
     when(memberCreatedByConcurrentRequest.getStatus()).thenReturn(MemberStatus.PENDING_ONBOARDING);
@@ -98,7 +104,7 @@ class AuthCommandServiceTest {
 
   @Test
   void existingActiveMemberIsIssuedTokensWithoutCreatingMember() {
-    stubVerifier("provider-token", "kakao-id");
+    stubVerifier(Provider.KAKAO, "provider-token", "kakao-id");
     Member member = mock(Member.class);
     when(member.getId()).thenReturn(2L);
     when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
@@ -111,12 +117,14 @@ class AuthCommandServiceTest {
 
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     assertThat(response.getAccessToken()).isNotNull();
-    verify(memberRepository, never()).save(any());
+    assertThat(response.getRefreshToken()).isNotNull();
+    verify(memberCommandService, never()).createSocialMember(Provider.KAKAO, "kakao-id");
+    verify(redisTokenRepository).saveRefreshToken(eq(2L), any(), eq(Duration.ofSeconds(1209600)));
   }
 
   @Test
   void withdrawnMemberIsIssuedRestoreTokenOnly() {
-    stubVerifier("provider-token", "kakao-id");
+    stubVerifier(Provider.KAKAO, "provider-token", "kakao-id");
     Member member = mock(Member.class);
     when(member.getId()).thenReturn(3L);
     when(member.getStatus()).thenReturn(MemberStatus.WITHDRAWN);
@@ -151,9 +159,10 @@ class AuthCommandServiceTest {
         .isEqualTo(AuthErrorCode.AUTH_UNSUPPORTED_PROVIDER);
   }
 
-  private ProviderTokenVerifier stubVerifier(String providerToken, String providerId) {
+  private ProviderTokenVerifier stubVerifier(
+      Provider provider, String providerToken, String providerId) {
     ProviderTokenVerifier verifier = mock(ProviderTokenVerifier.class);
-    when(providerTokenVerifierResolver.resolve(Provider.KAKAO)).thenReturn(verifier);
+    when(providerTokenVerifierResolver.resolve(provider)).thenReturn(verifier);
     when(verifier.verify(providerToken)).thenReturn(new ProviderUserInfo(providerId));
     return verifier;
   }
