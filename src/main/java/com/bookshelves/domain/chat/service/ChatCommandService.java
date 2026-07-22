@@ -26,14 +26,15 @@ public class ChatCommandService {
   private final MemberRepository memberRepository;
   private final MeetingParticipantRepository meetingParticipantRepository;
 
-  public ChatMessageResponse saveMessage(Long chatroomId, ChatMessageRequest request) {
+  public ChatMessageResponse saveMessage(
+      Long chatroomId, Long senderId, ChatMessageRequest request) {
     ChatRoom chatRoom =
         chatRoomRepository
             .findById(chatroomId)
             .orElseThrow(() -> new ProjectException(ChatErrorCode.CHATROOM_NOT_FOUND));
     Member sender =
         memberRepository
-            .findById(request.senderId())
+            .findById(senderId)
             .orElseThrow(() -> new ProjectException(ChatErrorCode.SENDER_NOT_FOUND));
 
     if (!meetingParticipantRepository.existsByMeetingIdAndMemberId(
