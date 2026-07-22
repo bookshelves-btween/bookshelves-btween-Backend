@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,18 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 class GeneralExceptionAdviceTest {
 
   private final GeneralExceptionAdvice generalExceptionAdvice = new GeneralExceptionAdvice();
+
+  @Test
+  void handleProjectExceptionReturnsEmptyResult() {
+    ProjectException exception = new ProjectException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
+
+    ResponseEntity<ApiResponse<Map<String, Object>>> response =
+        generalExceptionAdvice.handleProjectException(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    assertThat(response.getBody().getCode()).isEqualTo("AUTH401");
+    assertThat(response.getBody().getResult()).isEmpty();
+  }
 
   @Test
   void handleValidationExceptionReturnsBadRequestWithFieldErrors() {
@@ -40,21 +53,36 @@ class GeneralExceptionAdviceTest {
   void handleHttpMessageNotReadableExceptionReturnsBadRequest() {
     HttpMessageNotReadableException exception = mock(HttpMessageNotReadableException.class);
 
-    ResponseEntity<ApiResponse<Void>> response =
+    ResponseEntity<ApiResponse<Map<String, Object>>> response =
         generalExceptionAdvice.handleHttpMessageNotReadableException(exception);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody().getCode()).isEqualTo("COMMON400");
+    assertThat(response.getBody().getResult()).isEmpty();
   }
 
   @Test
   void handleHttpMediaTypeNotSupportedExceptionReturnsUnsupportedMediaType() {
     HttpMediaTypeNotSupportedException exception = mock(HttpMediaTypeNotSupportedException.class);
 
-    ResponseEntity<ApiResponse<Void>> response =
+    ResponseEntity<ApiResponse<Map<String, Object>>> response =
         generalExceptionAdvice.handleHttpMediaTypeNotSupportedException(exception);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     assertThat(response.getBody().getCode()).isEqualTo("COMMON415");
+    assertThat(response.getBody().getResult()).isEmpty();
+  }
+
+  @Test
+  void handleExceptionReturnsInternalServerErrorWithoutLeakingMessage() {
+    Exception exception = new IllegalStateException("com.bookshelves.internal.SecretDetail");
+
+    ResponseEntity<ApiResponse<Map<String, Object>>> response =
+        generalExceptionAdvice.handleException(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    assertThat(response.getBody().getCode()).isEqualTo("COMMON500");
+    assertThat(response.getBody().getResult()).isEmpty();
+    assertThat(response.getBody().getMessage()).doesNotContain("SecretDetail");
   }
 }
