@@ -11,16 +11,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class ChatMessage extends BaseEntity {
 
   @Id
@@ -37,4 +34,11 @@ public class ChatMessage extends BaseEntity {
 
   @Column(name = "message", nullable = false, columnDefinition = "TEXT")
   private String message;
+
+  @Builder
+  private ChatMessage(ChatRoom chatRoom, Member senderMember, String message) {
+    this.chatRoom = chatRoom;
+    this.senderMember = senderMember;
+    this.message = message;
+  }
 }
