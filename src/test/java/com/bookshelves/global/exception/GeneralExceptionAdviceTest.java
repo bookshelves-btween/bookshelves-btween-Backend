@@ -10,8 +10,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
 class GeneralExceptionAdviceTest {
@@ -32,5 +34,27 @@ class GeneralExceptionAdviceTest {
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody().getCode()).isEqualTo("COMMON400");
     assertThat(response.getBody().getResult()).containsEntry("provider", "널이어서는 안됩니다");
+  }
+
+  @Test
+  void handleHttpMessageNotReadableExceptionReturnsBadRequest() {
+    HttpMessageNotReadableException exception = mock(HttpMessageNotReadableException.class);
+
+    ResponseEntity<ApiResponse<Void>> response =
+        generalExceptionAdvice.handleHttpMessageNotReadableException(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody().getCode()).isEqualTo("COMMON400");
+  }
+
+  @Test
+  void handleHttpMediaTypeNotSupportedExceptionReturnsUnsupportedMediaType() {
+    HttpMediaTypeNotSupportedException exception = mock(HttpMediaTypeNotSupportedException.class);
+
+    ResponseEntity<ApiResponse<Void>> response =
+        generalExceptionAdvice.handleHttpMediaTypeNotSupportedException(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    assertThat(response.getBody().getCode()).isEqualTo("COMMON415");
   }
 }
