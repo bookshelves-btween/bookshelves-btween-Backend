@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -33,4 +34,11 @@ public class ChatMessage extends BaseEntity {
 
   @Column(name = "message", nullable = false, columnDefinition = "TEXT")
   private String message;
+
+  @Builder
+  private ChatMessage(ChatRoom chatRoom, Member senderMember, String message) {
+    this.chatRoom = chatRoom;
+    this.senderMember = senderMember;
+    this.message = message;
+  }
 }
