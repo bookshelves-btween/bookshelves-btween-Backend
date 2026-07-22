@@ -50,6 +50,9 @@ dependencies {
 	// MySQL 드라이버
 	runtimeOnly 'com.mysql:mysql-connector-j'
 
+	// .env 파일로 로컬 환경변수 관리
+	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
 	// 테스트
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
