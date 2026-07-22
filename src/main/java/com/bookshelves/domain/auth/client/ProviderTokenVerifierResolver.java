@@ -24,7 +24,7 @@ public class ProviderTokenVerifierResolver {
     ProviderTokenVerifier verifier = verifiersByProvider.get(provider);
 
     if (verifier == null) {
-      throw new ProjectException(AuthErrorCode.UNSUPPORTED_PROVIDER);
+      throw new ProjectException(AuthErrorCode.AUTH_UNSUPPORTED_PROVIDER);
     }
 
     return verifier;

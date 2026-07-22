@@ -39,11 +39,11 @@ public class KakaoTokenVerifier implements ProviderTokenVerifier {
     } catch (HttpClientErrorException e) {
       // 카카오가 4xx로 요청을 거부한 경우 = 토큰 자체가 유효하지 않음.
       // 5xx/연결실패/응답변환실패 등은 토큰 문제가 아니므로 여기서 잡지 않고 그대로 전파한다.
-      throw new ProjectException(AuthErrorCode.INVALID_PROVIDER_TOKEN);
+      throw new ProjectException(AuthErrorCode.AUTH_INVALID_PROVIDER_TOKEN);
     }
 
     if (response == null || response.id() == null) {
-      throw new ProjectException(AuthErrorCode.INVALID_PROVIDER_TOKEN);
+      throw new ProjectException(AuthErrorCode.AUTH_INVALID_PROVIDER_TOKEN);
     }
 
     return new ProviderUserInfo(String.valueOf(response.id()));
