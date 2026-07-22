@@ -12,7 +12,6 @@ import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import com.bookshelves.domain.meeting.exception.MeetingException;
 import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
-import com.bookshelves.global.security.AuthenticationFacade;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,10 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MeetingQueryService {
 
+  // TODO: 인증 연동 테스트가 완료되면 AuthenticationFacade에서 현재 회원 ID를 조회하도록 변경
+  private static final Long TEST_MEMBER_ID = 1001L;
+
   private final MeetingRepository meetingRepository;
   private final ChatRoomRepository chatRoomRepository;
   private final MeetingSummaryRepository meetingSummaryRepository;
-  private final AuthenticationFacade authenticationFacade;
 
   public MeetingDetailResDTO getMeetingDetail(Long meetingId) {
     Meeting meeting =
@@ -50,12 +51,11 @@ public class MeetingQueryService {
   }
 
   public MeetingSearchResDTO searchMeetings(String name, int page, int size) {
-    Long memberId = authenticationFacade.getCurrentMemberId();
     PageRequest pageRequest =
         PageRequest.of(page - 1, size, Sort.by(Sort.Order.asc("startDate"), Sort.Order.asc("id")));
     Page<Meeting> meetingPage =
         meetingRepository.findSearchableMeetings(
-            name.trim(), MeetingStatus.RECRUITING, memberId, pageRequest);
+            name.trim(), MeetingStatus.RECRUITING, TEST_MEMBER_ID, pageRequest);
 
     List<Long> meetingIds = meetingPage.getContent().stream().map(Meeting::getId).toList();
     Map<Long, Long> chatroomIds =

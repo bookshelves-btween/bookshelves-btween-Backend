@@ -64,7 +64,21 @@ public interface MeetingControllerDocs {
               """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "페이지 요청 값 검증 실패"),
+        description = "필수 검색어 누락 또는 페이지 요청 값 검증 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "COMMON400_1",
+                              "message": "잘못된 요청입니다.",
+                              "result": {}
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
         description = "인증 필요",
@@ -80,8 +94,8 @@ public interface MeetingControllerDocs {
                               "code": "AUTH401_2",
                               "message": "유효하지 않은 Access Token입니다.",
                               "result": null
-              }
-              """)))
+                            }
+                            """)))
   })
   ResponseEntity<ApiResponse<MeetingSearchResDTO>> searchMeetings(
       @Parameter(description = "검색할 도서명", example = "혼모노", required = true)
