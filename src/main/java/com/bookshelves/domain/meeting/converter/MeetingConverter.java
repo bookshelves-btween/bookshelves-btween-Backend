@@ -7,6 +7,7 @@ import com.bookshelves.domain.meeting.dto.response.MeetingDetailResDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingDetailResDTO.BookInfo;
 import com.bookshelves.domain.meeting.dto.response.MeetingDetailResDTO.SummaryInfo;
 import com.bookshelves.domain.meeting.entity.Meeting;
+import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -26,7 +27,8 @@ public final class MeetingConverter {
 
   public static MeetingDetailResDTO toMeetingDetailResDTO(
       Meeting meeting, Long chatroomId, List<MeetingSummary> meetingSummaries) {
-    boolean summaryCompleted = !meetingSummaries.isEmpty();
+    boolean canProvideSummary =
+        meeting.getStatus() == MeetingStatus.COMPLETED && !meetingSummaries.isEmpty();
 
     return new MeetingDetailResDTO(
         meeting.getId(),
@@ -37,7 +39,7 @@ public final class MeetingConverter {
         meeting.getCurParticipants(),
         meeting.getMaxParticipants(),
         toBookInfo(meeting.getBook()),
-        summaryCompleted
+        canProvideSummary
             ? meetingSummaries.stream().map(MeetingConverter::toSummaryInfo).toList()
             : null);
   }
