@@ -1,6 +1,7 @@
 package com.bookshelves.domain.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -13,11 +14,13 @@ import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
+import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.config.JwtProperties;
+import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.RedisTokenRepository;
 import java.time.Duration;
@@ -51,10 +54,7 @@ class AuthCommandServiceTest {
 
     SocialLoginResponse response =
         authCommandService.socialLogin(
-            SocialLoginRequest.builder()
-                .provider(Provider.KAKAO)
-                .providerToken("provider-token")
-                .build());
+            SocialLoginRequest.builder().provider("KAKAO").providerToken("provider-token").build());
 
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.PENDING_ONBOARDING);
     assertThat(response.getAccessToken()).isNotNull();
@@ -75,10 +75,7 @@ class AuthCommandServiceTest {
 
     SocialLoginResponse response =
         authCommandService.socialLogin(
-            SocialLoginRequest.builder()
-                .provider(Provider.KAKAO)
-                .providerToken("provider-token")
-                .build());
+            SocialLoginRequest.builder().provider("KAKAO").providerToken("provider-token").build());
 
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     assertThat(response.getAccessToken()).isNotNull();
@@ -97,10 +94,7 @@ class AuthCommandServiceTest {
 
     SocialLoginResponse response =
         authCommandService.socialLogin(
-            SocialLoginRequest.builder()
-                .provider(Provider.KAKAO)
-                .providerToken("provider-token")
-                .build());
+            SocialLoginRequest.builder().provider("KAKAO").providerToken("provider-token").build());
 
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.WITHDRAWN);
     assertThat(response.getAccessToken()).isNull();
@@ -112,6 +106,17 @@ class AuthCommandServiceTest {
                 .atZone(ZoneId.of("Asia/Seoul"))
                 .toOffsetDateTime());
     verify(redisTokenRepository).saveRestoreToken(eq(3L), any(), eq(Duration.ofSeconds(600)));
+  }
+
+  @Test
+  void socialLoginThrowsUnsupportedProviderForUnknownProviderString() {
+    SocialLoginRequest request =
+        SocialLoginRequest.builder().provider("NAVER").providerToken("provider-token").build();
+
+    assertThatThrownBy(() -> authCommandService.socialLogin(request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(AuthErrorCode.AUTH_UNSUPPORTED_PROVIDER);
   }
 
   private ProviderTokenVerifier stubVerifier(String providerToken, String providerId) {
