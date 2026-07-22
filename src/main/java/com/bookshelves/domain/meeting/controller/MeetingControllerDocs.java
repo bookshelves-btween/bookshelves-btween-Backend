@@ -26,7 +26,6 @@ public interface MeetingControllerDocs {
         content =
             @Content(
                 mediaType = "application/json",
-                schema = @Schema(implementation = MeetingDetailResDTO.class),
                 examples = {
                   @ExampleObject(
                       name = "요약 완료",
