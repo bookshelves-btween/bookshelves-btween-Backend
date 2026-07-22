@@ -41,6 +41,7 @@
 | `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` | MySQL 접속           |
 | `REDIS_HOST` / `REDIS_PORT`                                       | Redis 접속           |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                       | 구글 OAuth2          |
+| `APPLE_CLIENT_ID`                                                 | 애플 Sign in with Apple (ID Token audience 검증) |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`                         | 카카오 OAuth2 로그인 |
 | `KAKAO_REST_API_KEY`                                              | 카카오 책 검색 API   |
 | `DATA4LIBRARY_AUTH_KEY`                                           | 도서관 정보나루 API  |
