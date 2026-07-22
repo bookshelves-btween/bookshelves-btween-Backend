@@ -16,9 +16,13 @@ WORKDIR /app
 # Docker Compose의 서버 상태 확인에 사용
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 app \
+    && useradd --system --uid 10001 --gid app --create-home --shell /usr/sbin/nologin app
 
-COPY --from=builder /workspace/build/libs/*.jar app.jar
+COPY --chown=app:app --from=builder /workspace/build/libs/*.jar app.jar
+
+USER app
 
 EXPOSE 8080
 
