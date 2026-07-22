@@ -11,6 +11,7 @@ import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.repository.MemberRepository;
+import com.bookshelves.domain.member.service.MemberCommandService;
 import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.RedisTokenRepository;
@@ -18,6 +19,7 @@ import com.bookshelves.global.security.TokenType;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,16 +32,19 @@ public class AuthCommandService {
 
   private final ProviderTokenVerifierResolver providerTokenVerifierResolver;
   private final MemberRepository memberRepository;
+  private final MemberCommandService memberCommandService;
   private final JwtTokenProvider jwtTokenProvider;
   private final RedisTokenRepository redisTokenRepository;
 
   public AuthCommandService(
       ProviderTokenVerifierResolver providerTokenVerifierResolver,
       MemberRepository memberRepository,
+      MemberCommandService memberCommandService,
       JwtTokenProvider jwtTokenProvider,
       RedisTokenRepository redisTokenRepository) {
     this.providerTokenVerifierResolver = providerTokenVerifierResolver;
     this.memberRepository = memberRepository;
+    this.memberCommandService = memberCommandService;
     this.jwtTokenProvider = jwtTokenProvider;
     this.redisTokenRepository = redisTokenRepository;
   }
@@ -52,16 +57,23 @@ public class AuthCommandService {
     Member member =
         memberRepository
             .findByProviderAndProviderId(provider, providerUserInfo.providerId())
-            .orElseGet(
-                () ->
-                    memberRepository.save(
-                        Member.createSocialMember(provider, providerUserInfo.providerId())));
+            .orElseGet(() -> createSocialMember(provider, providerUserInfo.providerId()));
 
     if (member.getStatus() == MemberStatus.WITHDRAWN) {
       return issueRestoreToken(member);
     }
 
     return issueLoginTokens(member);
+  }
+
+  private Member createSocialMember(Provider provider, String providerId) {
+    try {
+      return memberCommandService.createSocialMember(provider, providerId);
+    } catch (DataIntegrityViolationException e) {
+      return memberRepository
+          .findByProviderAndProviderId(provider, providerId)
+          .orElseThrow(() -> e);
+    }
   }
 
   private Provider parseProvider(String provider) {
