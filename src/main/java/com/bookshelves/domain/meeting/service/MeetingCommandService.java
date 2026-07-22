@@ -22,10 +22,15 @@ public class MeetingCommandService {
   private final MeetingRepository meetingRepository;
 
   public MeetingCreateResDTO createMeeting(String isbn, MeetingCreateReqDTO request) {
+
     Book book =
-        bookRepository
-            .findByIsbn(isbn)
-            .orElseThrow(() -> new BookException(BookErrorCode.BOOK_NOT_FOUND));
+      bookRepository
+        .findByIsbn(isbn)
+        .orElseGet(
+          () -> {
+            // TODO: 카카오 도서 API에서 조회한 도서 정보를 DB에 저장한 뒤 반환하도록 변경
+            throw new BookException(BookErrorCode.BOOK_NOT_FOUND);
+          });
 
     Meeting meeting = MeetingConverter.toEntity(book, request);
     Meeting savedMeeting = meetingRepository.save(meeting);
