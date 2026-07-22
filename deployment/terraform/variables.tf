@@ -121,3 +121,14 @@ variable "db_backup_retention_days" {
     error_message = "db_backup_retention_days must be between 1 and 35."
   }
 }
+
+variable "github_repository" {
+  description = "GitHub repository allowed to assume the deployment role through OIDC."
+  type        = string
+  default     = "bookshelves-btween/bookshelves-btween-Backend"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", var.github_repository))
+    error_message = "github_repository must have the form organization/repository."
+  }
+}

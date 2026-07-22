@@ -16,6 +16,17 @@ if grep -Eq 'CHANGE_TO_|example\.com' .env; then
   exit 1
 fi
 
+GHCR_CREDENTIALS_FILE="${GHCR_CREDENTIALS_FILE:-$PROJECT_ROOT/secrets/ghcr.env}"
+if [[ -f "$GHCR_CREDENTIALS_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$GHCR_CREDENTIALS_FILE"
+  if [[ -z "${GHCR_USER:-}" || -z "${GHCR_TOKEN:-}" ]]; then
+    echo "GHCR credentials file must define GHCR_USER and GHCR_TOKEN."
+    exit 1
+  fi
+  printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+fi
+
 bash "$RUNTIME_DIR/scripts/prepare-rds-truststore.sh"
 
 docker compose --env-file .env config >/dev/null
