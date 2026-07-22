@@ -1,42 +1,44 @@
-name: Docker 이미지 배포
+name: Deploy backend
 
 on:
   push:
     branches:
-      - develop
+      - main
   workflow_dispatch:
 
 concurrency:
-  group: docker-publish-${{ github.ref }}
-  cancel-in-progress: true
+  group: production-deploy
+  cancel-in-progress: false
 
 permissions:
   contents: read
+  id-token: write
   packages: write
 
 env:
+  AWS_REGION: ap-northeast-2
   REGISTRY: ghcr.io
   IMAGE_NAME: bookshelves-btween/bookshelves-btween-backend
 
 jobs:
-  build-and-push:
+  build-push-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 소스 코드 내려받기
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Docker Buildx 설정
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: GitHub Container Registry 로그인
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 이미지 태그 생성
+      - name: Create image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -45,10 +47,47 @@ jobs:
             type=ref,event=branch
             type=sha,prefix=sha-
 
-      - name: Docker 이미지 생성 및 업로드
+      - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy immutable image to EC2 through SSM
+        env:
+          EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+        run: |
+          command_id="$(aws ssm send-command \
+            --document-name AWS-RunShellScript \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --comment "Deploy ${GITHUB_SHA}" \
+            --parameters commands="sudo bash /opt/bookshelf/runtime/scripts/deploy-from-ci.sh '$IMAGE_REF'" \
+            --query 'Command.CommandId' \
+            --output text)"
+
+          echo "SSM command ID: $command_id"
+
+          set +e
+          aws ssm wait command-executed \
+            --command-id "$command_id" \
+            --instance-id "$EC2_INSTANCE_ID"
+          wait_status=$?
+          set -e
+
+          aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query '[Status,StandardOutputContent,StandardErrorContent]' \
+            --output text
+
+          exit "$wait_status"

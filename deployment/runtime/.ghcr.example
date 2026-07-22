@@ -1,0 +1,4 @@
+# Store the actual values only at /opt/bookshelf/secrets/ghcr.env on EC2 with chmod 600.
+# The token must have read-only access to this repository's GitHub Container Registry package.
+GHCR_USER=CHANGE_TO_GITHUB_USERNAME
+GHCR_TOKEN=CHANGE_TO_READ_ONLY_GHCR_TOKEN
