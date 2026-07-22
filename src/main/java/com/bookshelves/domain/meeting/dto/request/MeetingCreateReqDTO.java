@@ -7,9 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import java.time.LocalDate;
-import lombok.Builder;
 
-@Builder
 @Schema(description = "모임 생성 요청")
 public record MeetingCreateReqDTO(
     @Schema(description = "모임 시작 날짜", example = "2026-08-01")
