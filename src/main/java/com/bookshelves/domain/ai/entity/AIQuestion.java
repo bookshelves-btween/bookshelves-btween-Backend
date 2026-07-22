@@ -19,6 +19,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @Table(
+    name = "ai_question",
     uniqueConstraints = {
       @UniqueConstraint(
           name = "uk_ai_question_meeting_question_order",
