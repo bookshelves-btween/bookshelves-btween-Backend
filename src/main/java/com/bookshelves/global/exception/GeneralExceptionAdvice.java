@@ -22,10 +22,7 @@ public class GeneralExceptionAdvice {
   @ExceptionHandler(ProjectException.class)
   public ResponseEntity<ApiResponse<Map<String, Object>>> handleProjectException(
       ProjectException e) {
-
-    BaseErrorCode code = e.getErrorCode();
-
-    return ResponseEntity.status(code.getStatus()).body(ApiResponse.onFailure(code, Map.of()));
+    return failureResponse(e.getErrorCode());
   }
 
   // @Valid 요청 검증 실패
@@ -53,30 +50,25 @@ public class GeneralExceptionAdvice {
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<ApiResponse<Map<String, Object>>> handleHttpMessageNotReadableException(
       HttpMessageNotReadableException e) {
-
-    BaseErrorCode code = GeneralErrorCode.COMMON_BAD_REQUEST;
-
-    return ResponseEntity.status(code.getStatus()).body(ApiResponse.onFailure(code, Map.of()));
+    return failureResponse(GeneralErrorCode.COMMON_BAD_REQUEST);
   }
 
   // Content-Type 미지원
   @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
   public ResponseEntity<ApiResponse<Map<String, Object>>> handleHttpMediaTypeNotSupportedException(
       HttpMediaTypeNotSupportedException e) {
-
-    BaseErrorCode code = GeneralErrorCode.COMMON_UNSUPPORTED_MEDIA_TYPE;
-
-    return ResponseEntity.status(code.getStatus()).body(ApiResponse.onFailure(code, Map.of()));
+    return failureResponse(GeneralErrorCode.COMMON_UNSUPPORTED_MEDIA_TYPE);
   }
 
   // 기타 예외 — 원인은 서버 로그로만 남기고, 클라이언트에는 내부 구현 정보를 노출하지 않는다.
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiResponse<Map<String, Object>>> handleException(Exception e) {
-
     log.error("처리되지 않은 예외가 발생했습니다.", e);
 
-    BaseErrorCode code = GeneralErrorCode.COMMON_INTERNAL_SERVER_ERROR;
+    return failureResponse(GeneralErrorCode.COMMON_INTERNAL_SERVER_ERROR);
+  }
 
+  private ResponseEntity<ApiResponse<Map<String, Object>>> failureResponse(BaseErrorCode code) {
     return ResponseEntity.status(code.getStatus()).body(ApiResponse.onFailure(code, Map.of()));
   }
 }
