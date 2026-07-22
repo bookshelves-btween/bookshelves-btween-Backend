@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 @Getter
 @AllArgsConstructor
 public enum TermsSuccessCode implements BaseSuccessCode {
-  TERMS_LIST_SUCCESS(HttpStatus.OK, "TERMS200", "약관 목록 조회에 성공하였습니다.");
+  TERMS_LIST_SUCCESS(HttpStatus.OK, "TERMS200_1", "약관 목록 조회에 성공하였습니다.");
 
   private final HttpStatus status;
   private final String code;
