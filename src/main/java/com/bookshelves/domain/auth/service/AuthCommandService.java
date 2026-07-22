@@ -6,9 +6,12 @@ import com.bookshelves.domain.auth.client.ProviderUserInfo;
 import com.bookshelves.domain.auth.converter.AuthConverter;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
+import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
+import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.repository.MemberRepository;
+import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.RedisTokenRepository;
 import com.bookshelves.global.security.TokenType;
@@ -42,23 +45,31 @@ public class AuthCommandService {
   }
 
   public SocialLoginResponse socialLogin(SocialLoginRequest request) {
-    ProviderTokenVerifier verifier = providerTokenVerifierResolver.resolve(request.getProvider());
+    Provider provider = parseProvider(request.getProvider());
+    ProviderTokenVerifier verifier = providerTokenVerifierResolver.resolve(provider);
     ProviderUserInfo providerUserInfo = verifier.verify(request.getProviderToken());
 
     Member member =
         memberRepository
-            .findByProviderAndProviderId(request.getProvider(), providerUserInfo.providerId())
+            .findByProviderAndProviderId(provider, providerUserInfo.providerId())
             .orElseGet(
                 () ->
                     memberRepository.save(
-                        Member.createSocialMember(
-                            request.getProvider(), providerUserInfo.providerId())));
+                        Member.createSocialMember(provider, providerUserInfo.providerId())));
 
     if (member.getStatus() == MemberStatus.WITHDRAWN) {
       return issueRestoreToken(member);
     }
 
     return issueLoginTokens(member);
+  }
+
+  private Provider parseProvider(String provider) {
+    try {
+      return Provider.valueOf(provider);
+    } catch (IllegalArgumentException e) {
+      throw new ProjectException(AuthErrorCode.AUTH_UNSUPPORTED_PROVIDER);
+    }
   }
 
   private SocialLoginResponse issueLoginTokens(Member member) {

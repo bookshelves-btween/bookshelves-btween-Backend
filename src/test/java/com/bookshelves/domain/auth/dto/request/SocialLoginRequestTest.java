@@ -2,7 +2,6 @@ package com.bookshelves.domain.auth.dto.request;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.bookshelves.domain.member.enums.Provider;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -16,7 +15,16 @@ class SocialLoginRequestTest {
 
     SocialLoginRequest request = jsonMapper.readValue(json, SocialLoginRequest.class);
 
-    assertThat(request.getProvider()).isEqualTo(Provider.KAKAO);
+    assertThat(request.getProvider()).isEqualTo("KAKAO");
     assertThat(request.getProviderToken()).isEqualTo("abc");
+  }
+
+  @Test
+  void jacksonDeserializesUnsupportedProviderValueWithoutFailing() {
+    String json = "{\"provider\":\"NAVER\",\"providerToken\":\"abc\"}";
+
+    SocialLoginRequest request = jsonMapper.readValue(json, SocialLoginRequest.class);
+
+    assertThat(request.getProvider()).isEqualTo("NAVER");
   }
 }
