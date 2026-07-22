@@ -8,6 +8,7 @@ import com.bookshelves.domain.chat.entity.ChatMessage;
 import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.chat.repository.ChatMessageRepository;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
+import com.bookshelves.domain.meeting.repository.MeetingParticipantRepository;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.exception.ProjectException;
@@ -23,6 +24,7 @@ public class ChatCommandService {
   private final ChatRoomRepository chatRoomRepository;
   private final ChatMessageRepository chatMessageRepository;
   private final MemberRepository memberRepository;
+  private final MeetingParticipantRepository meetingParticipantRepository;
 
   public ChatMessageResponse saveMessage(Long chatroomId, ChatMessageRequest request) {
     ChatRoom chatRoom =
@@ -33,6 +35,11 @@ public class ChatCommandService {
         memberRepository
             .findById(request.senderId())
             .orElseThrow(() -> new ProjectException(ChatErrorCode.SENDER_NOT_FOUND));
+
+    if (!meetingParticipantRepository.existsByMeetingIdAndMemberId(
+        chatRoom.getMeeting().getId(), sender.getId())) {
+      throw new ProjectException(ChatErrorCode.CHATROOM_FORBIDDEN);
+    }
 
     ChatMessage chatMessage =
         chatMessageRepository.save(
