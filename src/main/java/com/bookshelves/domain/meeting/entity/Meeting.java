@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -50,7 +51,8 @@ public class Meeting extends BaseEntity {
   @Column(name = "status", nullable = false)
   private MeetingStatus status = MeetingStatus.RECRUITING;
 
-  public Meeting(Book book, LocalDateTime startDate, Integer duration, Integer maxParticipants) {
+  @Builder
+  private Meeting(Book book, LocalDateTime startDate, Integer duration, Integer maxParticipants) {
     this.book = book;
     this.startDate = startDate;
     this.duration = duration;

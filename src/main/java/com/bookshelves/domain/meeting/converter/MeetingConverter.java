@@ -11,10 +11,11 @@ public final class MeetingConverter {
   private MeetingConverter() {}
 
   public static Meeting toEntity(Book book, MeetingCreateReqDTO request) {
-    return new Meeting(
-        book,
-        LocalDateTime.of(request.startDate(), LocalTime.parse(request.startTime())),
-        request.duration(),
-        request.maxParticipants());
+    return Meeting.builder()
+        .book(book)
+        .startDate(LocalDateTime.of(request.startDate(), LocalTime.parse(request.startTime())))
+        .duration(request.duration())
+        .maxParticipants(request.maxParticipants())
+        .build();
   }
 }
