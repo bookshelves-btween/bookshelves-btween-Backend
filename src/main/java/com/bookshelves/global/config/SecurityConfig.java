@@ -69,7 +69,9 @@ public class SecurityConfig {
                         "/api/v1/auth/social-login",
                         "/api/v1/auth/reissue",
                         "/api/v1/auth/restore",
-                        "/api/v1/onboarding/terms")
+                        "/api/v1/onboarding/terms",
+                        // WebSocket 핸드셰이크 — 인증은 STOMP CONNECT 단계에서 수행
+                        "/ws-stomp")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
