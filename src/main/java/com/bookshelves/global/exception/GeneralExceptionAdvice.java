@@ -23,7 +23,7 @@ public class GeneralExceptionAdvice {
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiResponse<String>> handleException(Exception e) {
 
-    BaseErrorCode code = GeneralErrorCode.INTERNAL_SERVER_ERROR;
+    BaseErrorCode code = GeneralErrorCode.COMMON_INTERNAL_SERVER_ERROR;
 
     return ResponseEntity.status(code.getStatus())
         .body(ApiResponse.onFailure(code, e.getMessage()));

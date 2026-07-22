@@ -14,7 +14,7 @@ public class AuthenticationFacade {
 
     if (authentication == null
         || !(authentication.getPrincipal() instanceof MemberPrincipal principal)) {
-      throw new ProjectException(AuthErrorCode.INVALID_ACCESS_TOKEN);
+      throw new ProjectException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
     }
 
     return principal.memberId();
