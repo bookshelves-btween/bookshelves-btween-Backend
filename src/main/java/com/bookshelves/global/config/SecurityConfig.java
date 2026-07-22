@@ -66,6 +66,7 @@ public class SecurityConfig {
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/swagger-ui.html",
+                        "/actuator/health", // 배포 테스트용
                         "/api/v1/auth/social-login",
                         "/api/v1/auth/reissue",
                         "/api/v1/auth/restore",

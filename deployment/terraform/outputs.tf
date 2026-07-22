@@ -48,3 +48,8 @@ output "database_password" {
   value       = random_password.database.result
   sensitive   = true
 }
+
+output "github_actions_deploy_role_arn" {
+  description = "GitHub Actions OIDC role ARN. Store it in the AWS_DEPLOY_ROLE_ARN GitHub Actions secret."
+  value       = aws_iam_role.github_actions_deploy.arn
+}
