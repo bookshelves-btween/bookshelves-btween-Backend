@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus;
 @AllArgsConstructor
 public enum MeetingErrorCode implements BaseErrorCode {
   MEETING_INVALID_REQUEST(HttpStatus.BAD_REQUEST, "MEETING400_1", "모임 요청 값이 올바르지 않습니다."),
-  MEETING_NOT_FOUND(HttpStatus.NOT_FOUND, "MEETING404_1", "해당 모임을 찾을 수 없습니다."),
+  MEETING_NOT_FOUND(HttpStatus.NOT_FOUND, "MEETING404", "해당 모임을 찾을 수 없습니다."),
   MEETING_RECRUITMENT_CLOSED(HttpStatus.CONFLICT, "MEETING409_1", "모집이 마감된 모임입니다.");
 
   private final HttpStatus status;
