@@ -8,7 +8,6 @@ import com.bookshelves.domain.meeting.service.MeetingCommandService;
 import com.bookshelves.domain.meeting.service.MeetingQueryService;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,18 +27,18 @@ public class MeetingController implements MeetingControllerDocs {
   @Override
   @GetMapping("/api/v1/meetings/{meetingId}")
   public ResponseEntity<ApiResponse<MeetingDetailResDTO>> getMeetingDetail(
-    @PathVariable Long meetingId) {
+      @PathVariable Long meetingId) {
     MeetingDetailResDTO response = meetingQueryService.getMeetingDetail(meetingId);
     return ResponseEntity.ok(
-      ApiResponse.onSuccess(MeetingSuccessCode.MEETING_DETAIL_FOUND, response));
+        ApiResponse.onSuccess(MeetingSuccessCode.MEETING_DETAIL_FOUND, response));
   }
 
   @Override
   @PostMapping("/api/v1/{isbn}/recruitment")
   public ResponseEntity<ApiResponse<MeetingCreateResDTO>> createMeeting(
-    @PathVariable String isbn, @Valid @RequestBody MeetingCreateReqDTO request) {
+      @PathVariable String isbn, @Valid @RequestBody MeetingCreateReqDTO request) {
     MeetingCreateResDTO response = meetingCommandService.createMeeting(isbn, request);
     return ResponseEntity.status(HttpStatus.CREATED)
-      .body(ApiResponse.onSuccess(MeetingSuccessCode.MEETING_CREATED, response));
+        .body(ApiResponse.onSuccess(MeetingSuccessCode.MEETING_CREATED, response));
   }
 }
