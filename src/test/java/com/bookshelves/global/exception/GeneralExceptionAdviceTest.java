@@ -29,7 +29,7 @@ class GeneralExceptionAdviceTest {
         generalExceptionAdvice.handleProjectException(exception);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-    assertThat(response.getBody().getCode()).isEqualTo("AUTH401");
+    assertThat(response.getBody().getCode()).isEqualTo("AUTH401_2");
     assertThat(response.getBody().getResult()).isEmpty();
   }
 
@@ -45,7 +45,7 @@ class GeneralExceptionAdviceTest {
         generalExceptionAdvice.handleValidationException(exception);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    assertThat(response.getBody().getCode()).isEqualTo("COMMON400");
+    assertThat(response.getBody().getCode()).isEqualTo("COMMON400_1");
     assertThat(response.getBody().getResult()).containsEntry("provider", "널이어서는 안됩니다");
   }
 
@@ -57,7 +57,7 @@ class GeneralExceptionAdviceTest {
         generalExceptionAdvice.handleHttpMessageNotReadableException(exception);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    assertThat(response.getBody().getCode()).isEqualTo("COMMON400");
+    assertThat(response.getBody().getCode()).isEqualTo("COMMON400_1");
     assertThat(response.getBody().getResult()).isEmpty();
   }
 
@@ -81,7 +81,7 @@ class GeneralExceptionAdviceTest {
         generalExceptionAdvice.handleException(exception);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-    assertThat(response.getBody().getCode()).isEqualTo("COMMON500");
+    assertThat(response.getBody().getCode()).isEqualTo("COMMON500_1");
     assertThat(response.getBody().getResult()).isEmpty();
     assertThat(response.getBody().getMessage()).doesNotContain("SecretDetail");
   }
