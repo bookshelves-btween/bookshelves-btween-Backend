@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 @Getter
 @AllArgsConstructor
 public enum MeetingSuccessCode implements BaseSuccessCode {
-  MEETING_CREATED(HttpStatus.CREATED, "MEETING201", "모임이 생성되었습니다.");
+  MEETING_CREATED(HttpStatus.CREATED, "MEETING201_1", "모임이 생성되었습니다.");
 
   private final HttpStatus status;
   private final String code;

@@ -33,7 +33,7 @@ public interface MeetingControllerDocs {
                             """
               {
                 "isSuccess": true,
-                "code": "MEETING201",
+                "code": "MEETING201_1",
                 "message": "모임이 생성되었습니다.",
                 "result": {
                   "id": 1
@@ -52,7 +52,7 @@ public interface MeetingControllerDocs {
                             """
               {
                 "isSuccess": false,
-                "code": "COMMON400",
+                "code": "COMMON400_1",
                 "message": "잘못된 요청입니다.",
                 "result": null
               }
@@ -69,7 +69,7 @@ public interface MeetingControllerDocs {
                             """
               {
                 "isSuccess": false,
-                "code": "BOOK404",
+                "code": "BOOK404_1",
                 "message": "해당 책을 찾을 수 없습니다.",
                 "result": null
               }
