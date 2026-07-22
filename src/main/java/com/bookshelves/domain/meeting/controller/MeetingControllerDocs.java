@@ -21,22 +21,22 @@ public interface MeetingControllerDocs {
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = "200",
-      description = "모임 상세 조회 성공",
-      content =
-      @Content(
-        mediaType = "application/json",
-        schema = @Schema(implementation = MeetingDetailResDTO.class))),
+        responseCode = "200",
+        description = "모임 상세 조회 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = MeetingDetailResDTO.class))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = "404",
-      description = "모임을 찾을 수 없음",
-      content =
-      @Content(
-        mediaType = "application/json",
-        examples =
-        @ExampleObject(
-          value =
-            """
+        responseCode = "404",
+        description = "모임을 찾을 수 없음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
               {
                 "isSuccess": false,
                 "code": "MEETING404_1",
@@ -46,23 +46,23 @@ public interface MeetingControllerDocs {
               """)))
   })
   ResponseEntity<ApiResponse<MeetingDetailResDTO>> getMeetingDetail(
-    @Parameter(description = "모임 ID", example = "1", required = true) Long meetingId);
+      @Parameter(description = "모임 ID", example = "1", required = true) Long meetingId);
 
   @Operation(
-    summary = "독서 모임 생성",
-    description = "ISBN으로 도서를 조회한 뒤 시작 일시, 최대 인원, 진행 시간을 설정해 독서 모임을 생성합니다.")
+      summary = "독서 모임 생성",
+      description = "ISBN으로 도서를 조회한 뒤 시작 일시, 최대 인원, 진행 시간을 설정해 독서 모임을 생성합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = "201",
-      description = "모임 생성 성공",
-      content =
-      @Content(
-        mediaType = "application/json",
-        examples =
-        @ExampleObject(
-          value =
-            """
+        responseCode = "201",
+        description = "모임 생성 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
               {
                 "isSuccess": true,
                 "code": "MEETING201_1",
@@ -73,15 +73,15 @@ public interface MeetingControllerDocs {
               }
               """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = "400",
-      description = "요청 값 검증 실패",
-      content =
-      @Content(
-        mediaType = "application/json",
-        examples =
-        @ExampleObject(
-          value =
-            """
+        responseCode = "400",
+        description = "요청 값 검증 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
               {
                 "isSuccess": false,
                 "code": "COMMON400_1",
@@ -90,15 +90,15 @@ public interface MeetingControllerDocs {
               }
               """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-      responseCode = "404",
-      description = "도서를 찾을 수 없음",
-      content =
-      @Content(
-        mediaType = "application/json",
-        examples =
-        @ExampleObject(
-          value =
-            """
+        responseCode = "404",
+        description = "도서를 찾을 수 없음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
               {
                 "isSuccess": false,
                 "code": "BOOK404_1",
@@ -108,19 +108,19 @@ public interface MeetingControllerDocs {
               """)))
   })
   ResponseEntity<ApiResponse<MeetingCreateResDTO>> createMeeting(
-    @Parameter(description = "하이픈을 제거한 ISBN13", example = "9788966262281", required = true)
-    String isbn,
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      required = true,
-      description = "생성할 독서 모임 정보입니다.",
-      content =
-      @Content(
-        mediaType = "application/json",
-        schema = @Schema(implementation = MeetingCreateReqDTO.class),
-        examples =
-        @ExampleObject(
-          value =
-            """
+      @Parameter(description = "하이픈을 제거한 ISBN13", example = "9788966262281", required = true)
+          String isbn,
+      @io.swagger.v3.oas.annotations.parameters.RequestBody(
+              required = true,
+              description = "생성할 독서 모임 정보입니다.",
+              content =
+                  @Content(
+                      mediaType = "application/json",
+                      schema = @Schema(implementation = MeetingCreateReqDTO.class),
+                      examples =
+                          @ExampleObject(
+                              value =
+                                  """
               {
                 "startDate": "2026-08-01",
                 "startTime": "20:00",
@@ -128,5 +128,5 @@ public interface MeetingControllerDocs {
                 "duration": 60
               }
               """)))
-    MeetingCreateReqDTO request);
+          MeetingCreateReqDTO request);
 }
