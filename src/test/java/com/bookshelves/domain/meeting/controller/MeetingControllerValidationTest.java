@@ -26,6 +26,7 @@ class MeetingControllerValidationTest {
         MeetingController.class.getMethod("createMeeting", String.class, MeetingCreateReqDTO.class);
     MeetingCreateReqDTO request =
         new MeetingCreateReqDTO(LocalDate.now().plusDays(1), "20:00", 4, 60);
+    MeetingCreateReqDTO invalidRequest = new MeetingCreateReqDTO(null, null, null, null);
 
     try (ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
       Validator validator = validatorFactory.getValidator();
@@ -41,6 +42,12 @@ class MeetingControllerValidationTest {
                   .validateParameters(
                       controller, createMethod, new Object[] {"9788966262281", request}))
           .isEmpty();
+      assertThat(
+              validator
+                  .forExecutables()
+                  .validateParameters(
+                      controller, createMethod, new Object[] {"9788966262281", invalidRequest}))
+          .hasSize(4);
     }
   }
 }
