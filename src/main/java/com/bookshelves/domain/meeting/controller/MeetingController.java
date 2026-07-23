@@ -3,6 +3,7 @@ package com.bookshelves.domain.meeting.controller;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingCreateResDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingDetailResDTO;
+import com.bookshelves.domain.meeting.dto.response.MeetingParticipationResDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingSearchResDTO;
 import com.bookshelves.domain.meeting.exception.code.MeetingSuccessCode;
 import com.bookshelves.domain.meeting.service.MeetingCommandService;
@@ -52,5 +53,14 @@ public class MeetingController implements MeetingControllerDocs {
     MeetingCreateResDTO response = meetingCommandService.createMeeting(isbn, request);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.onSuccess(MeetingSuccessCode.MEETING_CREATED, response));
+  }
+
+  @Override
+  @PostMapping("/api/v1/meetings/{meetingId}/participation")
+  public ResponseEntity<ApiResponse<MeetingParticipationResDTO>> participate(
+      @PathVariable Long meetingId) {
+    MeetingParticipationResDTO response = meetingCommandService.participateMeeting(meetingId);
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(MeetingSuccessCode.MEETING_PARTICIPATION_CREATED, response));
   }
 }

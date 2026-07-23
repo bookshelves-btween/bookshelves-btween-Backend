@@ -3,6 +3,7 @@ package com.bookshelves.domain.meeting.controller;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingCreateResDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingDetailResDTO;
+import com.bookshelves.domain.meeting.dto.response.MeetingParticipationResDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingSearchResDTO;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -294,4 +295,20 @@ public interface MeetingControllerDocs {
                               """)))
           @Valid
           MeetingCreateReqDTO request);
+
+  @Operation(summary = "모임 참여", description = "인증된 사용자가 독서 모임에 참여합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "모임 참여 성공"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "모임을 찾을 수 없음"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "이미 참여한 모임이거나 모집 중인 모임이 아님")
+  })
+  ResponseEntity<ApiResponse<MeetingParticipationResDTO>> participate(
+      @Parameter(description = "모임 ID", example = "1", required = true) Long meetingId);
 }
