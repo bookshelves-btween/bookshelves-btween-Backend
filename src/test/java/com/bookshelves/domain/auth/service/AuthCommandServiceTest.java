@@ -186,6 +186,8 @@ class AuthCommandServiceTest {
     assertThat(response.getRefreshToken()).isNotNull();
     assertThat(jwtTokenProvider.isValidToken(response.getRefreshToken(), TokenType.REFRESH))
         .isTrue();
+    // jti로 토큰마다 고유성이 보장되므로 새 refreshToken은 항상 이전 값과 달라야 한다.
+    assertThat(response.getRefreshToken()).isNotEqualTo(oldRefreshToken);
     verify(redisTokenRepository)
         .rotateRefreshToken(
             eq(1L),
