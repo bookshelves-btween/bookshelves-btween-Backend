@@ -73,17 +73,13 @@ public class AuthCommandService {
   }
 
   public ReissueResponse reissue(ReissueRequest request) {
-    String refreshToken = request.getRefreshToken();
+    String oldRefreshToken = request.getRefreshToken();
 
-    if (!jwtTokenProvider.isValidToken(refreshToken, TokenType.REFRESH)) {
+    if (!jwtTokenProvider.isValidToken(oldRefreshToken, TokenType.REFRESH)) {
       throw new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
     }
 
-    Long memberId = jwtTokenProvider.getMemberId(refreshToken);
-
-    if (!redisTokenRepository.matchesRefreshToken(memberId, refreshToken)) {
-      throw new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
-    }
+    Long memberId = jwtTokenProvider.getMemberId(oldRefreshToken);
 
     Member member =
         memberRepository
@@ -94,15 +90,28 @@ public class AuthCommandService {
       throw new ProjectException(AuthErrorCode.AUTH_UNREISSUABLE_MEMBER_STATUS);
     }
 
-    return issueReissuedTokens(member);
+    return issueReissuedTokens(member, oldRefreshToken);
   }
 
   private boolean isReissuable(MemberStatus status) {
     return status == MemberStatus.ACTIVE || status == MemberStatus.PENDING_ONBOARDING;
   }
 
-  private ReissueResponse issueReissuedTokens(Member member) {
-    TokenPair tokens = issueTokenPair(member);
+  private ReissueResponse issueReissuedTokens(Member member, String oldRefreshToken) {
+    TokenPair tokens = generateTokenPair(member.getId());
+
+    // 검증(matches)과 회전(save) 사이 TOCTOU를 없애기 위해 Redis에서 원자적으로 비교 후 교체한다.
+    // 동시에 같은 refresh token으로 재발급이 들어오면 하나만 성공하고 나머지는 거부된다.
+    boolean rotated =
+        redisTokenRepository.rotateRefreshToken(
+            member.getId(),
+            oldRefreshToken,
+            tokens.refreshToken(),
+            Duration.ofSeconds(tokens.refreshTokenExpiresIn()));
+
+    if (!rotated) {
+      throw new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+    }
 
     return AuthConverter.toReissueResponse(
         tokens.accessToken(),
@@ -130,7 +139,10 @@ public class AuthCommandService {
   }
 
   private SocialLoginResponse issueLoginTokens(Member member) {
-    TokenPair tokens = issueTokenPair(member);
+    TokenPair tokens = generateTokenPair(member.getId());
+
+    redisTokenRepository.saveRefreshToken(
+        member.getId(), tokens.refreshToken(), Duration.ofSeconds(tokens.refreshTokenExpiresIn()));
 
     return AuthConverter.toSocialLoginTokenResponse(
         tokens.accessToken(),
@@ -140,14 +152,11 @@ public class AuthCommandService {
         member.getStatus());
   }
 
-  private TokenPair issueTokenPair(Member member) {
+  private TokenPair generateTokenPair(Long memberId) {
     long accessTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.ACCESS);
     long refreshTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.REFRESH);
-    String accessToken = jwtTokenProvider.generateToken(member.getId(), TokenType.ACCESS);
-    String refreshToken = jwtTokenProvider.generateToken(member.getId(), TokenType.REFRESH);
-
-    redisTokenRepository.saveRefreshToken(
-        member.getId(), refreshToken, Duration.ofSeconds(refreshTokenExpiresIn));
+    String accessToken = jwtTokenProvider.generateToken(memberId, TokenType.ACCESS);
+    String refreshToken = jwtTokenProvider.generateToken(memberId, TokenType.REFRESH);
 
     return new TokenPair(accessToken, refreshToken, accessTokenExpiresIn, refreshTokenExpiresIn);
   }
