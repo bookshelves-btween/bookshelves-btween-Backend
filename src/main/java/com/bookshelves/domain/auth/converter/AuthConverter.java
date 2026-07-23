@@ -1,5 +1,6 @@
 package com.bookshelves.domain.auth.converter;
 
+import com.bookshelves.domain.auth.dto.response.ReissueResponse;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
 import com.bookshelves.domain.member.enums.MemberStatus;
 import java.time.OffsetDateTime;
@@ -7,6 +8,19 @@ import java.time.OffsetDateTime;
 public class AuthConverter {
 
   private AuthConverter() {}
+
+  public static ReissueResponse toReissueResponse(
+      String accessToken,
+      String refreshToken,
+      long accessTokenExpiresIn,
+      long refreshTokenExpiresIn) {
+    return ReissueResponse.builder()
+        .accessToken(accessToken)
+        .refreshToken(refreshToken)
+        .accessTokenExpiresIn(accessTokenExpiresIn)
+        .refreshTokenExpiresIn(refreshTokenExpiresIn)
+        .build();
+  }
 
   public static SocialLoginResponse toSocialLoginTokenResponse(
       String accessToken,
