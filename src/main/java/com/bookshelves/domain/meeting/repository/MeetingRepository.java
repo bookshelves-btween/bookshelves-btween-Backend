@@ -5,7 +5,6 @@ import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -38,6 +37,4 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
       @Param("status") MeetingStatus status,
       @Param("memberId") Long memberId,
       Pageable pageable);
-  @EntityGraph(attributePaths = "book")
-  Optional<Meeting> findWithBookById(Long id);
 }
