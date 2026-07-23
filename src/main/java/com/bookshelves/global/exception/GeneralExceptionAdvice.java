@@ -11,8 +11,11 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
 @RestControllerAdvice
@@ -44,6 +47,17 @@ public class GeneralExceptionAdvice {
                     (existing, replacement) -> existing));
 
     return ResponseEntity.status(code.getStatus()).body(ApiResponse.onFailure(code, fieldErrors));
+  }
+
+  // 쿼리 파라미터 제약 조건 및 타입 검증 실패
+  @ExceptionHandler({
+    HandlerMethodValidationException.class,
+    MethodArgumentTypeMismatchException.class,
+    MissingServletRequestParameterException.class
+  })
+  public ResponseEntity<ApiResponse<Map<String, Object>>> handleRequestParameterException(
+      Exception e) {
+    return failureResponse(GeneralErrorCode.COMMON_BAD_REQUEST);
   }
 
   // 요청 본문 파싱 실패 (JSON 문법 오류, 존재하지 않는 enum 값 등)
