@@ -36,11 +36,11 @@ public class MeetingCommandService {
   public MeetingCreateResDTO createMeeting(String isbn, MeetingCreateReqDTO request) {
 
     Book book =
-      bookRepository
-        .findByIsbn(isbn)
-        .orElseThrow(
-          () -> // TODO: 카카오 도서 API에서 조회한 도서 정보를 DB에 저장한 뒤 반환하도록 변경
-            new BookException(BookErrorCode.BOOK_NOT_FOUND));
+        bookRepository
+            .findByIsbn(isbn)
+            .orElseThrow(
+                () -> // TODO: 카카오 도서 API에서 조회한 도서 정보를 DB에 저장한 뒤 반환하도록 변경
+                new BookException(BookErrorCode.BOOK_NOT_FOUND));
 
     Meeting meeting = MeetingConverter.toEntity(book, request);
     Meeting savedMeeting = meetingRepository.save(meeting);
@@ -50,9 +50,9 @@ public class MeetingCommandService {
 
   public MeetingParticipationResDTO participateMeeting(Long meetingId) {
     Meeting meeting =
-      meetingRepository
-        .findById(meetingId)
-        .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
     Long memberId = 1001L;
 
     if (meetingParticipantRepository.existsByMeetingIdAndMemberId(meetingId, memberId)) {
@@ -65,7 +65,7 @@ public class MeetingCommandService {
     Member member = memberRepository.getReferenceById(memberId);
 
     MeetingParticipant meetingParticipant =
-      meetingParticipantRepository.save(MeetingParticipant.create(meeting, member));
+        meetingParticipantRepository.save(MeetingParticipant.create(meeting, member));
 
     return MeetingParticipationResDTO.from(meetingParticipant);
   }
