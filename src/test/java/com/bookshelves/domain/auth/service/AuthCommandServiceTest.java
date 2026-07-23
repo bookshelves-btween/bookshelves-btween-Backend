@@ -171,23 +171,27 @@ class AuthCommandServiceTest {
 
   @Test
   void reissueSucceedsAndRotatesRefreshToken() {
-    String refreshToken = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
+    String oldRefreshToken = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
     Member member = mock(Member.class);
     when(member.getId()).thenReturn(1L);
     when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
-    when(redisTokenRepository.matchesRefreshToken(1L, refreshToken)).thenReturn(true);
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(redisTokenRepository.rotateRefreshToken(eq(1L), eq(oldRefreshToken), any(), any()))
+        .thenReturn(true);
 
     ReissueResponse response =
-        authCommandService.reissue(ReissueRequest.builder().refreshToken(refreshToken).build());
+        authCommandService.reissue(ReissueRequest.builder().refreshToken(oldRefreshToken).build());
 
     assertThat(response.getAccessToken()).isNotNull();
     assertThat(response.getRefreshToken()).isNotNull();
     assertThat(jwtTokenProvider.isValidToken(response.getRefreshToken(), TokenType.REFRESH))
         .isTrue();
-    // Redis에 응답으로 내려간 새 refreshToken 그대로가 저장돼야 회전(rotation)이 보장됨
     verify(redisTokenRepository)
-        .saveRefreshToken(eq(1L), eq(response.getRefreshToken()), eq(Duration.ofSeconds(1209600)));
+        .rotateRefreshToken(
+            eq(1L),
+            eq(oldRefreshToken),
+            eq(response.getRefreshToken()),
+            eq(Duration.ofSeconds(1209600)));
   }
 
   @Test
@@ -201,28 +205,33 @@ class AuthCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
-    verify(redisTokenRepository, never()).matchesRefreshToken(any(), any());
+    verify(memberRepository, never()).findById(any());
+    verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any());
   }
 
   @Test
-  void reissueThrowsInvalidRefreshTokenWhenRedisDoesNotMatch() {
-    String refreshToken = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
-    when(redisTokenRepository.matchesRefreshToken(1L, refreshToken)).thenReturn(false);
+  void reissueThrowsInvalidRefreshTokenWhenRotationLosesRace() {
+    String oldRefreshToken = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
+    Member member = mock(Member.class);
+    when(member.getId()).thenReturn(1L);
+    when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    // 동시에 같은 refresh token으로 다른 요청이 먼저 원자적으로 회전시킨 상황(CAS 실패)을 재현
+    when(redisTokenRepository.rotateRefreshToken(eq(1L), eq(oldRefreshToken), any(), any()))
+        .thenReturn(false);
 
     assertThatThrownBy(
             () ->
                 authCommandService.reissue(
-                    ReissueRequest.builder().refreshToken(refreshToken).build()))
+                    ReissueRequest.builder().refreshToken(oldRefreshToken).build()))
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
-    verify(memberRepository, never()).findById(any());
   }
 
   @Test
   void reissueThrowsInvalidRefreshTokenWhenMemberNotFound() {
     String refreshToken = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
-    when(redisTokenRepository.matchesRefreshToken(1L, refreshToken)).thenReturn(true);
     when(memberRepository.findById(1L)).thenReturn(Optional.empty());
 
     assertThatThrownBy(
@@ -232,6 +241,7 @@ class AuthCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+    verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any());
   }
 
   @Test
@@ -239,7 +249,6 @@ class AuthCommandServiceTest {
     String refreshToken = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
     Member member = mock(Member.class);
     when(member.getStatus()).thenReturn(MemberStatus.WITHDRAWN);
-    when(redisTokenRepository.matchesRefreshToken(1L, refreshToken)).thenReturn(true);
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
 
     assertThatThrownBy(
@@ -249,7 +258,7 @@ class AuthCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_UNREISSUABLE_MEMBER_STATUS);
-    verify(redisTokenRepository, never()).saveRefreshToken(any(), any(), any());
+    verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any());
   }
 
   private ProviderTokenVerifier stubVerifier(
