@@ -2,6 +2,8 @@ package com.bookshelves.domain.meeting.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -13,10 +15,12 @@ import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.dto.response.MeetingDetailResDTO;
+import com.bookshelves.domain.meeting.dto.response.MeetingSearchResDTO;
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import com.bookshelves.domain.meeting.exception.MeetingException;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
+import com.bookshelves.global.security.AuthenticationFacade;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +29,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class MeetingQueryServiceTest {
@@ -32,6 +39,7 @@ class MeetingQueryServiceTest {
   @Mock private MeetingRepository meetingRepository;
   @Mock private ChatRoomRepository chatRoomRepository;
   @Mock private MeetingSummaryRepository meetingSummaryRepository;
+  @Mock private AuthenticationFacade authenticationFacade;
   @InjectMocks private MeetingQueryService meetingQueryService;
 
   @Test
@@ -103,6 +111,29 @@ class MeetingQueryServiceTest {
     verifyNoInteractions(chatRoomRepository, meetingSummaryRepository);
   }
 
+  @Test
+  void searchMeetingsReturnsMatchingMeetingsWithChatroomAndPagination() {
+    Meeting meeting = searchMeeting(1L, "혼모노");
+    ChatRoom chatRoom = mock(ChatRoom.class);
+    given(chatRoom.getId()).willReturn(10L);
+    given(chatRoom.getMeeting()).willReturn(meeting);
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1001L);
+    given(
+            meetingRepository.findSearchableMeetings(
+                eq("혼모노"), eq(MeetingStatus.RECRUITING), eq(1001L), any(Pageable.class)))
+        .willReturn(new PageImpl<>(List.of(meeting), PageRequest.of(0, 1), 2));
+    given(chatRoomRepository.findAllByMeetingIdIn(List.of(1L))).willReturn(List.of(chatRoom));
+
+    MeetingSearchResDTO result = meetingQueryService.searchMeetings("  혼모노  ", 1, 1);
+
+    assertThat(result.page()).isEqualTo(1);
+    assertThat(result.size()).isEqualTo(1);
+    assertThat(result.hasNext()).isTrue();
+    assertThat(result.meetings()).hasSize(1);
+    assertThat(result.meetings().getFirst().chatroomId()).isEqualTo(10L);
+    assertThat(result.meetings().getFirst().book().title()).isEqualTo("혼모노");
+  }
+
   private Meeting meeting(Long meetingId, MeetingStatus meetingStatus) {
     Meeting meeting = mock(Meeting.class);
     Book book = mock(Book.class);
@@ -122,6 +153,23 @@ class MeetingQueryServiceTest {
     given(book.getPublisher()).willReturn("창비");
     given(book.getCoverImageUrl()).willReturn("https://image.example.com/book.jpg");
     given(book.getKdcName()).willReturn("문학");
+    return meeting;
+  }
+
+  private Meeting searchMeeting(Long meetingId, String title) {
+    Meeting meeting = mock(Meeting.class);
+    Book book = mock(Book.class);
+
+    given(meeting.getId()).willReturn(meetingId);
+    given(meeting.getBook()).willReturn(book);
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getStartDate()).willReturn(LocalDateTime.of(2026, 8, 1, 20, 0));
+    given(meeting.getCurParticipants()).willReturn(3);
+    given(meeting.getMaxParticipants()).willReturn(4);
+    given(meeting.getDuration()).willReturn(60);
+    given(book.getId()).willReturn(101L);
+    given(book.getTitle()).willReturn(title);
+    given(book.getCoverImageUrl()).willReturn("https://image.example.com/book.jpg");
     return meeting;
   }
 }
