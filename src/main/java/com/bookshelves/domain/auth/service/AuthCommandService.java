@@ -66,6 +66,10 @@ public class AuthCommandService {
     return issueLoginTokens(member);
   }
 
+  public void logout(Long memberId) {
+    redisTokenRepository.deleteRefreshToken(memberId);
+  }
+
   private Member createSocialMember(Provider provider, String providerId) {
     try {
       return memberCommandService.createSocialMember(provider, providerId);

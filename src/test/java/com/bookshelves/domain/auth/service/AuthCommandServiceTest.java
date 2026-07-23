@@ -149,6 +149,13 @@ class AuthCommandServiceTest {
   }
 
   @Test
+  void logoutDeletesRefreshToken() {
+    authCommandService.logout(1L);
+
+    verify(redisTokenRepository).deleteRefreshToken(1L);
+  }
+
+  @Test
   void socialLoginThrowsUnsupportedProviderForUnknownProviderString() {
     SocialLoginRequest request =
         SocialLoginRequest.builder().provider("NAVER").providerToken("provider-token").build();
