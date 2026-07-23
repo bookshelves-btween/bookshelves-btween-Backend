@@ -1,0 +1,110 @@
+name: bookshelf
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  redis:
+    image: redis:7.4-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    container_name: bookshelf-redis
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass "$${REDIS_PASSWORD}"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+    logging: *default-logging
+
+  app:
+    image: ${APP_IMAGE}
+    container_name: bookshelf-app
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE}?sslMode=VERIFY_IDENTITY&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      DATA4LIBRARY_AUTH_KEY: ${DATA4LIBRARY_AUTH_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:?APPLE_CLIENT_ID is required}
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+UseContainerSupport -Xms256m -Xmx768m
+        -Duser.timezone=Asia/Seoul
+        -Djavax.net.ssl.trustStore=/etc/ssl/certs/rds-truststore.jks
+        -Djavax.net.ssl.trustStorePassword=${RDS_TRUSTSTORE_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    expose:
+      - "8080"
+    volumes:
+      - ${RDS_TRUSTSTORE_PATH}:/etc/ssl/certs/rds-truststore.jks:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          if command -v curl >/dev/null 2>&1; then
+            curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null;
+          elif command -v wget >/dev/null 2>&1; then
+            wget -q -O /dev/null http://127.0.0.1:8080/actuator/health;
+          else
+            echo 'The application image must include curl or wget for health checks.' >&2; exit 1;
+          fi
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    networks:
+      - backend
+    logging: *default-logging
+
+  nginx:
+    image: nginx:stable-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46
+    container_name: bookshelf-nginx
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${TLS_CERT_PATH}:/etc/nginx/tls/fullchain.pem:ro
+      - ${TLS_PRIVATE_KEY_PATH}:/etc/nginx/tls/privkey.pem:ro
+    networks:
+      - edge
+      - backend
+    logging: *default-logging
+
+volumes:
+  redis_data:
+
+networks:
+  edge:
+  backend:

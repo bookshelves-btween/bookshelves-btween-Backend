@@ -1,0 +1,347 @@
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+locals {
+  name_prefix = "${var.project_name}-${var.environment}"
+  enable_ssh  = var.admin_cidr != "" && var.ssh_public_key != ""
+}
+
+resource "aws_vpc" "main" {
+  cidr_block           = "10.20.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "${local.name_prefix}-vpc"
+  }
+}
+
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${local.name_prefix}-igw"
+  }
+}
+
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.20.1.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[0]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${local.name_prefix}-public-subnet"
+  }
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-public-rt"
+  }
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_subnet" "database" {
+  count = 2
+
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.20.${count.index + 11}.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "${local.name_prefix}-database-${count.index + 1}"
+  }
+}
+
+resource "aws_db_subnet_group" "database" {
+  name       = "${local.name_prefix}-database"
+  subnet_ids = aws_subnet.database[*].id
+
+  tags = {
+    Name = "${local.name_prefix}-database"
+  }
+}
+
+resource "aws_security_group" "server" {
+  name        = "${local.name_prefix}-server-sg"
+  description = "Public HTTP/HTTPS and optional administrator SSH"
+  vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name = "${local.name_prefix}-server-sg"
+  }
+}
+
+resource "aws_security_group" "database" {
+  name        = "${local.name_prefix}-database-sg"
+  description = "RDS MySQL access from the application server only"
+  vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name = "${local.name_prefix}-database-sg"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "database_mysql" {
+  security_group_id            = aws_security_group.database.id
+  description                  = "MySQL from the application server"
+  referenced_security_group_id = aws_security_group.server.id
+  from_port                    = 3306
+  to_port                      = 3306
+  ip_protocol                  = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "http" {
+  security_group_id = aws_security_group.server.id
+  description       = "Public HTTP"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "https" {
+  security_group_id = aws_security_group.server.id
+  description       = "Public HTTPS"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ssh" {
+  count = local.enable_ssh ? 1 : 0
+
+  security_group_id = aws_security_group.server.id
+  description       = "Administrator SSH"
+  cidr_ipv4         = var.admin_cidr
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+}
+
+resource "aws_vpc_security_group_egress_rule" "all" {
+  security_group_id = aws_security_group.server.id
+  description       = "Required package, registry, and AWS API access"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+}
+
+data "aws_iam_policy_document" "ec2_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "server" {
+  name               = "${local.name_prefix}-server-role"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.server.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "server" {
+  name = "${local.name_prefix}-server-profile"
+  role = aws_iam_role.server.name
+}
+
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = ["sts.amazonaws.com"]
+}
+
+data "aws_iam_policy_document" "github_actions_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github_actions.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repository}:ref:refs/heads/main"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions_deploy" {
+  name               = "${local.name_prefix}-github-actions-deploy-role"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
+}
+
+data "aws_iam_policy_document" "github_actions_deploy" {
+  statement {
+    sid     = "SendDeploymentCommandToThisServer"
+    effect  = "Allow"
+    actions = ["ssm:SendCommand"]
+    resources = [
+      aws_instance.server.arn,
+      "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript",
+    ]
+  }
+
+  statement {
+    sid       = "ReadDeploymentCommandStatus"
+    effect    = "Allow"
+    actions   = ["ssm:GetCommandInvocation"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "github_actions_deploy" {
+  name   = "${local.name_prefix}-github-actions-deploy-policy"
+  role   = aws_iam_role.github_actions_deploy.id
+  policy = data.aws_iam_policy_document.github_actions_deploy.json
+}
+
+resource "aws_key_pair" "admin" {
+  count = local.enable_ssh ? 1 : 0
+
+  key_name   = "${local.name_prefix}-admin"
+  public_key = trimspace(var.ssh_public_key)
+}
+
+resource "aws_instance" "server" {
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.server.id]
+  associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.server.name
+  key_name                    = local.enable_ssh ? aws_key_pair.admin[0].key_name : null
+
+  user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
+    project_name = var.project_name
+    environment  = var.environment
+  })
+
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
+  root_block_device {
+    volume_type           = "gp3"
+    volume_size           = var.root_volume_size
+    encrypted             = true
+    delete_on_termination = true
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-server"
+  }
+
+  depends_on = [aws_route_table_association.public]
+}
+
+resource "aws_eip" "server" {
+  domain = "vpc"
+
+  tags = {
+    Name = "${local.name_prefix}-eip"
+  }
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_eip_association" "server" {
+  allocation_id = aws_eip.server.id
+  instance_id   = aws_instance.server.id
+}
+
+resource "random_password" "database" {
+  length           = 32
+  special          = true
+  override_special = "_%-"
+}
+
+resource "aws_db_instance" "database" {
+  identifier = "${local.name_prefix}-mysql"
+
+  engine         = "mysql"
+  engine_version = var.db_engine_version
+  instance_class = var.db_instance_class
+
+  db_name  = var.db_name
+  username = var.db_master_username
+  password = random_password.database.result
+  port     = 3306
+
+  allocated_storage = var.db_allocated_storage
+  storage_type      = "gp3"
+  storage_encrypted = true
+
+  db_subnet_group_name   = aws_db_subnet_group.database.name
+  vpc_security_group_ids = [aws_security_group.database.id]
+  publicly_accessible    = false
+  multi_az               = false
+
+  backup_retention_period    = var.db_backup_retention_days
+  copy_tags_to_snapshot      = true
+  auto_minor_version_upgrade = true
+
+  deletion_protection = false
+  skip_final_snapshot = true
+  apply_immediately   = true
+
+  performance_insights_enabled = false
+  monitoring_interval          = 0
+
+  tags = {
+    Name = "${local.name_prefix}-mysql"
+  }
+}
