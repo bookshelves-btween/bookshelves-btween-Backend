@@ -4,7 +4,9 @@ import com.bookshelves.domain.auth.client.ProviderTokenVerifier;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
 import com.bookshelves.domain.auth.converter.AuthConverter;
+import com.bookshelves.domain.auth.dto.request.ReissueRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
+import com.bookshelves.domain.auth.dto.response.ReissueResponse;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.member.entity.Member;
@@ -66,6 +68,45 @@ public class AuthCommandService {
     return issueLoginTokens(member);
   }
 
+  public ReissueResponse reissue(ReissueRequest request) {
+    String refreshToken = request.getRefreshToken();
+
+    if (!jwtTokenProvider.isValidToken(refreshToken, TokenType.REFRESH)) {
+      throw new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+    }
+
+    Long memberId = jwtTokenProvider.getMemberId(refreshToken);
+
+    if (!redisTokenRepository.matchesRefreshToken(memberId, refreshToken)) {
+      throw new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+    }
+
+    Member member =
+        memberRepository
+            .findById(memberId)
+            .orElseThrow(() -> new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN));
+
+    if (!isReissuable(member.getStatus())) {
+      throw new ProjectException(AuthErrorCode.AUTH_UNREISSUABLE_MEMBER_STATUS);
+    }
+
+    return issueReissuedTokens(member);
+  }
+
+  private boolean isReissuable(MemberStatus status) {
+    return status == MemberStatus.ACTIVE || status == MemberStatus.PENDING_ONBOARDING;
+  }
+
+  private ReissueResponse issueReissuedTokens(Member member) {
+    TokenPair tokens = issueTokenPair(member);
+
+    return AuthConverter.toReissueResponse(
+        tokens.accessToken(),
+        tokens.refreshToken(),
+        tokens.accessTokenExpiresIn(),
+        tokens.refreshTokenExpiresIn());
+  }
+
   private Member createSocialMember(Provider provider, String providerId) {
     try {
       return memberCommandService.createSocialMember(provider, providerId);
@@ -85,6 +126,17 @@ public class AuthCommandService {
   }
 
   private SocialLoginResponse issueLoginTokens(Member member) {
+    TokenPair tokens = issueTokenPair(member);
+
+    return AuthConverter.toSocialLoginTokenResponse(
+        tokens.accessToken(),
+        tokens.refreshToken(),
+        tokens.accessTokenExpiresIn(),
+        tokens.refreshTokenExpiresIn(),
+        member.getStatus());
+  }
+
+  private TokenPair issueTokenPair(Member member) {
     long accessTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.ACCESS);
     long refreshTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.REFRESH);
     String accessToken = jwtTokenProvider.generateToken(member.getId(), TokenType.ACCESS);
@@ -93,9 +145,14 @@ public class AuthCommandService {
     redisTokenRepository.saveRefreshToken(
         member.getId(), refreshToken, Duration.ofSeconds(refreshTokenExpiresIn));
 
-    return AuthConverter.toSocialLoginTokenResponse(
-        accessToken, refreshToken, accessTokenExpiresIn, refreshTokenExpiresIn, member.getStatus());
+    return new TokenPair(accessToken, refreshToken, accessTokenExpiresIn, refreshTokenExpiresIn);
   }
+
+  private record TokenPair(
+      String accessToken,
+      String refreshToken,
+      long accessTokenExpiresIn,
+      long refreshTokenExpiresIn) {}
 
   private SocialLoginResponse issueRestoreToken(Member member) {
     long restoreTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.RESTORE);
