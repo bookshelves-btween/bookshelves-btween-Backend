@@ -12,37 +12,26 @@ import org.springframework.data.repository.query.Param;
 
 public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
+  String SEARCHABLE_MEETINGS_FROM_WHERE =
+      """
+      from Meeting meeting
+      where meeting.status = :status
+        and lower(meeting.book.title) like lower(concat('%', :title, '%'))
+        and not exists (
+          select participant.id
+          from MeetingParticipant participant
+          where participant.meeting = meeting
+            and participant.member.id = :memberId
+        )
+      """;
+
   @EntityGraph(attributePaths = "book")
   Optional<Meeting> findWithBookById(Long id);
 
   @EntityGraph(attributePaths = "book")
   @Query(
-      value =
-          """
-          select meeting
-          from Meeting meeting
-          where meeting.status = :status
-            and lower(meeting.book.title) like lower(concat('%', :title, '%'))
-            and not exists (
-              select participant.id
-              from MeetingParticipant participant
-              where participant.meeting = meeting
-                and participant.member.id = :memberId
-            )
-          """,
-      countQuery =
-          """
-          select count(meeting)
-          from Meeting meeting
-          where meeting.status = :status
-            and lower(meeting.book.title) like lower(concat('%', :title, '%'))
-            and not exists (
-              select participant.id
-              from MeetingParticipant participant
-              where participant.meeting = meeting
-                and participant.member.id = :memberId
-            )
-          """)
+      value = "select meeting\n" + SEARCHABLE_MEETINGS_FROM_WHERE,
+      countQuery = "select count(meeting)\n" + SEARCHABLE_MEETINGS_FROM_WHERE)
   Page<Meeting> findSearchableMeetings(
       @Param("title") String title,
       @Param("status") MeetingStatus status,
