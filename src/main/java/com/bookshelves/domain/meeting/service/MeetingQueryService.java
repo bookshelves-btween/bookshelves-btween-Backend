@@ -20,6 +20,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import com.bookshelves.domain.chat.repository.ChatRoomRepository;
+import com.bookshelves.domain.meeting.converter.MeetingConverter;
+import com.bookshelves.domain.meeting.dto.response.MeetingDetailResDTO;
+import com.bookshelves.domain.meeting.entity.Meeting;
+import com.bookshelves.domain.meeting.exception.MeetingException;
+import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
+import com.bookshelves.domain.meeting.repository.MeetingRepository;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
