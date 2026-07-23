@@ -54,4 +54,11 @@ public class Member extends BaseEntity {
 
   @Column(name = "deleted_at")
   private LocalDateTime deletedAt;
+
+  public static Member createSocialMember(Provider provider, String providerId) {
+    Member member = new Member();
+    member.provider = provider;
+    member.providerId = providerId;
+    return member;
+  }
 }
