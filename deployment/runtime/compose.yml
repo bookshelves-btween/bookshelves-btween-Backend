@@ -50,8 +50,8 @@ services:
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       DATA4LIBRARY_AUTH_KEY: ${DATA4LIBRARY_AUTH_KEY:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:?APPLE_CLIENT_ID is required}
       JAVA_TOOL_OPTIONS: >-
         -XX:+UseContainerSupport -Xms256m -Xmx768m
         -Duser.timezone=Asia/Seoul
