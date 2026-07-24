@@ -39,10 +39,6 @@ public class RedisTokenRepository {
     saveToken(getRefreshTokenKey(memberId), refreshToken, ttl);
   }
 
-  public boolean matchesRefreshToken(Long memberId, String refreshToken) {
-    return matchesToken(getRefreshTokenKey(memberId), refreshToken);
-  }
-
   /** oldRefreshToken이 현재 저장된 값과 일치할 때만 newRefreshToken으로 원자적으로 교체한다. */
   public boolean rotateRefreshToken(
       Long memberId, String oldRefreshToken, String newRefreshToken, Duration ttl) {
