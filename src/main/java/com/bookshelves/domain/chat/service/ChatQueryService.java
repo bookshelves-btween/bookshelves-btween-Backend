@@ -29,6 +29,7 @@ public class ChatQueryService {
   private final MeetingParticipantRepository meetingParticipantRepository;
   private final AIQuestionRepository aiQuestionRepository;
   private final ChatPresenceService chatPresenceService;
+  private final ChatSubscriptionValidator chatSubscriptionValidator;
 
   public ChatRoomEnterResponse enterChatRoom(Long chatroomId, Long memberId) {
     ChatRoom chatRoom =
@@ -37,12 +38,8 @@ public class ChatQueryService {
             .orElseThrow(() -> new ProjectException(ChatErrorCode.CHATROOM_NOT_FOUND));
     Meeting meeting = chatRoom.getMeeting();
 
-    if (!meetingParticipantRepository.existsByMeetingIdAndMemberId(meeting.getId(), memberId)) {
-      throw new ProjectException(ChatErrorCode.CHATROOM_FORBIDDEN);
-    }
-    if (meeting.getStatus() == MeetingStatus.COMPLETED) {
-      throw new ProjectException(ChatErrorCode.CHATROOM_ENDED);
-    }
+    // 접근 검증 기준(403·410)은 SUBSCRIBE 검증과 동일해야 한다 — validator로 단일화
+    chatSubscriptionValidator.validate(chatRoom, memberId);
 
     // 모임 시작 시 질문 1개 자동 생성이 보장되어 IN_PROGRESS에서는 항상 존재, 시작 전이면 null
     AIQuestion currentQuestion =
@@ -61,21 +58,5 @@ public class ChatQueryService {
         currentQuestion,
         MAX_QUESTIONS,
         chatMessageRepository.findAllWithSenderByChatroomId(chatroomId));
-  }
-
-  // SUBSCRIBE 권한 검증 — 입장 API와 동일 기준 (미존재 404 · 비참여자 403 · 종료 모임 410)
-  public void validateSubscription(Long chatroomId, Long memberId) {
-    ChatRoom chatRoom =
-        chatRoomRepository
-            .findById(chatroomId)
-            .orElseThrow(() -> new ProjectException(ChatErrorCode.CHATROOM_NOT_FOUND));
-
-    if (!meetingParticipantRepository.existsByMeetingIdAndMemberId(
-        chatRoom.getMeeting().getId(), memberId)) {
-      throw new ProjectException(ChatErrorCode.CHATROOM_FORBIDDEN);
-    }
-    if (chatRoom.getMeeting().getStatus() == MeetingStatus.COMPLETED) {
-      throw new ProjectException(ChatErrorCode.CHATROOM_ENDED);
-    }
   }
 }
