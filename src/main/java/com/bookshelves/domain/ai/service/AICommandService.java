@@ -9,6 +9,7 @@ import com.bookshelves.domain.chat.code.ChatErrorCode;
 import com.bookshelves.domain.chat.dto.ChatFrame;
 import com.bookshelves.domain.chat.dto.ChatVoteCountPayload;
 import com.bookshelves.domain.chat.entity.ChatRoom;
+import com.bookshelves.domain.chat.exception.ChatException;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.chat.service.ChatPresenceService;
 import com.bookshelves.domain.meeting.entity.Meeting;
@@ -17,7 +18,6 @@ import com.bookshelves.domain.meeting.exception.MeetingException;
 import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
 import com.bookshelves.domain.meeting.repository.MeetingParticipantRepository;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
-import com.bookshelves.global.exception.ProjectException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
@@ -67,7 +67,7 @@ public class AICommandService {
     ChatRoom chatRoom =
         chatRoomRepository
             .findByMeetingId(meetingId)
-            .orElseThrow(() -> new ProjectException(ChatErrorCode.CHATROOM_NOT_FOUND));
+            .orElseThrow(() -> new ChatException(ChatErrorCode.CHATROOM_NOT_FOUND));
     Long chatroomId = chatRoom.getId();
 
     int currentVotes;

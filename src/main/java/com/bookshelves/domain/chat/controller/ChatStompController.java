@@ -1,10 +1,10 @@
 package com.bookshelves.domain.chat.controller;
 
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
+import com.bookshelves.domain.auth.exception.AuthException;
 import com.bookshelves.domain.chat.dto.ChatFrame;
 import com.bookshelves.domain.chat.dto.ChatMessageRequest;
 import com.bookshelves.domain.chat.service.ChatCommandService;
-import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.MemberPrincipal;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -44,6 +44,6 @@ public class ChatStompController {
         && authentication.getPrincipal() instanceof MemberPrincipal memberPrincipal) {
       return memberPrincipal.memberId();
     }
-    throw new ProjectException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
+    throw new AuthException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
   }
 }
