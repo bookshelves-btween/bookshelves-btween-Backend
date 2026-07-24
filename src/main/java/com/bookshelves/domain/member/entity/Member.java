@@ -61,4 +61,15 @@ public class Member extends BaseEntity {
     member.providerId = providerId;
     return member;
   }
+
+  public void updateNickname(String nicknameNoun, String nicknameModifier, String nicknameAnimal) {
+    this.nicknameNoun = nicknameNoun;
+    this.nicknameModifier = nicknameModifier;
+    this.nicknameAnimal = nicknameAnimal;
+    this.nickname = nicknameNoun + " " + nicknameModifier + " " + nicknameAnimal;
+  }
+
+  public void updateProfileBackgroundColor(ProfileBackgroundColor profileBackgroundColor) {
+    this.profileBackgroundColor = profileBackgroundColor;
+  }
 }
