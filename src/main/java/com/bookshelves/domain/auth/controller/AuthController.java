@@ -1,6 +1,8 @@
 package com.bookshelves.domain.auth.controller;
 
+import com.bookshelves.domain.auth.dto.request.ReissueRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
+import com.bookshelves.domain.auth.dto.response.ReissueResponse;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
 import com.bookshelves.domain.auth.exception.AuthSuccessCode;
 import com.bookshelves.domain.auth.service.AuthCommandService;
@@ -42,5 +44,12 @@ public class AuthController implements AuthControllerDocs {
     authCommandService.logout(memberId);
 
     return ResponseEntity.ok(ApiResponse.onSuccess(AuthSuccessCode.AUTH_LOGOUT_SUCCESS, Map.of()));
+  }
+
+  @Override
+  public ResponseEntity<ApiResponse<ReissueResponse>> reissue(ReissueRequest request) {
+    ReissueResponse response = authCommandService.reissue(request);
+
+    return ResponseEntity.ok(ApiResponse.onSuccess(AuthSuccessCode.AUTH_REISSUE_SUCCESS, response));
   }
 }

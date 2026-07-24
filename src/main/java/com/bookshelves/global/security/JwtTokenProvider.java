@@ -7,6 +7,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,7 @@ public class JwtTokenProvider {
 
     return Jwts.builder()
         .subject(String.valueOf(memberId))
+        .id(UUID.randomUUID().toString())
         .claim(MEMBER_ID_CLAIM, memberId)
         .claim(TOKEN_TYPE_CLAIM, tokenType.name())
         .issuedAt(Date.from(now))
