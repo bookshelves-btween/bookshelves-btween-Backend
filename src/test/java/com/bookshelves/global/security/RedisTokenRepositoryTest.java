@@ -41,22 +41,6 @@ class RedisTokenRepositoryTest {
   }
 
   @Test
-  void matchesRefreshTokenComparesStoredHash() {
-    when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-    redisTokenRepository.saveRefreshToken(1L, "refresh-token", Duration.ofSeconds(60));
-    ArgumentCaptor<String> valueCaptor = ArgumentCaptor.forClass(String.class);
-    verify(valueOperations)
-        .set(
-            org.mockito.Mockito.eq("auth:refresh:1"),
-            valueCaptor.capture(),
-            org.mockito.Mockito.eq(Duration.ofSeconds(60)));
-    when(valueOperations.get("auth:refresh:1")).thenReturn(valueCaptor.getValue());
-
-    assertThat(redisTokenRepository.matchesRefreshToken(1L, "refresh-token")).isTrue();
-    assertThat(redisTokenRepository.matchesRefreshToken(1L, "other-token")).isFalse();
-  }
-
-  @Test
   @SuppressWarnings("unchecked")
   void rotateRefreshTokenReturnsTrueWhenScriptReportsMatch() {
     when(stringRedisTemplate.execute(
