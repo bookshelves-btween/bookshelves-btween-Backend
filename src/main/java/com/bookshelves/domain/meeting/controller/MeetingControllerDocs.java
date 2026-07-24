@@ -3,6 +3,7 @@ package com.bookshelves.domain.meeting.controller;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingCreateResDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingDetailResDTO;
+import com.bookshelves.domain.meeting.dto.response.MeetingParticipationResDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingSearchResDTO;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -72,13 +73,13 @@ public interface MeetingControllerDocs {
                     @ExampleObject(
                         value =
                             """
-                            {
-                              "isSuccess": false,
-                              "code": "COMMON400_1",
-                              "message": "잘못된 요청입니다.",
-                              "result": {}
-                            }
-                            """))),
+              {
+                "isSuccess": false,
+                "code": "COMMON400_1",
+                "message": "잘못된 요청입니다.",
+                "result": {}
+              }
+              """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
         description = "인증 필요",
@@ -89,13 +90,13 @@ public interface MeetingControllerDocs {
                     @ExampleObject(
                         value =
                             """
-                            {
-                              "isSuccess": false,
-                              "code": "AUTH401_2",
-                              "message": "유효하지 않은 Access Token입니다.",
-                              "result": null
-                            }
-                            """)))
+              {
+                "isSuccess": false,
+                "code": "AUTH401_2",
+                "message": "유효하지 않은 Access Token입니다.",
+                "result": null
+              }
+              """)))
   })
   ResponseEntity<ApiResponse<MeetingSearchResDTO>> searchMeetings(
       @Parameter(description = "검색할 도서명", example = "혼모노", required = true)
@@ -294,4 +295,77 @@ public interface MeetingControllerDocs {
                               """)))
           @Valid
           MeetingCreateReqDTO request);
+
+  @Operation(summary = "모임 참여", description = "인증된 사용자가 독서 모임에 참여합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "모임 참여 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": true,
+                "code": "MEETING200_3",
+                "message": "모임 요청 성공했습니다.",
+                "result": {
+                  "meetingParticipantId": 1
+                }
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "모임을 찾을 수 없음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "MEETING404_1",
+                "message": "해당 모임을 찾을 수 없습니다.",
+                "result": {}
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "이미 참여한 모임이거나 모집 중인 모임이 아님",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples = {
+                  @ExampleObject(
+                      name = "중복 참여",
+                      value =
+                          """
+                {
+                  "isSuccess": false,
+                  "code": "MEETING409_2",
+                  "message": "이미 참여한 모임입니다.",
+                  "result": {}
+                }
+                """),
+                  @ExampleObject(
+                      name = "모집 마감",
+                      value =
+                          """
+                {
+                  "isSuccess": false,
+                  "code": "MEETING409_1",
+                  "message": "모집이 마감된 모임입니다.",
+                  "result": {}
+                }
+                """)
+                }))
+  })
+  ResponseEntity<ApiResponse<MeetingParticipationResDTO>> participate(
+      @Parameter(description = "모임 ID", example = "1", required = true) Long meetingId);
 }

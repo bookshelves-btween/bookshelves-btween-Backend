@@ -44,4 +44,12 @@ public class MeetingParticipant extends BaseEntity {
 
   @Column(name = "attended")
   private Boolean attended;
+
+  public static MeetingParticipant create(Meeting meeting, Member member) {
+    MeetingParticipant meetingParticipant = new MeetingParticipant();
+    meetingParticipant.meeting = meeting;
+    meetingParticipant.member = member;
+    meetingParticipant.isLeader = false;
+    return meetingParticipant;
+  }
 }

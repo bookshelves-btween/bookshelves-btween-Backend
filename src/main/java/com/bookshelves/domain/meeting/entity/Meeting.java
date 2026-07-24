@@ -61,4 +61,11 @@ public class Meeting extends BaseEntity {
     this.realParticipants = 0;
     this.status = MeetingStatus.RECRUITING;
   }
+
+  public void addParticipant() {
+    this.curParticipants++;
+    if (this.curParticipants >= this.maxParticipants) {
+      this.status = MeetingStatus.RECRUIT_CLOSED;
+    }
+  }
 }
