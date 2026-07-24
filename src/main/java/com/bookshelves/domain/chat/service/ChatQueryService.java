@@ -2,6 +2,8 @@ package com.bookshelves.domain.chat.service;
 
 import com.bookshelves.domain.ai.entity.AIQuestion;
 import com.bookshelves.domain.ai.repository.AIQuestionRepository;
+import com.bookshelves.domain.ai.service.AIQuestionGenerationService;
+import com.bookshelves.domain.ai.service.QuestionVoteStore;
 import com.bookshelves.domain.chat.code.ChatErrorCode;
 import com.bookshelves.domain.chat.converter.ChatConverter;
 import com.bookshelves.domain.chat.dto.ChatRoomEnterResponse;
@@ -21,15 +23,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ChatQueryService {
 
-  // 모임당 AI 질문 최대 개수 — AI 새 질문 생성 투표의 상한과 공유
-  private static final int MAX_QUESTIONS = 5;
-
   private final ChatRoomRepository chatRoomRepository;
   private final ChatMessageRepository chatMessageRepository;
   private final MeetingParticipantRepository meetingParticipantRepository;
   private final AIQuestionRepository aiQuestionRepository;
   private final ChatPresenceService chatPresenceService;
   private final ChatSubscriptionValidator chatSubscriptionValidator;
+  private final QuestionVoteStore questionVoteStore;
 
   public ChatRoomEnterResponse enterChatRoom(Long chatroomId, Long memberId) {
     ChatRoom chatRoom =
@@ -54,9 +54,11 @@ public class ChatQueryService {
         memberId,
         meetingParticipantRepository.countByMeetingId(meeting.getId()),
         chatPresenceService.countConnected(chatroomId),
+        questionVoteStore.countVotes(chatroomId),
         chatPresenceService.requiredVotes(chatroomId),
+        questionVoteStore.hasVoted(chatroomId, memberId),
         currentQuestion,
-        MAX_QUESTIONS,
+        AIQuestionGenerationService.MAX_QUESTIONS,
         chatMessageRepository.findAllWithSenderByChatroomId(chatroomId));
   }
 }
