@@ -29,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AuthCommandService {
 
-  private static final long RESTORE_PERIOD_DAYS = 30;
   private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
 
   private final ProviderTokenVerifierResolver providerTokenVerifierResolver;
@@ -175,7 +174,11 @@ public class AuthCommandService {
         member.getId(), restoreToken, Duration.ofSeconds(restoreTokenExpiresIn));
 
     OffsetDateTime scheduledDeletionAt =
-        member.getDeletedAt().plusDays(RESTORE_PERIOD_DAYS).atZone(SERVICE_ZONE).toOffsetDateTime();
+        member
+            .getDeletedAt()
+            .plusDays(Member.RESTORE_PERIOD_DAYS)
+            .atZone(SERVICE_ZONE)
+            .toOffsetDateTime();
 
     return AuthConverter.toSocialLoginWithdrawnResponse(
         restoreToken, restoreTokenExpiresIn, scheduledDeletionAt);

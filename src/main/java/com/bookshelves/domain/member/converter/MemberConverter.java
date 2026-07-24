@@ -3,7 +3,9 @@ package com.bookshelves.domain.member.converter;
 import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.member.dto.response.CategoryResponse;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
+import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.entity.Member;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public class MemberConverter {
@@ -27,5 +29,9 @@ public class MemberConverter {
 
   private static CategoryResponse toCategoryResponse(Category category) {
     return new CategoryResponse(category.getId(), category.getName());
+  }
+
+  public static MemberWithdrawResponse toWithdrawResponse(OffsetDateTime scheduledDeletionAt) {
+    return MemberWithdrawResponse.builder().scheduledDeletionAt(scheduledDeletionAt).build();
   }
 }
