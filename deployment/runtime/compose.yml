@@ -40,6 +40,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE}?sslMode=VERIFY_IDENTITY&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      # RDS CA는 JVM 전역 trustStore가 아니라 JDBC 연결에만 지정한다 —
+      # 전역 교체 시 카카오·구글 등 다른 외부 HTTPS 호출이 전부 PKIX 실패한다 (#41).
+      # JDBC URL 쿼리 파라미터는 드라이버가 URL 디코딩하므로('+' → 공백) 비밀번호는
+      # URL이 아닌 데이터소스 속성으로 전달한다.
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"datasource":{"hikari":{"data-source-properties":{
+        "trustCertificateKeyStoreUrl":"file:/etc/ssl/certs/rds-truststore.jks",
+        "trustCertificateKeyStorePassword":"${RDS_TRUSTSTORE_PASSWORD}"}}}}}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -55,8 +63,6 @@ services:
       JAVA_TOOL_OPTIONS: >-
         -XX:+UseContainerSupport -Xms256m -Xmx768m
         -Duser.timezone=Asia/Seoul
-        -Djavax.net.ssl.trustStore=/etc/ssl/certs/rds-truststore.jks
-        -Djavax.net.ssl.trustStorePassword=${RDS_TRUSTSTORE_PASSWORD}
     depends_on:
       redis:
         condition: service_healthy
