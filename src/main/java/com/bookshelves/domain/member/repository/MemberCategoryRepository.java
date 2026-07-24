@@ -11,4 +11,6 @@ public interface MemberCategoryRepository extends JpaRepository<MemberCategory, 
 
   @Query("SELECT mc.category FROM MemberCategory mc WHERE mc.member.id = :memberId")
   List<Category> findCategoriesByMemberId(@Param("memberId") Long memberId);
+
+  void deleteByMember_Id(Long memberId);
 }
