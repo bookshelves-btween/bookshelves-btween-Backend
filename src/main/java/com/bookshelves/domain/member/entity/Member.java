@@ -79,4 +79,15 @@ public class Member extends BaseEntity {
     this.status = MemberStatus.WITHDRAWN;
     this.deletedAt = LocalDateTime.now();
   }
+
+  // provider/providerId까지 지워야 동일 소셜 계정으로 재가입이 가능해진다.
+  public void anonymize() {
+    this.status = MemberStatus.ANONYMIZED;
+    this.nickname = "탈퇴한 사용자" + this.id;
+    this.nicknameNoun = null;
+    this.nicknameModifier = null;
+    this.nicknameAnimal = null;
+    this.provider = null;
+    this.providerId = null;
+  }
 }
