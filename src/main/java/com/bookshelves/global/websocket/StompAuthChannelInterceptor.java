@@ -1,9 +1,10 @@
 package com.bookshelves.global.websocket;
 
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
+import com.bookshelves.domain.auth.exception.AuthException;
 import com.bookshelves.domain.chat.code.ChatErrorCode;
+import com.bookshelves.domain.chat.exception.ChatException;
 import com.bookshelves.domain.chat.service.ChatSubscriptionValidator;
-import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.MemberPrincipal;
 import com.bookshelves.global.security.TokenType;
@@ -54,7 +55,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     String token = resolveToken(accessor);
 
     if (token == null || !jwtTokenProvider.isValidToken(token, TokenType.ACCESS)) {
-      throw new ProjectException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
     }
 
     Long memberId = jwtTokenProvider.getMemberId(token);
@@ -80,7 +81,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     if (!(accessor.getUser() instanceof Authentication authentication)
         || !(authentication.getPrincipal() instanceof MemberPrincipal principal)) {
-      throw new ProjectException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
     }
 
     Long chatroomId = parseChatroomId(destination);
@@ -92,7 +93,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     try {
       return Long.parseLong(destination.substring(CHATROOM_SUBSCRIBE_PREFIX.length()));
     } catch (NumberFormatException e) {
-      throw new ProjectException(ChatErrorCode.CHATROOM_NOT_FOUND);
+      throw new ChatException(ChatErrorCode.CHATROOM_NOT_FOUND);
     }
   }
 }

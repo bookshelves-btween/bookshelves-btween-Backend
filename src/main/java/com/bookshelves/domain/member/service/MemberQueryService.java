@@ -5,9 +5,9 @@ import com.bookshelves.domain.member.converter.MemberConverter;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.exception.MemberErrorCode;
+import com.bookshelves.domain.member.exception.MemberException;
 import com.bookshelves.domain.member.repository.MemberCategoryRepository;
 import com.bookshelves.domain.member.repository.MemberRepository;
-import com.bookshelves.global.exception.ProjectException;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +29,7 @@ public class MemberQueryService {
     Member member =
         memberRepository
             .findById(memberId)
-            .orElseThrow(() -> new ProjectException(MemberErrorCode.MEMBER_NOT_FOUND));
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     List<Category> categories = memberCategoryRepository.findCategoriesByMemberId(memberId);
 
