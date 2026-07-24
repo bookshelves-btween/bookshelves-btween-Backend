@@ -44,6 +44,8 @@ class MeetingCommandServiceTest {
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getCurParticipants()).willReturn(1);
+    given(meeting.getMaxParticipants()).willReturn(4);
     given(memberRepository.getReferenceById(10L)).willReturn(member);
     given(meetingParticipantRepository.save(org.mockito.ArgumentMatchers.any()))
         .willReturn(savedParticipant);
@@ -53,6 +55,7 @@ class MeetingCommandServiceTest {
 
     assertThat(response.meetingParticipantId()).isEqualTo(100L);
     verify(meetingParticipantRepository).save(org.mockito.ArgumentMatchers.any());
+    verify(meeting).addParticipant();
   }
 
   @Test
@@ -85,6 +88,22 @@ class MeetingCommandServiceTest {
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(meeting.getStatus()).willReturn(MeetingStatus.IN_PROGRESS);
+
+    assertThatThrownBy(() -> meetingCommandService.participateMeeting(1L))
+        .isInstanceOf(MeetingException.class)
+        .extracting("errorCode")
+        .isEqualTo(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
+    verify(meetingParticipantRepository, never()).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void rejectsRecruitingMeetingThatIsAlreadyFull() {
+    Meeting meeting = mock(Meeting.class);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getCurParticipants()).willReturn(4);
+    given(meeting.getMaxParticipants()).willReturn(4);
 
     assertThatThrownBy(() -> meetingCommandService.participateMeeting(1L))
         .isInstanceOf(MeetingException.class)

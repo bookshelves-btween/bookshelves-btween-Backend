@@ -58,7 +58,8 @@ public class MeetingCommandService {
     if (meetingParticipantRepository.existsByMeetingIdAndMemberId(meetingId, memberId)) {
       throw new MeetingException(MeetingErrorCode.DUPLICATE_MEETING);
     }
-    if (meeting.getStatus() != MeetingStatus.RECRUITING) {
+    if (meeting.getStatus() != MeetingStatus.RECRUITING
+        || meeting.getCurParticipants() >= meeting.getMaxParticipants()) {
       throw new MeetingException(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
     }
 
@@ -66,6 +67,7 @@ public class MeetingCommandService {
 
     MeetingParticipant meetingParticipant =
         meetingParticipantRepository.save(MeetingParticipant.create(meeting, member));
+    meeting.addParticipant();
 
     return MeetingParticipationResDTO.from(meetingParticipant);
   }
