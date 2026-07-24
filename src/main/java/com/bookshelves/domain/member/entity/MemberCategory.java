@@ -36,4 +36,11 @@ public class MemberCategory {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "category_id", nullable = false)
   private Category category;
+
+  public static MemberCategory create(Member member, Category category) {
+    MemberCategory memberCategory = new MemberCategory();
+    memberCategory.member = member;
+    memberCategory.category = category;
+    return memberCategory;
+  }
 }
