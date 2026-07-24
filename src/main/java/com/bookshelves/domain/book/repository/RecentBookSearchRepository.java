@@ -3,7 +3,9 @@ package com.bookshelves.domain.book.repository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Repository;
 
@@ -43,4 +45,22 @@ public class RecentBookSearchRepository {
         String.valueOf(MAX_SEARCH_COUNT),
         String.valueOf(TTL.toSeconds()));
   }
+
+  public List<RecentSearch> findAllByMemberId(Long memberId) {
+    Set<TypedTuple<String>> tuples =
+        stringRedisTemplate
+            .opsForZSet()
+            .reverseRangeWithScores(KEY_PREFIX + memberId, 0, MAX_SEARCH_COUNT - 1);
+
+    if (tuples == null || tuples.isEmpty()) {
+      return List.of();
+    }
+
+    return tuples.stream()
+        .filter(tuple -> tuple.getValue() != null && tuple.getScore() != null)
+        .map(tuple -> new RecentSearch(tuple.getValue(), tuple.getScore().longValue()))
+        .toList();
+  }
+
+  public record RecentSearch(String keyword, long searchedAtEpochMillis) {}
 }

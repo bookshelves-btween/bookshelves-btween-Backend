@@ -2,6 +2,7 @@ package com.bookshelves.domain.book.controller;
 
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -186,4 +187,66 @@ public interface BookControllerDocs {
               example = "15",
               schema = @Schema(type = "integer", minimum = "1", maximum = "50"))
           String size);
+
+  @Operation(summary = "최근 검색어 조회", description = "회원의 최근 도서 검색어를 검색 시각 내림차순으로 최대 5개 조회합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "최근 검색어 조회 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_3",
+                              "message": "최근 검색어 조회에 성공했습니다.",
+                              "result": {
+                                "recentSearches": [{
+                                  "keyword": "혼모노",
+                                  "searchedAt": "2026-07-13T10:30:00+09:00"
+                                }]
+                              }
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "유효하지 않은 Access Token",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "AUTH401_2",
+                              "message": "유효하지 않은 Access Token입니다.",
+                              "result": null
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "500",
+        description = "최근 검색어 조회 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK500_2",
+                              "message": "최근 검색어를 불러오지 못했습니다.",
+                              "result": {}
+                            }
+                            """)))
+  })
+  ResponseEntity<ApiResponse<RecentBookSearchResDTO>> getRecentBookSearches();
 }

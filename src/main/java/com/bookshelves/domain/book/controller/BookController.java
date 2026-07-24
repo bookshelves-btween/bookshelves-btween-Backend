@@ -2,6 +2,7 @@ package com.bookshelves.domain.book.controller;
 
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.exception.code.BookSuccessCode;
 import com.bookshelves.domain.book.service.BookQueryService;
 import com.bookshelves.global.apiPayload.ApiResponse;
@@ -33,5 +34,13 @@ public class BookController implements BookControllerDocs {
     BookSearchResDTO response = bookQueryService.searchExternalBooks(query, page, size);
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.EXTERNAL_BOOK_SEARCHED, response));
+  }
+
+  @Override
+  @GetMapping("/api/v1/books/search/recent")
+  public ResponseEntity<ApiResponse<RecentBookSearchResDTO>> getRecentBookSearches() {
+    RecentBookSearchResDTO response = bookQueryService.getRecentBookSearches();
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(BookSuccessCode.RECENT_BOOK_SEARCHES_FOUND, response));
   }
 }

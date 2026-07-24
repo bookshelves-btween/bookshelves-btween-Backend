@@ -13,13 +13,16 @@ import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookItem;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookSearchResult;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
+import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -151,6 +154,48 @@ class BookQueryServiceTest {
 
     assertThat(result.books()).isEmpty();
     assertThat(result.hasNext()).isFalse();
+  }
+
+  @Test
+  void getRecentBookSearchesReturnsSearchesInRepositoryOrderWithSeoulOffset() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(recentBookSearchRepository.findAllByMemberId(7L))
+        .willReturn(
+            List.of(
+                new RecentSearch("혼모노", 1_721_000_000_000L),
+                new RecentSearch("미움받을 용기", 1_720_000_000_000L)));
+
+    RecentBookSearchResDTO result = bookQueryService.getRecentBookSearches();
+
+    assertThat(result.recentSearches())
+        .extracting(RecentBookSearchResDTO.RecentSearchInfo::keyword)
+        .containsExactly("혼모노", "미움받을 용기");
+    assertThat(result.recentSearches().getFirst().searchedAt())
+        .isEqualTo(OffsetDateTime.parse("2024-07-15T08:33:20+09:00"));
+  }
+
+  @Test
+  void getRecentBookSearchesReturnsEmptyListWhenMemberHasNoRecentSearch() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(recentBookSearchRepository.findAllByMemberId(7L)).willReturn(List.of());
+
+    RecentBookSearchResDTO result = bookQueryService.getRecentBookSearches();
+
+    assertThat(result.recentSearches()).isEmpty();
+  }
+
+  @Test
+  void getRecentBookSearchesThrowsBookExceptionWhenRedisLookupFails() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(recentBookSearchRepository.findAllByMemberId(7L))
+        .willThrow(new DataAccessResourceFailureException("redis unavailable"));
+
+    assertThatThrownBy(bookQueryService::getRecentBookSearches)
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.RECENT_BOOK_SEARCHES_FAILED));
   }
 
   private Category category(Long id, String kdcCode, String name) {
