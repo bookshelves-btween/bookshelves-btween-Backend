@@ -28,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class BookQueryService {
 
@@ -37,6 +36,7 @@ public class BookQueryService {
   private final RecentBookSearchRepository recentBookSearchRepository;
   private final AuthenticationFacade authenticationFacade;
 
+  @Transactional(readOnly = true)
   public CategoryListResDTO getCategories() {
     try {
       List<CategoryInfo> categories =
