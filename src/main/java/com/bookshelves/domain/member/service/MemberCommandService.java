@@ -72,6 +72,11 @@ public class MemberCommandService {
   }
 
   private void updateCategories(Long memberId, Member member, List<Long> categoryIds) {
+    // List.of(...) 등 일부 불변 리스트 구현은 contains(null) 자체가 NPE를 던지므로 스트림으로 검사한다.
+    if (categoryIds.stream().anyMatch(Objects::isNull)) {
+      throw new ProjectException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    }
+
     List<Long> distinctCategoryIds = categoryIds.stream().distinct().toList();
     List<Category> categories = categoryRepository.findAllById(distinctCategoryIds);
     if (categories.size() != distinctCategoryIds.size()) {
