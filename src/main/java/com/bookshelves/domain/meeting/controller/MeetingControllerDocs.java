@@ -23,6 +23,25 @@ import org.springframework.http.ResponseEntity;
 @Tag(name = "모임", description = "독서모임 API")
 public interface MeetingControllerDocs {
 
+  @Operation(summary = "내 모임 목록 조회", description = "인증된 사용자가 만든 모임 또는 참여한 모임을 연도와 월로 필터링해 조회합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  ResponseEntity<ApiResponse<MeetingSearchResDTO>> getMyMeetings(
+      @Parameter(description = "주최자 여부", example = "true", required = true) boolean isLeader,
+      @Parameter(description = "조회할 연도", example = "2026")
+          @Min(value = 1, message = "연도는 1 이상이어야 합니다.")
+          Integer year,
+      @Parameter(description = "조회할 월", example = "7")
+          @Min(value = 1, message = "월은 1 이상이어야 합니다.")
+          @Max(value = 12, message = "월은 12 이하여야 합니다.")
+          Integer month,
+      @Parameter(description = "페이지 번호(1부터 시작)", example = "1")
+          @Min(value = 1, message = "페이지는 1 이상이어야 합니다.")
+          Integer page,
+      @Parameter(description = "페이지 크기", example = "20")
+          @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
+          @Max(value = 50, message = "페이지 크기는 50 이하여야 합니다.")
+          Integer size);
+
   @Operation(summary = "모임 검색", description = "도서명으로 모임을 검색하고 페이지 단위로 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
