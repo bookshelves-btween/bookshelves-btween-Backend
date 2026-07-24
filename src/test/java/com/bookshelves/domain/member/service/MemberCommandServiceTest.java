@@ -12,13 +12,18 @@ import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.member.dto.request.MemberUpdateRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
+import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.entity.Member;
+import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.exception.MemberErrorCode;
 import com.bookshelves.domain.member.repository.MemberCategoryRepository;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.exception.ProjectException;
+import com.bookshelves.global.security.RedisTokenRepository;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -30,8 +35,10 @@ class MemberCommandServiceTest {
   private final MemberCategoryRepository memberCategoryRepository =
       mock(MemberCategoryRepository.class);
   private final CategoryRepository categoryRepository = mock(CategoryRepository.class);
+  private final RedisTokenRepository redisTokenRepository = mock(RedisTokenRepository.class);
   private final MemberCommandService memberCommandService =
-      new MemberCommandService(memberRepository, memberCategoryRepository, categoryRepository);
+      new MemberCommandService(
+          memberRepository, memberCategoryRepository, categoryRepository, redisTokenRepository);
 
   @Test
   void updateMyInfoCombinesNicknamePartsAndSavesColor() {
@@ -225,5 +232,40 @@ class MemberCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+  }
+
+  @Test
+  void withdrawSetsStatusWithdrawnAndDeletesAllTokens() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    memberCommandService.withdraw(1L);
+
+    assertThat(member.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
+    assertThat(member.getDeletedAt()).isNotNull();
+    verify(redisTokenRepository).deleteAllTokens(1L);
+  }
+
+  @Test
+  void withdrawReturnsScheduledDeletionAt30DaysAfterDeletedAt() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    MemberWithdrawResponse response = memberCommandService.withdraw(1L);
+
+    OffsetDateTime expected =
+        member.getDeletedAt().plusDays(30).atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime();
+    assertThat(response.getScheduledDeletionAt()).isEqualTo(expected);
+  }
+
+  @Test
+  void withdrawThrowsMemberNotFoundWhenMemberDoesNotExist() {
+    when(memberRepository.findById(1L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> memberCommandService.withdraw(1L))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+    verify(redisTokenRepository, never()).deleteAllTokens(any());
   }
 }

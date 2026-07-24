@@ -2,6 +2,7 @@ package com.bookshelves.domain.member.controller;
 
 import com.bookshelves.domain.member.dto.request.MemberUpdateRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
+import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.exception.MemberSuccessCode;
 import com.bookshelves.domain.member.service.MemberCommandService;
 import com.bookshelves.domain.member.service.MemberQueryService;
@@ -42,5 +43,14 @@ public class MemberController implements MemberControllerDocs {
 
     return ResponseEntity.ok(
         ApiResponse.onSuccess(MemberSuccessCode.MEMBER_UPDATE_SUCCESS, response));
+  }
+
+  @Override
+  public ResponseEntity<ApiResponse<MemberWithdrawResponse>> withdraw() {
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    MemberWithdrawResponse response = memberCommandService.withdraw(memberId);
+
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(MemberSuccessCode.MEMBER_WITHDRAW_SUCCESS, response));
   }
 }

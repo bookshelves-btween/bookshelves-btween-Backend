@@ -20,7 +20,6 @@ import com.bookshelves.global.security.RedisTokenRepository;
 import com.bookshelves.global.security.TokenType;
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class AuthCommandService {
-
-  private static final long RESTORE_PERIOD_DAYS = 30;
-  private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
 
   private final ProviderTokenVerifierResolver providerTokenVerifierResolver;
   private final MemberRepository memberRepository;
@@ -175,7 +171,11 @@ public class AuthCommandService {
         member.getId(), restoreToken, Duration.ofSeconds(restoreTokenExpiresIn));
 
     OffsetDateTime scheduledDeletionAt =
-        member.getDeletedAt().plusDays(RESTORE_PERIOD_DAYS).atZone(SERVICE_ZONE).toOffsetDateTime();
+        member
+            .getDeletedAt()
+            .plusDays(Member.RESTORE_PERIOD_DAYS)
+            .atZone(Member.SERVICE_ZONE)
+            .toOffsetDateTime();
 
     return AuthConverter.toSocialLoginWithdrawnResponse(
         restoreToken, restoreTokenExpiresIn, scheduledDeletionAt);

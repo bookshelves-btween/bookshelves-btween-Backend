@@ -5,6 +5,7 @@ import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.member.converter.MemberConverter;
 import com.bookshelves.domain.member.dto.request.MemberUpdateRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
+import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.entity.MemberCategory;
 import com.bookshelves.domain.member.enums.Provider;
@@ -12,6 +13,8 @@ import com.bookshelves.domain.member.exception.MemberErrorCode;
 import com.bookshelves.domain.member.repository.MemberCategoryRepository;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.exception.ProjectException;
+import com.bookshelves.global.security.RedisTokenRepository;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -30,14 +33,17 @@ public class MemberCommandService {
   private final MemberRepository memberRepository;
   private final MemberCategoryRepository memberCategoryRepository;
   private final CategoryRepository categoryRepository;
+  private final RedisTokenRepository redisTokenRepository;
 
   public MemberCommandService(
       MemberRepository memberRepository,
       MemberCategoryRepository memberCategoryRepository,
-      CategoryRepository categoryRepository) {
+      CategoryRepository categoryRepository,
+      RedisTokenRepository redisTokenRepository) {
     this.memberRepository = memberRepository;
     this.memberCategoryRepository = memberCategoryRepository;
     this.categoryRepository = categoryRepository;
+    this.redisTokenRepository = redisTokenRepository;
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -69,6 +75,25 @@ public class MemberCommandService {
 
     List<Category> categories = memberCategoryRepository.findCategoriesByMemberId(memberId);
     return MemberConverter.toMemberInfoResponse(member, categories);
+  }
+
+  public MemberWithdrawResponse withdraw(Long memberId) {
+    Member member =
+        memberRepository
+            .findById(memberId)
+            .orElseThrow(() -> new ProjectException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+    member.withdraw();
+    redisTokenRepository.deleteAllTokens(memberId);
+
+    OffsetDateTime scheduledDeletionAt =
+        member
+            .getDeletedAt()
+            .plusDays(Member.RESTORE_PERIOD_DAYS)
+            .atZone(Member.SERVICE_ZONE)
+            .toOffsetDateTime();
+
+    return MemberConverter.toWithdrawResponse(scheduledDeletionAt);
   }
 
   private void updateCategories(Long memberId, Member member, List<Long> categoryIds) {
