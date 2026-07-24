@@ -41,7 +41,7 @@ class MeetingCommandServiceTest {
     Meeting meeting = mock(Meeting.class);
     Member member = mock(Member.class);
     MeetingParticipant savedParticipant = mock(MeetingParticipant.class);
-    given(meetingRepository.findById(1L)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
     given(memberRepository.getReferenceById(10L)).willReturn(member);
@@ -57,7 +57,7 @@ class MeetingCommandServiceTest {
 
   @Test
   void rejectsUnknownMeeting() {
-    given(meetingRepository.findById(1L)).willReturn(Optional.empty());
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.empty());
 
     assertThatThrownBy(() -> meetingCommandService.participateMeeting(1L))
         .isInstanceOf(MeetingException.class)
@@ -68,7 +68,7 @@ class MeetingCommandServiceTest {
   @Test
   void rejectsDuplicateMeeting() {
     Meeting meeting = mock(Meeting.class);
-    given(meetingRepository.findById(1L)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(meetingParticipantRepository.existsByMeetingIdAndMemberId(1L, 10L)).willReturn(true);
 
@@ -82,7 +82,7 @@ class MeetingCommandServiceTest {
   @Test
   void rejectsMeetingThatIsNotRecruiting() {
     Meeting meeting = mock(Meeting.class);
-    given(meetingRepository.findById(1L)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(meeting.getStatus()).willReturn(MeetingStatus.IN_PROGRESS);
 

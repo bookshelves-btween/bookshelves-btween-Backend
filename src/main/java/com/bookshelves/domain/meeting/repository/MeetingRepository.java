@@ -2,11 +2,13 @@ package com.bookshelves.domain.meeting.repository;
 
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -27,6 +29,10 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
   @EntityGraph(attributePaths = "book")
   Optional<Meeting> findWithBookById(Long id);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select meeting from Meeting meeting where meeting.id = :id")
+  Optional<Meeting> findByIdForUpdate(@Param("id") Long id);
 
   @EntityGraph(attributePaths = "book")
   @Query(
