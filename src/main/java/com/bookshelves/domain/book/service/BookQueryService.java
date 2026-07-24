@@ -7,14 +7,19 @@ import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO.BookInfo;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO.CategoryInfo;
+import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
+import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO.RecentSearchInfo;
 import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
+import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
 import com.bookshelves.global.security.AuthenticationFacade;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -30,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class BookQueryService {
+
+  private static final ZoneId SEOUL_ZONE_ID = ZoneId.of("Asia/Seoul");
 
   private final CategoryRepository categoryRepository;
   private final KakaoBookSearchClient kakaoBookSearchClient;
@@ -66,6 +73,28 @@ public class BookQueryService {
     saveRecentSearchWithoutInterruptingResponse(memberId, normalizedQuery);
 
     return new BookSearchResDTO(books, page, size, !searchResult.isEnd());
+  }
+
+  public RecentBookSearchResDTO getRecentBookSearches() {
+    Long memberId = authenticationFacade.getCurrentMemberId();
+
+    try {
+      List<RecentSearchInfo> recentSearches =
+          recentBookSearchRepository.findAllByMemberId(memberId).stream()
+              .map(this::toRecentSearchInfo)
+              .toList();
+      return new RecentBookSearchResDTO(recentSearches);
+    } catch (DataAccessException exception) {
+      throw new BookException(BookErrorCode.RECENT_BOOK_SEARCHES_FAILED);
+    }
+  }
+
+  private RecentSearchInfo toRecentSearchInfo(RecentSearch recentSearch) {
+    return new RecentSearchInfo(
+        recentSearch.keyword(),
+        Instant.ofEpochMilli(recentSearch.searchedAtEpochMillis())
+            .atZone(SEOUL_ZONE_ID)
+            .toOffsetDateTime());
   }
 
   private int parsePageParameter(String value) {
