@@ -1,14 +1,18 @@
 package com.bookshelves.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 
 @SuppressWarnings("unchecked")
 class RedisTokenRepositoryTest {
@@ -50,6 +54,34 @@ class RedisTokenRepositoryTest {
 
     assertThat(redisTokenRepository.matchesRefreshToken(1L, "refresh-token")).isTrue();
     assertThat(redisTokenRepository.matchesRefreshToken(1L, "other-token")).isFalse();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void rotateRefreshTokenReturnsTrueWhenScriptReportsMatch() {
+    when(stringRedisTemplate.execute(
+            any(RedisScript.class), eq(List.of("auth:refresh:1")), any(), any(), any()))
+        .thenReturn(1L);
+
+    boolean rotated =
+        redisTokenRepository.rotateRefreshToken(
+            1L, "old-token", "new-token", Duration.ofSeconds(60));
+
+    assertThat(rotated).isTrue();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void rotateRefreshTokenReturnsFalseWhenScriptReportsMismatch() {
+    when(stringRedisTemplate.execute(
+            any(RedisScript.class), eq(List.of("auth:refresh:1")), any(), any(), any()))
+        .thenReturn(0L);
+
+    boolean rotated =
+        redisTokenRepository.rotateRefreshToken(
+            1L, "old-token", "new-token", Duration.ofSeconds(60));
+
+    assertThat(rotated).isFalse();
   }
 
   @Test

@@ -37,4 +37,12 @@ class JwtTokenProviderTest {
     assertThat(jwtTokenProvider.getExpirationSeconds(TokenType.REFRESH)).isEqualTo(1209600);
     assertThat(jwtTokenProvider.getExpirationSeconds(TokenType.RESTORE)).isEqualTo(600);
   }
+
+  @Test
+  void tokensGeneratedForSameMemberAndTypeAreAlwaysUnique() {
+    String first = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
+    String second = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
+
+    assertThat(first).isNotEqualTo(second);
+  }
 }

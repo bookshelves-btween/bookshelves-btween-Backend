@@ -69,11 +69,14 @@ jobs:
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
           IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
         run: |
+          remote_command="sudo bash /opt/bookshelf/runtime/scripts/deploy-from-ci.sh '$IMAGE_REF'"
+          parameters="$(jq -cn --arg command "$remote_command" '{commands: [$command]}')"
+
           command_id="$(aws ssm send-command \
             --document-name AWS-RunShellScript \
             --instance-ids "$EC2_INSTANCE_ID" \
             --comment "Deploy ${GITHUB_SHA}" \
-            --parameters commands="sudo bash /opt/bookshelf/runtime/scripts/deploy-from-ci.sh '$IMAGE_REF'" \
+            --parameters "$parameters" \
             --query 'Command.CommandId' \
             --output text)"
 
