@@ -3,4 +3,7 @@ package com.bookshelves.domain.report.repository;
 import com.bookshelves.domain.report.entity.Report;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ReportRepository extends JpaRepository<Report, Long> {}
+public interface ReportRepository extends JpaRepository<Report, Long> {
+
+  boolean existsByReporterMemberIdAndChatRoomId(Long reporterMemberId, Long chatRoomId);
+}
