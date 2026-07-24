@@ -5,6 +5,7 @@ import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -20,6 +21,7 @@ public class KakaoBookSearchClient {
   private final RestClient restClient;
   private final String restApiKey;
 
+  @Autowired
   public KakaoBookSearchClient(
       RestClient.Builder restClientBuilder,
       @Value("${external.kakao.rest-api-key}") String restApiKey,
