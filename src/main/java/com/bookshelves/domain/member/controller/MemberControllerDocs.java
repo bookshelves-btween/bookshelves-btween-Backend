@@ -2,6 +2,7 @@ package com.bookshelves.domain.member.controller;
 
 import com.bookshelves.domain.member.dto.request.MemberUpdateRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
+import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -196,4 +198,68 @@ public interface MemberControllerDocs {
   @PatchMapping("/api/v1/members/me")
   ResponseEntity<ApiResponse<MemberInfoResponse>> updateMyInfo(
       @Valid @RequestBody MemberUpdateRequest request);
+
+  @Operation(
+      summary = "회원 탈퇴",
+      description =
+          "현재 로그인된 회원을 탈퇴 처리한다. 탈퇴 시점으로부터 30일 이내에 동일 계정으로 재로그인하면 계정을 복구할 수 있으며, "
+              + "그 안내를 위해 복구 가능 기한을 응답으로 반환한다. 탈퇴 즉시 refresh token이 무효화되어 재로그인 전까지는 어떤 API도 호출할 수 없다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "탈퇴 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": true,
+                "code": "MEMBER200_3",
+                "message": "회원 탈퇴가 요청되었습니다.",
+                "result": {
+                  "scheduledDeletionAt": "2026-08-21T14:30:00+09:00"
+                }
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 실패 — access token이 없거나, 만료·서명 불일치 등으로 유효하지 않음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "AUTH401_2",
+                "message": "유효하지 않은 Access Token입니다.",
+                "result": null
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "회원을 찾을 수 없음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "MEMBER404_1",
+                "message": "회원을 찾을 수 없습니다.",
+                "result": {}
+              }
+              """)))
+  })
+  @DeleteMapping("/api/v1/members/me")
+  ResponseEntity<ApiResponse<MemberWithdrawResponse>> withdraw();
 }

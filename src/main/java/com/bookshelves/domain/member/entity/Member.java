@@ -21,6 +21,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Member extends BaseEntity {
 
+  public static final long RESTORE_PERIOD_DAYS = 30;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -71,5 +73,10 @@ public class Member extends BaseEntity {
 
   public void updateProfileBackgroundColor(ProfileBackgroundColor profileBackgroundColor) {
     this.profileBackgroundColor = profileBackgroundColor;
+  }
+
+  public void withdraw() {
+    this.status = MemberStatus.WITHDRAWN;
+    this.deletedAt = LocalDateTime.now();
   }
 }
