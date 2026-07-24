@@ -2,7 +2,7 @@ package com.bookshelves.global.websocket;
 
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.chat.code.ChatErrorCode;
-import com.bookshelves.domain.chat.service.ChatQueryService;
+import com.bookshelves.domain.chat.service.ChatSubscriptionValidator;
 import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.MemberPrincipal;
@@ -28,7 +28,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
   private static final String CHATROOM_SUBSCRIBE_PREFIX = "/sub/chatrooms/";
 
   private final JwtTokenProvider jwtTokenProvider;
-  private final ChatQueryService chatQueryService;
+  private final ChatSubscriptionValidator chatSubscriptionValidator;
 
   @Override
   public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -85,7 +85,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     Long chatroomId = parseChatroomId(destination);
 
-    chatQueryService.validateSubscription(chatroomId, principal.memberId());
+    chatSubscriptionValidator.validate(chatroomId, principal.memberId());
   }
 
   private Long parseChatroomId(String destination) {
