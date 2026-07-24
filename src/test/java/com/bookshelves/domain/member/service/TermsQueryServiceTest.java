@@ -32,6 +32,7 @@ class TermsQueryServiceTest {
     assertThat(response).hasSize(1);
     assertThat(response.get(0).getId()).isEqualTo(1L);
     assertThat(response.get(0).getTitle()).isEqualTo("서비스 이용약관");
+    assertThat(response.get(0).getContent()).isEqualTo("제1조 (목적) ...");
     assertThat(response.get(0).getType()).isEqualTo(TermsType.SERVICE);
     assertThat(response.get(0).getVersion()).isEqualTo("1.0.0");
     assertThat(response.get(0).getIsRequired()).isTrue();
