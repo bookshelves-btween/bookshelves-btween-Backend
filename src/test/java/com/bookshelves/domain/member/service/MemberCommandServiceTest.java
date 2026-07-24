@@ -150,6 +150,39 @@ class MemberCommandServiceTest {
   }
 
   @Test
+  void updateMyInfoThrowsInvalidRequestWhenNicknamePartExceedsMaxLength() {
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("a".repeat(31))
+            .nicknameModifier("modifier")
+            .nicknameAnimal("animal")
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
+  void updateMyInfoThrowsInvalidRequestWhenCombinedNicknameExceedsMaxLength() {
+    // 조각 각각은 30자 이하로 유효하지만, 공백 포함 합친 길이가 nickname 컬럼(50자)을 초과함
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("a".repeat(20))
+            .nicknameModifier("b".repeat(20))
+            .nicknameAnimal("c".repeat(20))
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
   void updateMyInfoThrowsInvalidRequestWhenCategoryIdDoesNotExist() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));

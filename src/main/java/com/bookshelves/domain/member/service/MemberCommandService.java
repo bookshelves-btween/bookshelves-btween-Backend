@@ -23,6 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class MemberCommandService {
 
+  // Member 엔티티 컬럼 길이(nickname_noun/modifier/animal=30, nickname=50)와 반드시 일치해야 한다.
+  private static final int NICKNAME_PART_MAX_LENGTH = 30;
+  private static final int NICKNAME_MAX_LENGTH = 50;
+
   private final MemberRepository memberRepository;
   private final MemberCategoryRepository memberCategoryRepository;
   private final CategoryRepository categoryRepository;
@@ -102,6 +106,27 @@ public class MemberCommandService {
             .count();
 
     if (providedCount != 0 && providedCount != 3) {
+      throw new ProjectException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    }
+
+    if (providedCount == 3) {
+      validateNicknameLength(request);
+    }
+  }
+
+  private void validateNicknameLength(MemberUpdateRequest request) {
+    String noun = request.getNicknameNoun();
+    String modifier = request.getNicknameModifier();
+    String animal = request.getNicknameAnimal();
+
+    boolean anyPartTooLong =
+        noun.length() > NICKNAME_PART_MAX_LENGTH
+            || modifier.length() > NICKNAME_PART_MAX_LENGTH
+            || animal.length() > NICKNAME_PART_MAX_LENGTH;
+
+    int combinedLength = noun.length() + 1 + modifier.length() + 1 + animal.length();
+
+    if (anyPartTooLong || combinedLength > NICKNAME_MAX_LENGTH) {
       throw new ProjectException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
   }
