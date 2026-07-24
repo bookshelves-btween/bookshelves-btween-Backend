@@ -9,12 +9,12 @@ import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
 import com.bookshelves.domain.auth.dto.response.ReissueResponse;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
+import com.bookshelves.domain.auth.exception.AuthException;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.service.MemberCommandService;
-import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.RedisTokenRepository;
 import com.bookshelves.global.security.TokenType;
@@ -76,7 +76,7 @@ public class AuthCommandService {
     String oldRefreshToken = request.getRefreshToken();
 
     if (!jwtTokenProvider.isValidToken(oldRefreshToken, TokenType.REFRESH)) {
-      throw new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
     }
 
     Long memberId = jwtTokenProvider.getMemberId(oldRefreshToken);
@@ -84,10 +84,10 @@ public class AuthCommandService {
     Member member =
         memberRepository
             .findById(memberId)
-            .orElseThrow(() -> new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN));
+            .orElseThrow(() -> new AuthException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN));
 
     if (!isReissuable(member.getStatus())) {
-      throw new ProjectException(AuthErrorCode.AUTH_UNREISSUABLE_MEMBER_STATUS);
+      throw new AuthException(AuthErrorCode.AUTH_UNREISSUABLE_MEMBER_STATUS);
     }
 
     return issueReissuedTokens(member, oldRefreshToken);
@@ -110,7 +110,7 @@ public class AuthCommandService {
             Duration.ofSeconds(tokens.refreshTokenExpiresIn()));
 
     if (!rotated) {
-      throw new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
     }
 
     return AuthConverter.toReissueResponse(
@@ -134,7 +134,7 @@ public class AuthCommandService {
     try {
       return Provider.valueOf(provider);
     } catch (IllegalArgumentException e) {
-      throw new ProjectException(AuthErrorCode.AUTH_UNSUPPORTED_PROVIDER);
+      throw new AuthException(AuthErrorCode.AUTH_UNSUPPORTED_PROVIDER);
     }
   }
 

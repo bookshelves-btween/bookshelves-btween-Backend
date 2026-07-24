@@ -2,10 +2,10 @@ package com.bookshelves.domain.chat.service;
 
 import com.bookshelves.domain.chat.code.ChatErrorCode;
 import com.bookshelves.domain.chat.entity.ChatRoom;
+import com.bookshelves.domain.chat.exception.ChatException;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import com.bookshelves.domain.meeting.repository.MeetingParticipantRepository;
-import com.bookshelves.global.exception.ProjectException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +27,7 @@ public class ChatSubscriptionValidator {
     ChatRoom chatRoom =
         chatRoomRepository
             .findById(chatroomId)
-            .orElseThrow(() -> new ProjectException(ChatErrorCode.CHATROOM_NOT_FOUND));
+            .orElseThrow(() -> new ChatException(ChatErrorCode.CHATROOM_NOT_FOUND));
 
     validate(chatRoom, memberId);
   }
@@ -36,10 +36,10 @@ public class ChatSubscriptionValidator {
   public void validate(ChatRoom chatRoom, Long memberId) {
     if (!meetingParticipantRepository.existsByMeetingIdAndMemberId(
         chatRoom.getMeeting().getId(), memberId)) {
-      throw new ProjectException(ChatErrorCode.CHATROOM_FORBIDDEN);
+      throw new ChatException(ChatErrorCode.CHATROOM_FORBIDDEN);
     }
     if (chatRoom.getMeeting().getStatus() == MeetingStatus.COMPLETED) {
-      throw new ProjectException(ChatErrorCode.CHATROOM_ENDED);
+      throw new ChatException(ChatErrorCode.CHATROOM_ENDED);
     }
   }
 }
