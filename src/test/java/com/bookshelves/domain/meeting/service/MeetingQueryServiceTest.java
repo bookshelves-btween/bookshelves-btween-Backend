@@ -3,6 +3,7 @@ package com.bookshelves.domain.meeting.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -120,7 +121,13 @@ class MeetingQueryServiceTest {
     given(authenticationFacade.getCurrentMemberId()).willReturn(1001L);
     given(
             meetingRepository.findSearchableMeetings(
-                eq("혼모노"), eq(MeetingStatus.RECRUITING), eq(1001L), any(Pageable.class)))
+                eq("혼모노"),
+                eq(MeetingStatus.RECRUITING),
+                eq(1001L),
+                argThat(
+                    pageable ->
+                        pageable.getSort().getOrderFor("startDate") != null
+                            && pageable.getSort().getOrderFor("id") != null)))
         .willReturn(new PageImpl<>(List.of(meeting), PageRequest.of(0, 1), 2));
     given(chatRoomRepository.findAllByMeetingIdIn(List.of(1L))).willReturn(List.of(chatRoom));
 
