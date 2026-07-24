@@ -53,7 +53,7 @@ public class MeetingCommandService {
         meetingRepository
             .findById(meetingId)
             .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
-    Long memberId = 1001L;
+    Long memberId = authenticationFacade.getCurrentMemberId();
 
     if (meetingParticipantRepository.existsByMeetingIdAndMemberId(meetingId, memberId)) {
       throw new MeetingException(MeetingErrorCode.DUPLICATE_MEETING);
