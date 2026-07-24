@@ -19,6 +19,7 @@ import com.bookshelves.domain.member.exception.MemberErrorCode;
 import com.bookshelves.domain.member.repository.MemberCategoryRepository;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.exception.ProjectException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -194,6 +195,22 @@ class MemberCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberCategoryRepository, never()).deleteByMember_Id(any());
+  }
+
+  @Test
+  void updateMyInfoThrowsInvalidRequestWhenCategoryIdsContainsNull() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder().categoryIds(Arrays.asList(1L, null, 3L)).build();
+
+    assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(categoryRepository, never()).findAllById(any());
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
 
