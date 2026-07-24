@@ -6,6 +6,7 @@ import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,6 +23,11 @@ import lombok.NoArgsConstructor;
 public class Member extends BaseEntity {
 
   public static final long RESTORE_PERIOD_DAYS = 30;
+
+  // deletedAt은 항상 이 타임존 기준 벽시계 값으로 기록한다.
+  // JVM 기본 타임존(LocalDateTime.now())을 쓰면 서버 OS 설정에 따라 값이 달라져,
+  // 이후 AuthCommandService/MemberCommandService가 이 값을 Asia/Seoul로 재해석할 때 어긋난다.
+  public static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -77,6 +83,6 @@ public class Member extends BaseEntity {
 
   public void withdraw() {
     this.status = MemberStatus.WITHDRAWN;
-    this.deletedAt = LocalDateTime.now();
+    this.deletedAt = LocalDateTime.now(SERVICE_ZONE);
   }
 }
