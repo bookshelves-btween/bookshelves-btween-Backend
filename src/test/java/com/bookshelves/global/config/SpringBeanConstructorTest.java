@@ -34,6 +34,16 @@ class SpringBeanConstructorTest {
         .isEmpty();
   }
 
+  @Test
+  void rejectsDefaultConstructorWithMultipleAutowiredConstructors() {
+    assertThat(hasAmbiguousConstructors(DefaultAndMultipleAutowiredConstructors.class)).isTrue();
+  }
+
+  @Test
+  void acceptsDefaultConstructorWithOneAutowiredConstructor() {
+    assertThat(hasAmbiguousConstructors(DefaultAndSingleAutowiredConstructor.class)).isFalse();
+  }
+
   private Class<?> loadClass(String className) {
     try {
       return Class.forName(className);
@@ -55,6 +65,25 @@ class SpringBeanConstructorTest {
             .filter(constructor -> constructor.isAnnotationPresent(Autowired.class))
             .count();
 
-    return !hasDefaultConstructor && autowiredConstructorCount != 1;
+    return hasDefaultConstructor ? autowiredConstructorCount > 1 : autowiredConstructorCount != 1;
+  }
+
+  private static class DefaultAndMultipleAutowiredConstructors {
+
+    DefaultAndMultipleAutowiredConstructors() {}
+
+    @Autowired
+    DefaultAndMultipleAutowiredConstructors(String firstDependency) {}
+
+    @Autowired
+    DefaultAndMultipleAutowiredConstructors(String firstDependency, Integer secondDependency) {}
+  }
+
+  private static class DefaultAndSingleAutowiredConstructor {
+
+    DefaultAndSingleAutowiredConstructor() {}
+
+    @Autowired
+    DefaultAndSingleAutowiredConstructor(String dependency) {}
   }
 }
