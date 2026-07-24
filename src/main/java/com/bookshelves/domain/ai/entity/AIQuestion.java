@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -41,4 +42,11 @@ public class AIQuestion extends BaseEntity {
 
   @Column(name = "question_order", nullable = false)
   private Integer questionOrder;
+
+  @Builder
+  private AIQuestion(Meeting meeting, String content, Integer questionOrder) {
+    this.meeting = meeting;
+    this.content = content;
+    this.questionOrder = questionOrder;
+  }
 }

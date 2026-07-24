@@ -36,7 +36,9 @@ public class ChatConverter {
       Long myMemberId,
       int applied,
       int connected,
+      int currentVotes,
       int requiredVotes,
+      boolean voted,
       AIQuestion currentQuestion,
       int maxQuestions,
       List<ChatMessage> messages) {
@@ -55,8 +57,7 @@ public class ChatConverter {
         myMemberId,
         toCurrentQuestion(currentQuestion),
         maxQuestions,
-        // TODO: currentVotes·voted는 AI 새 질문 투표 이슈에서 투표 저장소 연동 후 실제 값으로 교체
-        new ChatRoomEnterResponse.Vote(0, requiredVotes, false),
+        new ChatRoomEnterResponse.Vote(currentVotes, requiredVotes, voted),
         messages.stream().map(ChatConverter::toChatMessagePayload).toList());
   }
 
