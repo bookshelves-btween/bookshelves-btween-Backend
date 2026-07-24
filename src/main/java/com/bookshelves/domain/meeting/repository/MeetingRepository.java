@@ -43,4 +43,32 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
       @Param("status") MeetingStatus status,
       @Param("memberId") Long memberId,
       Pageable pageable);
+
+  @EntityGraph(attributePaths = "book")
+  @Query(
+      value =
+          """
+          select participant.meeting
+          from MeetingParticipant participant
+          where participant.member.id = :memberId
+            and participant.isLeader = :isLeader
+            and (:year is null or year(participant.meeting.startDate) = :year)
+            and (:month is null or month(participant.meeting.startDate) = :month)
+          order by participant.meeting.startDate asc, participant.meeting.id asc
+          """,
+      countQuery =
+          """
+          select count(participant.meeting)
+          from MeetingParticipant participant
+          where participant.member.id = :memberId
+            and participant.isLeader = :isLeader
+            and (:year is null or year(participant.meeting.startDate) = :year)
+            and (:month is null or month(participant.meeting.startDate) = :month)
+          """)
+  Page<Meeting> findMyMeetings(
+      @Param("memberId") Long memberId,
+      @Param("isLeader") boolean isLeader,
+      @Param("year") Integer year,
+      @Param("month") Integer month,
+      Pageable pageable);
 }

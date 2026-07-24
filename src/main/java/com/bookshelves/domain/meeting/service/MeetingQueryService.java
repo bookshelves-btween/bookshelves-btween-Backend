@@ -67,4 +67,22 @@ public class MeetingQueryService {
 
     return MeetingConverter.toMeetingSearchResDTO(meetingPage, chatroomIds);
   }
+
+  public MeetingSearchResDTO getMyMeetings(
+      boolean isLeader, Integer year, Integer month, int page, int size) {
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    PageRequest pageRequest = PageRequest.of(page - 1, size);
+    Page<Meeting> meetingPage =
+        meetingRepository.findMyMeetings(memberId, isLeader, year, month, pageRequest);
+
+    List<Long> meetingIds = meetingPage.getContent().stream().map(Meeting::getId).toList();
+    Map<Long, Long> chatroomIds =
+        meetingIds.isEmpty()
+            ? Map.of()
+            : chatRoomRepository.findAllByMeetingIdIn(meetingIds).stream()
+                .collect(
+                    Collectors.toMap(chatRoom -> chatRoom.getMeeting().getId(), ChatRoom::getId));
+
+    return MeetingConverter.toMeetingSearchResDTO(meetingPage, chatroomIds);
+  }
 }
