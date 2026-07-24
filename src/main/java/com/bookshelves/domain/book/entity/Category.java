@@ -18,23 +18,9 @@ public class Category {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "kdc_code", unique = true, length = 3)
+  @Column(name = "kdc_code", nullable = false, unique = true, length = 3)
   private String kdcCode;
 
   @Column(name = "name", nullable = false, length = 50)
   private String name;
-
-  private Category(String kdcCode, String name) {
-    this.kdcCode = kdcCode;
-    this.name = name;
-  }
-
-  public static Category create(String kdcCode, String name) {
-    return new Category(kdcCode, name);
-  }
-
-  public void updateMasterData(String kdcCode, String name) {
-    this.kdcCode = kdcCode;
-    this.name = name;
-  }
 }
