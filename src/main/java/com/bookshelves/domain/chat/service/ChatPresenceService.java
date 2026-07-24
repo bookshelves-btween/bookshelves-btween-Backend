@@ -1,5 +1,7 @@
 package com.bookshelves.domain.chat.service;
 
+import com.bookshelves.domain.ai.service.AIQuestionGenerationService;
+import com.bookshelves.domain.ai.service.QuestionVoteStore;
 import com.bookshelves.domain.chat.dto.ChatFrame;
 import com.bookshelves.domain.chat.dto.ChatParticipantPayload;
 import com.bookshelves.domain.member.repository.MemberRepository;
@@ -17,12 +19,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ChatPresenceService {
 
-  private static final String CHATROOM_SUB_DESTINATION = "/sub/chatrooms/";
   private static final String EVENT_JOINED = "JOINED";
   private static final String EVENT_LEFT = "LEFT";
 
   private final MemberRepository memberRepository;
   private final SimpMessagingTemplate messagingTemplate;
+  private final QuestionVoteStore questionVoteStore;
+  private final AIQuestionGenerationService aiQuestionGenerationService;
 
   private record Subscription(Long chatroomId, Long memberId) {}
 
@@ -95,19 +98,39 @@ public class ChatPresenceService {
         memberSubscriptionsByChatroom.remove(subscription.chatroomId());
       }
       broadcastParticipant(subscription.chatroomId(), subscription.memberId(), EVENT_LEFT);
+      reevaluateQuorum(subscription.chatroomId());
+    }
+  }
+
+  // 명세 "정족수 즉시 재판정" — LEFT로 connected가 줄어 requiredVotes가 내려갔을 때,
+  // 이미 모인 표가 새 정족수를 충족하면 그 자리에서 질문 생성을 시작한다.
+  private void reevaluateQuorum(Long chatroomId) {
+    if (countConnected(chatroomId) == 0) {
+      // 방이 비면 라운드 자체가 무의미 — 남은 표를 정리하고 재판정하지 않는다
+      questionVoteStore.clearVotes(chatroomId);
+      return;
+    }
+
+    int requiredVotes = requiredVotes(chatroomId);
+    int currentVotes = questionVoteStore.countVotes(chatroomId);
+    if (currentVotes >= 1 && currentVotes >= requiredVotes) {
+      aiQuestionGenerationService.requestGeneration(chatroomId);
     }
   }
 
   private void broadcastParticipant(Long chatroomId, Long memberId, String event) {
     String nickname = memberRepository.findById(memberId).map(m -> m.getNickname()).orElse(null);
 
-    // TODO: currentVotes는 AI 새 질문 투표 이슈에서 투표 저장소 연동 후 실제 값으로 교체
     ChatParticipantPayload payload =
         new ChatParticipantPayload(
-            event, nickname, countConnected(chatroomId), requiredVotes(chatroomId), 0);
+            event,
+            nickname,
+            countConnected(chatroomId),
+            requiredVotes(chatroomId),
+            questionVoteStore.countVotes(chatroomId));
 
     messagingTemplate.convertAndSend(
-        CHATROOM_SUB_DESTINATION + chatroomId,
+        ChatFrame.CHATROOM_SUB_DESTINATION + chatroomId,
         ChatFrame.of(ChatFrame.TYPE_PARTICIPANT, chatroomId, payload));
   }
 }

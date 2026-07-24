@@ -20,8 +20,6 @@ import org.springframework.stereotype.Controller;
 @RequiredArgsConstructor
 public class ChatStompController {
 
-  private static final String CHATROOM_SUB_DESTINATION = "/sub/chatrooms/";
-
   private final ChatCommandService chatCommandService;
   private final SimpMessagingTemplate messagingTemplate;
 
@@ -37,7 +35,7 @@ public class ChatStompController {
         .ifPresent(
             payload ->
                 messagingTemplate.convertAndSend(
-                    CHATROOM_SUB_DESTINATION + chatroomId,
+                    ChatFrame.CHATROOM_SUB_DESTINATION + chatroomId,
                     ChatFrame.of(ChatFrame.TYPE_MESSAGE, chatroomId, payload)));
   }
 
