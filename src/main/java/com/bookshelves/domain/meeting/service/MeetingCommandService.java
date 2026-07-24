@@ -51,7 +51,7 @@ public class MeetingCommandService {
   public MeetingParticipationResDTO participateMeeting(Long meetingId) {
     Meeting meeting =
         meetingRepository
-            .findById(meetingId)
+            .findByIdForUpdate(meetingId)
             .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
     Long memberId = authenticationFacade.getCurrentMemberId();
 
