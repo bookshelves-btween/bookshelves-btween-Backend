@@ -114,7 +114,7 @@ public class ChatPresenceService {
     int requiredVotes = requiredVotes(chatroomId);
     int currentVotes = questionVoteStore.countVotes(chatroomId);
     if (currentVotes >= 1 && currentVotes >= requiredVotes) {
-      aiQuestionGenerationService.requestGeneration(chatroomId);
+      aiQuestionGenerationService.requestGeneration(chatroomId, requiredVotes);
     }
   }
 

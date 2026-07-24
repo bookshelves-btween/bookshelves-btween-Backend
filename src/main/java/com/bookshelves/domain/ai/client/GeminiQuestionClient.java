@@ -1,7 +1,9 @@
 package com.bookshelves.domain.ai.client;
 
+import java.time.Duration;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -18,9 +20,15 @@ public class GeminiQuestionClient {
 
   public GeminiQuestionClient(
       RestClient.Builder restClientBuilder, @Value("${external.gemini.api-key}") String apiKey) {
+    // LLM 응답 지연이 생성 스레드를 계속 붙잡지 않도록 타임아웃을 건다 — 초과 시 폴백 질문으로 진행
+    SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+    requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+    requestFactory.setReadTimeout(Duration.ofSeconds(20));
+
     this.restClient =
         restClientBuilder
             .baseUrl("https://generativelanguage.googleapis.com/v1beta/models/")
+            .requestFactory(requestFactory)
             .build();
     this.apiKey = apiKey;
   }

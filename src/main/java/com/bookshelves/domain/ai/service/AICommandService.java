@@ -100,7 +100,7 @@ public class AICommandService {
       // 접속자가 0명이면 requiredVotes=0 — 이때는 정족수 판정 자체가 무의미하므로 트리거하지 않는다
       triggered = requiredVotes >= 1 && currentVotes >= requiredVotes;
       if (triggered) {
-        aiQuestionGenerationService.requestGeneration(chatroomId);
+        aiQuestionGenerationService.requestGeneration(chatroomId, requiredVotes);
       }
     }
 

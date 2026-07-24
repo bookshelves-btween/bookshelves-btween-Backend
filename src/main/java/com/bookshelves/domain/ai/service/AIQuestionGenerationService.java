@@ -5,6 +5,7 @@ import com.bookshelves.domain.ai.converter.AIConverter;
 import com.bookshelves.domain.ai.entity.AIQuestion;
 import com.bookshelves.domain.ai.repository.AIQuestionRepository;
 import com.bookshelves.domain.chat.dto.ChatFrame;
+import com.bookshelves.domain.chat.dto.ChatVoteCountPayload;
 import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.entity.Meeting;
@@ -65,7 +66,8 @@ public class AIQuestionGenerationService {
   // 생성권 선점(tryBeginGeneration)은 비동기 작업이 실행될 때가 아니라 "제출 시점"에 해야 한다 —
   // 실행 시점에 선점하면 정족수 도달 후 큐에 쌓인 트리거들이 앞 작업 종료 후 차례로 선점에 성공해
   // 한 라운드에서 질문이 연달아 생성된다. 선점과 동시에 라운드가 닫혀 새 투표도 거부된다.
-  public void requestGeneration(Long chatroomId) {
+  // requiredVotes는 실패 복구 시 리셋된 투표 현황을 전파할 때 사용한다.
+  public void requestGeneration(Long chatroomId, int requiredVotes) {
     if (!questionVoteStore.tryBeginGeneration(chatroomId)) {
       return;
     }
@@ -81,11 +83,7 @@ public class AIQuestionGenerationService {
               log.error("AI 질문 생성 실패: chatroomId={}", chatroomId, e);
             } finally {
               if (!generated) {
-                // 실패한 라운드의 표를 정리한다 — 남겨두면 전원이 이미 투표한 방은
-                // 이후 요청이 전부 중복 투표로 거부되어 라운드가 영구 정체된다.
-                // 표를 비우면 참여자들이 재투표로 생성을 다시 시도할 수 있다.
-                // (generating 플래그가 아직 켜져 있어 정리 전 새 표가 끼어들지 못한다)
-                questionVoteStore.clearVotes(chatroomId);
+                resetFailedRound(chatroomId, requiredVotes);
               }
               questionVoteStore.endGeneration(chatroomId);
             }
@@ -94,9 +92,27 @@ public class AIQuestionGenerationService {
     } finally {
       if (!submitted) {
         // 작업 제출 자체가 실패해도 라운드는 이미 닫혔다 — 표를 정리해 재투표로 복구 가능하게 한다
-        questionVoteStore.clearVotes(chatroomId);
+        resetFailedRound(chatroomId, requiredVotes);
         questionVoteStore.endGeneration(chatroomId);
       }
+    }
+  }
+
+  // 실패한 라운드의 표를 정리한다 — 남겨두면 전원이 이미 투표한 방은 이후 요청이 전부
+  // 중복 투표로 거부되어 라운드가 영구 정체된다. 표를 비우면 재투표로 다시 시도할 수 있다.
+  // (generating 플래그가 아직 켜져 있어 정리 전 새 표가 끼어들지 못한다)
+  // 리셋된 현황은 VOTE_COUNT로 전파한다 — 성공 시에는 QUESTION 프레임이 카운터 리셋을 담당하지만,
+  // 실패 시에는 이 프레임이 없으면 클라이언트가 이전 집계값을 계속 표시한다.
+  private void resetFailedRound(Long chatroomId, int requiredVotes) {
+    questionVoteStore.clearVotes(chatroomId);
+
+    try {
+      messagingTemplate.convertAndSend(
+          ChatFrame.CHATROOM_SUB_DESTINATION + chatroomId,
+          ChatFrame.of(
+              ChatFrame.TYPE_VOTE_COUNT, chatroomId, new ChatVoteCountPayload(0, requiredVotes)));
+    } catch (Exception e) {
+      log.warn("VOTE_COUNT 리셋 broadcast 실패: chatroomId={}", chatroomId, e);
     }
   }
 
