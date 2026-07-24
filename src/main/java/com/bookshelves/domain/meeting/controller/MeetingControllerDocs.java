@@ -25,6 +25,45 @@ public interface MeetingControllerDocs {
 
   @Operation(summary = "내 모임 목록 조회", description = "인증된 사용자가 만든 모임 또는 참여한 모임을 연도와 월로 필터링해 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "내 모임 목록 조회 성공"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "필수 파라미터 누락 또는 연도, 월, 페이지 요청 값 검증 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "COMMON400_1",
+                "message": "잘못된 요청입니다.",
+                "result": {}
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 정보가 유효하지 않음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "AUTH401_2",
+                "message": "유효하지 않은 Access Token입니다.",
+                "result": null
+              }
+              """)))
+  })
   ResponseEntity<ApiResponse<MeetingSearchResDTO>> getMyMeetings(
       @Parameter(description = "주최자 여부", example = "true", required = true) boolean isLeader,
       @Parameter(description = "조회할 연도", example = "2026")
