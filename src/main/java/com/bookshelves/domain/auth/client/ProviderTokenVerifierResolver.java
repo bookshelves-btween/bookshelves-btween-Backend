@@ -1,8 +1,8 @@
 package com.bookshelves.domain.auth.client;
 
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
+import com.bookshelves.domain.auth.exception.AuthException;
 import com.bookshelves.domain.member.enums.Provider;
-import com.bookshelves.global.exception.ProjectException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -24,7 +24,7 @@ public class ProviderTokenVerifierResolver {
     ProviderTokenVerifier verifier = verifiersByProvider.get(provider);
 
     if (verifier == null) {
-      throw new ProjectException(AuthErrorCode.AUTH_UNSUPPORTED_PROVIDER);
+      throw new AuthException(AuthErrorCode.AUTH_UNSUPPORTED_PROVIDER);
     }
 
     return verifier;

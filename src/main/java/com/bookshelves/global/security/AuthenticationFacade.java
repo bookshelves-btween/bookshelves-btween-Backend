@@ -1,7 +1,7 @@
 package com.bookshelves.global.security;
 
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
-import com.bookshelves.global.exception.ProjectException;
+import com.bookshelves.domain.auth.exception.AuthException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -14,7 +14,7 @@ public class AuthenticationFacade {
 
     if (authentication == null
         || !(authentication.getPrincipal() instanceof MemberPrincipal principal)) {
-      throw new ProjectException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
     }
 
     return principal.memberId();

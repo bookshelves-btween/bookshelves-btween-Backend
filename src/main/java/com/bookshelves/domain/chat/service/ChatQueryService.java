@@ -8,12 +8,12 @@ import com.bookshelves.domain.chat.code.ChatErrorCode;
 import com.bookshelves.domain.chat.converter.ChatConverter;
 import com.bookshelves.domain.chat.dto.ChatRoomEnterResponse;
 import com.bookshelves.domain.chat.entity.ChatRoom;
+import com.bookshelves.domain.chat.exception.ChatException;
 import com.bookshelves.domain.chat.repository.ChatMessageRepository;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import com.bookshelves.domain.meeting.repository.MeetingParticipantRepository;
-import com.bookshelves.global.exception.ProjectException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +35,7 @@ public class ChatQueryService {
     ChatRoom chatRoom =
         chatRoomRepository
             .findByIdWithMeetingAndBook(chatroomId)
-            .orElseThrow(() -> new ProjectException(ChatErrorCode.CHATROOM_NOT_FOUND));
+            .orElseThrow(() -> new ChatException(ChatErrorCode.CHATROOM_NOT_FOUND));
     Meeting meeting = chatRoom.getMeeting();
 
     // 접근 검증 기준(403·410)은 SUBSCRIBE 검증과 동일해야 한다 — validator로 단일화
