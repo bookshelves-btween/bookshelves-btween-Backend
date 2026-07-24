@@ -44,4 +44,15 @@ public class DeviceToken extends BaseEntity {
   @Enumerated(EnumType.STRING)
   @Column(name = "platform", nullable = false)
   private Platform platform = Platform.IOS;
+
+  public static DeviceToken create(Member member, String fcmToken) {
+    DeviceToken deviceToken = new DeviceToken();
+    deviceToken.member = member;
+    deviceToken.fcmToken = fcmToken;
+    return deviceToken;
+  }
+
+  public void assignTo(Member member) {
+    this.member = member;
+  }
 }
