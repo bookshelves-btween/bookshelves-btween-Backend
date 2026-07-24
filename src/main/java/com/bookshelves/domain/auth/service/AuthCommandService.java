@@ -4,7 +4,9 @@ import com.bookshelves.domain.auth.client.ProviderTokenVerifier;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
 import com.bookshelves.domain.auth.converter.AuthConverter;
+import com.bookshelves.domain.auth.dto.request.ReissueRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
+import com.bookshelves.domain.auth.dto.response.ReissueResponse;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.member.entity.Member;
@@ -70,6 +72,54 @@ public class AuthCommandService {
     redisTokenRepository.deleteRefreshToken(memberId);
   }
 
+  public ReissueResponse reissue(ReissueRequest request) {
+    String oldRefreshToken = request.getRefreshToken();
+
+    if (!jwtTokenProvider.isValidToken(oldRefreshToken, TokenType.REFRESH)) {
+      throw new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+    }
+
+    Long memberId = jwtTokenProvider.getMemberId(oldRefreshToken);
+
+    Member member =
+        memberRepository
+            .findById(memberId)
+            .orElseThrow(() -> new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN));
+
+    if (!isReissuable(member.getStatus())) {
+      throw new ProjectException(AuthErrorCode.AUTH_UNREISSUABLE_MEMBER_STATUS);
+    }
+
+    return issueReissuedTokens(member, oldRefreshToken);
+  }
+
+  private boolean isReissuable(MemberStatus status) {
+    return status == MemberStatus.ACTIVE || status == MemberStatus.PENDING_ONBOARDING;
+  }
+
+  private ReissueResponse issueReissuedTokens(Member member, String oldRefreshToken) {
+    TokenPair tokens = generateTokenPair(member.getId());
+
+    // 검증(matches)과 회전(save) 사이 TOCTOU를 없애기 위해 Redis에서 원자적으로 비교 후 교체한다.
+    // 동시에 같은 refresh token으로 재발급이 들어오면 하나만 성공하고 나머지는 거부된다.
+    boolean rotated =
+        redisTokenRepository.rotateRefreshToken(
+            member.getId(),
+            oldRefreshToken,
+            tokens.refreshToken(),
+            Duration.ofSeconds(tokens.refreshTokenExpiresIn()));
+
+    if (!rotated) {
+      throw new ProjectException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+    }
+
+    return AuthConverter.toReissueResponse(
+        tokens.accessToken(),
+        tokens.refreshToken(),
+        tokens.accessTokenExpiresIn(),
+        tokens.refreshTokenExpiresIn());
+  }
+
   private Member createSocialMember(Provider provider, String providerId) {
     try {
       return memberCommandService.createSocialMember(provider, providerId);
@@ -89,17 +139,33 @@ public class AuthCommandService {
   }
 
   private SocialLoginResponse issueLoginTokens(Member member) {
-    long accessTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.ACCESS);
-    long refreshTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.REFRESH);
-    String accessToken = jwtTokenProvider.generateToken(member.getId(), TokenType.ACCESS);
-    String refreshToken = jwtTokenProvider.generateToken(member.getId(), TokenType.REFRESH);
+    TokenPair tokens = generateTokenPair(member.getId());
 
     redisTokenRepository.saveRefreshToken(
-        member.getId(), refreshToken, Duration.ofSeconds(refreshTokenExpiresIn));
+        member.getId(), tokens.refreshToken(), Duration.ofSeconds(tokens.refreshTokenExpiresIn()));
 
     return AuthConverter.toSocialLoginTokenResponse(
-        accessToken, refreshToken, accessTokenExpiresIn, refreshTokenExpiresIn, member.getStatus());
+        tokens.accessToken(),
+        tokens.refreshToken(),
+        tokens.accessTokenExpiresIn(),
+        tokens.refreshTokenExpiresIn(),
+        member.getStatus());
   }
+
+  private TokenPair generateTokenPair(Long memberId) {
+    long accessTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.ACCESS);
+    long refreshTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.REFRESH);
+    String accessToken = jwtTokenProvider.generateToken(memberId, TokenType.ACCESS);
+    String refreshToken = jwtTokenProvider.generateToken(memberId, TokenType.REFRESH);
+
+    return new TokenPair(accessToken, refreshToken, accessTokenExpiresIn, refreshTokenExpiresIn);
+  }
+
+  private record TokenPair(
+      String accessToken,
+      String refreshToken,
+      long accessTokenExpiresIn,
+      long refreshTokenExpiresIn) {}
 
   private SocialLoginResponse issueRestoreToken(Member member) {
     long restoreTokenExpiresIn = jwtTokenProvider.getExpirationSeconds(TokenType.RESTORE);
