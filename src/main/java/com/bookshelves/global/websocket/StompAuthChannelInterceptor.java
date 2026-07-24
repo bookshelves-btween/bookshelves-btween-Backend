@@ -85,9 +85,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     Long chatroomId = parseChatroomId(destination);
 
-    if (!chatQueryService.isParticipant(chatroomId, principal.memberId())) {
-      throw new ProjectException(ChatErrorCode.CHATROOM_FORBIDDEN);
-    }
+    chatQueryService.validateSubscription(chatroomId, principal.memberId());
   }
 
   private Long parseChatroomId(String destination) {
