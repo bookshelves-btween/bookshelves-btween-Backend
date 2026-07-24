@@ -21,7 +21,8 @@ public class MemberAnonymizationScheduler {
   @Scheduled(cron = "0 0 0 * * *")
   @Transactional
   public void anonymizeExpiredWithdrawnMembers() {
-    LocalDateTime threshold = LocalDateTime.now().minusDays(Member.RESTORE_PERIOD_DAYS);
+    LocalDateTime threshold =
+        LocalDateTime.now(Member.SERVICE_ZONE).minusDays(Member.RESTORE_PERIOD_DAYS);
     List<Member> targets =
         memberRepository.findByStatusAndDeletedAtLessThanEqual(MemberStatus.WITHDRAWN, threshold);
 

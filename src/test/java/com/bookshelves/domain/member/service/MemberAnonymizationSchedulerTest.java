@@ -53,7 +53,8 @@ class MemberAnonymizationSchedulerTest {
         .findByStatusAndDeletedAtLessThanEqual(
             eq(MemberStatus.WITHDRAWN), thresholdCaptor.capture());
 
-    LocalDateTime expected = LocalDateTime.now().minusDays(Member.RESTORE_PERIOD_DAYS);
+    LocalDateTime expected =
+        LocalDateTime.now(Member.SERVICE_ZONE).minusDays(Member.RESTORE_PERIOD_DAYS);
     assertThat(ChronoUnit.SECONDS.between(thresholdCaptor.getValue(), expected)).isLessThan(5);
   }
 

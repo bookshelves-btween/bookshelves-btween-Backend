@@ -15,7 +15,6 @@ import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.RedisTokenRepository;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -30,7 +29,6 @@ public class MemberCommandService {
   // Member 엔티티 컬럼 길이(nickname_noun/modifier/animal=30, nickname=50)와 반드시 일치해야 한다.
   private static final int NICKNAME_PART_MAX_LENGTH = 30;
   private static final int NICKNAME_MAX_LENGTH = 50;
-  private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
 
   private final MemberRepository memberRepository;
   private final MemberCategoryRepository memberCategoryRepository;
@@ -92,7 +90,7 @@ public class MemberCommandService {
         member
             .getDeletedAt()
             .plusDays(Member.RESTORE_PERIOD_DAYS)
-            .atZone(SERVICE_ZONE)
+            .atZone(Member.SERVICE_ZONE)
             .toOffsetDateTime();
 
     return MemberConverter.toWithdrawResponse(scheduledDeletionAt);
