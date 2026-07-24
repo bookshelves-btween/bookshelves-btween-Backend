@@ -38,6 +38,20 @@ public class MeetingController implements MeetingControllerDocs {
   }
 
   @Override
+  @GetMapping("/api/v1/meetings/me")
+  public ResponseEntity<ApiResponse<MeetingSearchResDTO>> getMyMeetings(
+      @RequestParam boolean isLeader,
+      @RequestParam(required = false) Integer year,
+      @RequestParam(required = false) Integer month,
+      @RequestParam(defaultValue = "1") Integer page,
+      @RequestParam(defaultValue = "20") Integer size) {
+    MeetingSearchResDTO response =
+        meetingQueryService.getMyMeetings(isLeader, year, month, page, size);
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(MeetingSuccessCode.MY_MEETING_LIST_FOUND, response));
+  }
+
+  @Override
   @GetMapping("/api/v1/meetings/{meetingId}")
   public ResponseEntity<ApiResponse<MeetingDetailResDTO>> getMeetingDetail(
       @PathVariable Long meetingId) {

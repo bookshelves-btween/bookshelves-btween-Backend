@@ -24,6 +24,14 @@ class MeetingControllerValidationTest {
             "searchMeetings", String.class, Integer.class, Integer.class);
     Method createMethod =
         MeetingController.class.getMethod("createMeeting", String.class, MeetingCreateReqDTO.class);
+    Method myMeetingsMethod =
+        MeetingController.class.getMethod(
+            "getMyMeetings",
+            boolean.class,
+            Integer.class,
+            Integer.class,
+            Integer.class,
+            Integer.class);
     MeetingCreateReqDTO request =
         new MeetingCreateReqDTO(LocalDate.now().plusDays(1), "20:00", 4, 60);
     MeetingCreateReqDTO invalidRequest = new MeetingCreateReqDTO(null, null, null, null);
@@ -48,6 +56,12 @@ class MeetingControllerValidationTest {
                   .validateParameters(
                       controller, createMethod, new Object[] {"9788966262281", invalidRequest}))
           .hasSize(4);
+      assertThat(
+              validator
+                  .forExecutables()
+                  .validateParameters(
+                      controller, myMeetingsMethod, new Object[] {true, 2026, 13, 0, 51}))
+          .hasSize(3);
     }
   }
 }
