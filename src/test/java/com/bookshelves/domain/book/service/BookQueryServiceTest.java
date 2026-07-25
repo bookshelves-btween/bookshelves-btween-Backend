@@ -232,7 +232,7 @@ class BookQueryServiceTest {
     given(savedBook.getAuthor()).willReturn("성해나");
     given(savedBook.getPublisher()).willReturn("창비");
     given(savedBook.getPublishedDate()).willReturn(LocalDate.of(2024, 3, 29));
-    given(savedBook.getDescription()).willReturn("도서 설명입니다.");
+    given(savedBook.getDescription()).willReturn("a".repeat(127));
     given(savedBook.getCoverImageUrl()).willReturn("https://example.com/book.jpg");
     given(savedBook.getKdcCode()).willReturn("813");
     given(savedBook.getKdcName()).willReturn("문학");
@@ -248,6 +248,7 @@ class BookQueryServiceTest {
     assertThat(result.book().id()).isEqualTo(10L);
     assertThat(result.book().kdcCode()).isEqualTo("813");
     assertThat(result.book().kdcName()).isEqualTo("문학");
+    assertThat(result.book().description()).hasSize(129).isEqualTo("a".repeat(126) + "...");
     assertThat(result.memberBook().progress()).isEqualTo(70);
     assertThat(result.memberBook().rating()).isEqualByComparingTo("4.5");
     verifyNoInteractions(kakaoBookSearchClient, data4LibraryBookDetailClient);
@@ -282,7 +283,7 @@ class BookQueryServiceTest {
             List.of("성해나"),
             "창비",
             "2024-03-29T00:00:00.000+09:00",
-            "도서 설명입니다.",
+            "a".repeat(127),
             "https://example.com/book.jpg");
 
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
@@ -297,6 +298,7 @@ class BookQueryServiceTest {
     assertThat(result.book().id()).isNull();
     assertThat(result.book().kdcCode()).isEqualTo("813");
     assertThat(result.book().kdcName()).isEqualTo("문학");
+    assertThat(result.book().description()).hasSize(129).isEqualTo("a".repeat(126) + "...");
     assertThat(result.memberBook()).isNull();
     verifyNoInteractions(memberBookRepository);
   }
