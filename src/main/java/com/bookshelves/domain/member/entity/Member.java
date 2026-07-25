@@ -26,7 +26,8 @@ public class Member extends BaseEntity {
 
   // deletedAt은 항상 이 타임존 기준 벽시계 값으로 기록한다.
   // JVM 기본 타임존(LocalDateTime.now())을 쓰면 서버 OS 설정에 따라 값이 달라져,
-  // 이후 AuthCommandService/MemberCommandService가 이 값을 Asia/Seoul로 재해석할 때 어긋난다.
+  // 이후 AuthCommandService/MemberCommandService/MemberAnonymizationScheduler가
+  // 이 값을 Asia/Seoul로 재해석할 때 어긋난다.
   public static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
 
   @Id
@@ -84,5 +85,16 @@ public class Member extends BaseEntity {
   public void withdraw() {
     this.status = MemberStatus.WITHDRAWN;
     this.deletedAt = LocalDateTime.now(SERVICE_ZONE);
+  }
+
+  // provider/providerId까지 지워야 동일 소셜 계정으로 재가입이 가능해진다.
+  public void anonymize() {
+    this.status = MemberStatus.ANONYMIZED;
+    this.nickname = "탈퇴한 사용자" + this.id;
+    this.nicknameNoun = null;
+    this.nicknameModifier = null;
+    this.nicknameAnimal = null;
+    this.provider = null;
+    this.providerId = null;
   }
 }
