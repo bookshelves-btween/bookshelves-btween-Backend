@@ -1,6 +1,7 @@
 package com.bookshelves.domain.member.controller;
 
 import com.bookshelves.domain.member.dto.request.MemberUpdateRequest;
+import com.bookshelves.domain.member.dto.request.OnboardingRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
 import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.exception.MemberSuccessCode;
@@ -43,6 +44,16 @@ public class MemberController implements MemberControllerDocs {
 
     return ResponseEntity.ok(
         ApiResponse.onSuccess(MemberSuccessCode.MEMBER_UPDATE_SUCCESS, response));
+  }
+
+  @Override
+  public ResponseEntity<ApiResponse<MemberInfoResponse>> completeOnboarding(
+      OnboardingRequest request) {
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    MemberInfoResponse response = memberCommandService.completeOnboarding(memberId, request);
+
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(MemberSuccessCode.MEMBER_ONBOARDING_SUCCESS, response));
   }
 
   @Override

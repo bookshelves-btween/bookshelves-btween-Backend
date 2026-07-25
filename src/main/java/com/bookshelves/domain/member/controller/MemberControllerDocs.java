@@ -1,6 +1,7 @@
 package com.bookshelves.domain.member.controller;
 
 import com.bookshelves.domain.member.dto.request.MemberUpdateRequest;
+import com.bookshelves.domain.member.dto.request.OnboardingRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
 import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.global.apiPayload.ApiResponse;
@@ -15,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 @Tag(name = "회원", description = "회원·온보딩 API")
@@ -262,4 +264,129 @@ public interface MemberControllerDocs {
   })
   @DeleteMapping("/api/v1/members/me")
   ResponseEntity<ApiResponse<MemberWithdrawResponse>> withdraw();
+
+  @Operation(
+      summary = "온보딩 완료",
+      description =
+          "닉네임(noun/modifier/animal 3조각 모두)과 프로필 배경색은 필수이며, 관심 카테고리는 선택이다. "
+              + "PENDING_ONBOARDING 상태 회원만 호출할 수 있고, 성공 시 ACTIVE로 전환된다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "온보딩 완료 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": true,
+                "code": "MEMBER200_4",
+                "message": "온보딩이 완료되었습니다.",
+                "result": {
+                  "id": 1,
+                  "nickname": "책 먹는 여우",
+                  "nicknameNoun": "책",
+                  "nicknameModifier": "먹는",
+                  "nicknameAnimal": "여우",
+                  "profileBackgroundColor": "ORANGE",
+                  "provider": "KAKAO",
+                  "memberStatus": "ACTIVE",
+                  "createdAt": "2026-07-01T10:00:00",
+                  "categories": [
+                    { "id": 1, "name": "소설" }
+                  ]
+                }
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "요청 값 검증 실패(닉네임 누락/길이 초과 등) 또는 존재하지 않는 카테고리 ID를 포함함",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples = {
+                  @ExampleObject(
+                      name = "요청 값 검증 실패",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "COMMON400_1",
+                "message": "잘못된 요청입니다.",
+                "result": {
+                  "nicknameNoun": "공백일 수 없습니다"
+                }
+              }
+              """),
+                  @ExampleObject(
+                      name = "잘못된 요청(닉네임 길이 초과/존재하지 않는 카테고리 등)",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "MEMBER400_1",
+                "message": "유효하지 않은 요청입니다.",
+                "result": {}
+              }
+              """)
+                })),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 실패 — access token이 없거나, 만료·서명 불일치 등으로 유효하지 않음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "AUTH401_2",
+                "message": "유효하지 않은 Access Token입니다.",
+                "result": null
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "회원을 찾을 수 없음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "MEMBER404_1",
+                "message": "회원을 찾을 수 없습니다.",
+                "result": {}
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "이미 온보딩을 완료한 회원(PENDING_ONBOARDING 상태가 아님)",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "MEMBER409_1",
+                "message": "이미 온보딩을 완료한 회원입니다.",
+                "result": {}
+              }
+              """)))
+  })
+  @PostMapping("/api/v1/members/me/onboarding")
+  ResponseEntity<ApiResponse<MemberInfoResponse>> completeOnboarding(
+      @Valid @RequestBody OnboardingRequest request);
 }

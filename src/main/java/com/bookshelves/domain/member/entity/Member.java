@@ -82,6 +82,10 @@ public class Member extends BaseEntity {
     this.profileBackgroundColor = profileBackgroundColor;
   }
 
+  public void completeOnboarding() {
+    this.status = MemberStatus.ACTIVE;
+  }
+
   public void withdraw() {
     this.status = MemberStatus.WITHDRAWN;
     this.deletedAt = LocalDateTime.now(SERVICE_ZONE);
