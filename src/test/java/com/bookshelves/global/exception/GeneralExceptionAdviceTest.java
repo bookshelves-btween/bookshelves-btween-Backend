@@ -69,7 +69,7 @@ class GeneralExceptionAdviceTest {
         generalExceptionAdvice.handleHttpMediaTypeNotSupportedException(exception);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
-    assertThat(response.getBody().getCode()).isEqualTo("COMMON415");
+    assertThat(response.getBody().getCode()).isEqualTo("COMMON415_1");
     assertThat(response.getBody().getResult()).isEmpty();
   }
 
