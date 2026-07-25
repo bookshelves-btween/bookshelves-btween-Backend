@@ -44,6 +44,14 @@ public class KakaoBookSearchClient {
   }
 
   public KakaoBookSearchResult search(String query, int page, int size) {
+    return search(query, page, size, null);
+  }
+
+  public KakaoBookSearchResult searchByIsbn(String isbn) {
+    return search(isbn, 1, 1, "isbn");
+  }
+
+  private KakaoBookSearchResult search(String query, int page, int size, String target) {
     if (restApiKey == null || restApiKey.isBlank()) {
       throw new BookException(BookErrorCode.EXTERNAL_BOOK_API_FAILED);
     }
@@ -53,12 +61,16 @@ public class KakaoBookSearchClient {
           restClient
               .get()
               .uri(
-                  uriBuilder ->
-                      uriBuilder
-                          .queryParam("query", query)
-                          .queryParam("page", page)
-                          .queryParam("size", size)
-                          .build())
+                  uriBuilder -> {
+                    uriBuilder
+                        .queryParam("query", query)
+                        .queryParam("page", page)
+                        .queryParam("size", size);
+                    if (target != null) {
+                      uriBuilder.queryParam("target", target);
+                    }
+                    return uriBuilder.build();
+                  })
               .header(HttpHeaders.AUTHORIZATION, AUTHORIZATION_PREFIX + restApiKey)
               .retrieve()
               .body(KakaoBookSearchResponse.class);
