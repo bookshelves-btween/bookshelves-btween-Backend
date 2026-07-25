@@ -15,12 +15,17 @@ import com.bookshelves.domain.member.dto.request.OnboardingRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
 import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.entity.Member;
+import com.bookshelves.domain.member.entity.MemberTerms;
+import com.bookshelves.domain.member.entity.Terms;
 import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.exception.MemberErrorCode;
+import com.bookshelves.domain.member.exception.TermsErrorCode;
 import com.bookshelves.domain.member.repository.MemberCategoryRepository;
 import com.bookshelves.domain.member.repository.MemberRepository;
+import com.bookshelves.domain.member.repository.MemberTermsRepository;
+import com.bookshelves.domain.member.repository.TermsRepository;
 import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.RedisTokenRepository;
 import java.time.OffsetDateTime;
@@ -28,7 +33,9 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class MemberCommandServiceTest {
@@ -37,10 +44,17 @@ class MemberCommandServiceTest {
   private final MemberCategoryRepository memberCategoryRepository =
       mock(MemberCategoryRepository.class);
   private final CategoryRepository categoryRepository = mock(CategoryRepository.class);
+  private final TermsRepository termsRepository = mock(TermsRepository.class);
+  private final MemberTermsRepository memberTermsRepository = mock(MemberTermsRepository.class);
   private final RedisTokenRepository redisTokenRepository = mock(RedisTokenRepository.class);
   private final MemberCommandService memberCommandService =
       new MemberCommandService(
-          memberRepository, memberCategoryRepository, categoryRepository, redisTokenRepository);
+          memberRepository,
+          memberCategoryRepository,
+          categoryRepository,
+          termsRepository,
+          memberTermsRepository,
+          redisTokenRepository);
 
   @Test
   void updateMyInfoCombinesNicknamePartsAndSavesColor() {
@@ -53,7 +67,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     MemberInfoResponse response = memberCommandService.updateMyInfo(1L, request);
@@ -62,7 +76,7 @@ class MemberCommandServiceTest {
     assertThat(response.getNicknameNoun()).isEqualTo("책");
     assertThat(response.getNicknameModifier()).isEqualTo("먹는");
     assertThat(response.getNicknameAnimal()).isEqualTo("여우");
-    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.ORANGE);
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
 
@@ -228,7 +242,7 @@ class MemberCommandServiceTest {
     when(memberRepository.findById(1L)).thenReturn(Optional.empty());
 
     MemberUpdateRequest request =
-        MemberUpdateRequest.builder().profileBackgroundColor(ProfileBackgroundColor.PINK).build();
+        MemberUpdateRequest.builder().profileBackgroundColor(ProfileBackgroundColor.RED).build();
 
     assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
         .isInstanceOf(ProjectException.class)
@@ -247,13 +261,13 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
 
     assertThat(response.getNickname()).isEqualTo("책 먹는 여우");
-    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.ORANGE);
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
@@ -274,7 +288,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .categoryIds(List.of(1L))
             .build();
 
@@ -296,7 +310,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
@@ -315,7 +329,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
@@ -334,7 +348,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("a".repeat(31))
             .nicknameModifier("modifier")
             .nicknameAnimal("animal")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
@@ -354,7 +368,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .categoryIds(List.of(999L))
             .build();
 
@@ -363,6 +377,84 @@ class MemberCommandServiceTest {
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void completeOnboardingSavesAgreedTermsWhenRequiredTermsAreSatisfied() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
+
+    Terms requiredTerms = mock(Terms.class);
+    when(requiredTerms.getId()).thenReturn(1L);
+    when(termsRepository.findByIsRequiredTrue()).thenReturn(List.of(requiredTerms));
+    when(termsRepository.findAllById(Set.of(1L))).thenReturn(List.of(requiredTerms));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .agreedTermsIds(List.of(1L))
+            .build();
+
+    MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
+
+    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
+
+    ArgumentCaptor<List<MemberTerms>> captor = ArgumentCaptor.forClass(List.class);
+    verify(memberTermsRepository).saveAll(captor.capture());
+    assertThat(captor.getValue()).hasSize(1);
+    assertThat(captor.getValue().get(0).getMember()).isEqualTo(member);
+    assertThat(captor.getValue().get(0).getTerms()).isEqualTo(requiredTerms);
+  }
+
+  @Test
+  void completeOnboardingThrowsRequiredTermsNotAgreedWhenMissingRequiredTerms() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    Terms requiredTerms = mock(Terms.class);
+    when(requiredTerms.getId()).thenReturn(1L);
+    when(termsRepository.findByIsRequiredTrue()).thenReturn(List.of(requiredTerms));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(TermsErrorCode.TERMS_REQUIRED_NOT_AGREED);
+    verify(memberTermsRepository, never()).saveAll(any());
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenAgreedTermsIdDoesNotExist() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(termsRepository.findAllById(Set.of(999L))).thenReturn(List.of());
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .agreedTermsIds(List.of(999L))
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberTermsRepository, never()).saveAll(any());
   }
 
   @Test

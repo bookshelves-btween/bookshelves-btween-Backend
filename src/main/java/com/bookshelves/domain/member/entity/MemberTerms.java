@@ -41,4 +41,11 @@ public class MemberTerms extends BaseEntity {
 
   @Column(name = "withdrawn_at")
   private LocalDateTime withdrawnAt;
+
+  public static MemberTerms create(Member member, Terms terms) {
+    MemberTerms memberTerms = new MemberTerms();
+    memberTerms.member = member;
+    memberTerms.terms = terms;
+    return memberTerms;
+  }
 }

@@ -36,7 +36,7 @@ class MemberQueryServiceTest {
     when(member.getNicknameNoun()).thenReturn("사자");
     when(member.getNicknameModifier()).thenReturn("행복한");
     when(member.getNicknameAnimal()).thenReturn("사자");
-    when(member.getProfileBackgroundColor()).thenReturn(ProfileBackgroundColor.ORANGE);
+    when(member.getProfileBackgroundColor()).thenReturn(ProfileBackgroundColor.GREEN);
     when(member.getProvider()).thenReturn(Provider.KAKAO);
     when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
     when(member.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 7, 1, 10, 0));
@@ -51,7 +51,7 @@ class MemberQueryServiceTest {
 
     assertThat(response.getId()).isEqualTo(1L);
     assertThat(response.getNickname()).isEqualTo("행복한 사자");
-    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.ORANGE);
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
     assertThat(response.getProvider()).isEqualTo(Provider.KAKAO);
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     assertThat(response.getCreatedAt()).isEqualTo(LocalDateTime.of(2026, 7, 1, 10, 0));

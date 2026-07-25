@@ -18,4 +18,5 @@ public class OnboardingRequest {
   @NotBlank private String nicknameAnimal;
   @NotNull private ProfileBackgroundColor profileBackgroundColor;
   private List<Long> categoryIds;
+  private List<Long> agreedTermsIds;
 }
