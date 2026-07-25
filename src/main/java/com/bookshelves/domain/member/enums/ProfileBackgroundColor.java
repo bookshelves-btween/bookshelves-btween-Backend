@@ -1,10 +1,10 @@
 package com.bookshelves.domain.member.enums;
 
 public enum ProfileBackgroundColor {
-  ORANGE,
-  GREEN,
-  BLUE,
-  PINK,
+  BROWN,
   PURPLE,
-  BLACK
+  BLUE,
+  GREEN,
+  RED,
+  YELLOW
 }

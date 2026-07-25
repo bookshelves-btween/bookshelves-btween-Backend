@@ -45,7 +45,7 @@ public interface MemberControllerDocs {
                   "nicknameNoun": "책",
                   "nicknameModifier": "먹는",
                   "nicknameAnimal": "여우",
-                  "profileBackgroundColor": "ORANGE",
+                  "profileBackgroundColor": "GREEN",
                   "provider": "KAKAO",
                   "memberStatus": "ACTIVE",
                   "createdAt": "2026-07-01T10:00:00",
@@ -122,7 +122,7 @@ public interface MemberControllerDocs {
                   "nicknameNoun": "책",
                   "nicknameModifier": "먹는",
                   "nicknameAnimal": "여우",
-                  "profileBackgroundColor": "ORANGE",
+                  "profileBackgroundColor": "GREEN",
                   "provider": "KAKAO",
                   "memberStatus": "ACTIVE",
                   "createdAt": "2026-07-01T10:00:00",
@@ -268,7 +268,8 @@ public interface MemberControllerDocs {
   @Operation(
       summary = "온보딩 완료",
       description =
-          "닉네임(noun/modifier/animal 3조각 모두)과 프로필 배경색은 필수이며, 관심 카테고리는 선택이다. "
+          "닉네임(noun/modifier/animal 3조각 모두)과 프로필 배경색은 필수이며, 관심 카테고리·약관 동의는 선택이다. "
+              + "단 GET /api/v1/onboarding/terms에서 isRequired=true인 약관은 agreedTermsIds에 모두 포함돼야 한다. "
               + "PENDING_ONBOARDING 상태 회원만 호출할 수 있고, 성공 시 ACTIVE로 전환된다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
@@ -292,7 +293,7 @@ public interface MemberControllerDocs {
                   "nicknameNoun": "책",
                   "nicknameModifier": "먹는",
                   "nicknameAnimal": "여우",
-                  "profileBackgroundColor": "ORANGE",
+                  "profileBackgroundColor": "GREEN",
                   "provider": "KAKAO",
                   "memberStatus": "ACTIVE",
                   "createdAt": "2026-07-01T10:00:00",
@@ -304,7 +305,7 @@ public interface MemberControllerDocs {
               """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "요청 값 검증 실패(닉네임 누락/길이 초과 등) 또는 존재하지 않는 카테고리 ID를 포함함",
+        description = "요청 값 검증 실패(닉네임 누락/길이 초과 등), 존재하지 않는 카테고리/약관 ID를 포함, 또는 필수 약관 미동의",
         content =
             @Content(
                 mediaType = "application/json",
@@ -323,13 +324,24 @@ public interface MemberControllerDocs {
               }
               """),
                   @ExampleObject(
-                      name = "잘못된 요청(닉네임 길이 초과/존재하지 않는 카테고리 등)",
+                      name = "잘못된 요청(닉네임 길이 초과/존재하지 않는 카테고리·약관 ID 등)",
                       value =
                           """
               {
                 "isSuccess": false,
                 "code": "MEMBER400_1",
                 "message": "유효하지 않은 요청입니다.",
+                "result": {}
+              }
+              """),
+                  @ExampleObject(
+                      name = "필수 약관 미동의",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "TERMS400_1",
+                "message": "필수 약관에 동의하지 않으셨습니다.",
                 "result": {}
               }
               """)
