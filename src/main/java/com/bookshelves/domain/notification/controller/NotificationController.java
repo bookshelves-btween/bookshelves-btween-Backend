@@ -38,8 +38,7 @@ public class NotificationController implements NotificationControllerDocs {
     @RequestParam(defaultValue = "20") Integer size) {
     NotificationListResponse response =
       notificationQueryService.getNotifications(
-        //authenticationFacade.getCurrentMemberId(), page, size);
-        1001L, page, size);
+        authenticationFacade.getCurrentMemberId(), page, size);
 
     return ResponseEntity.ok(
       ApiResponse.onSuccess(NotificationSuccessCode.NOTIFICATION_LIST_FOUND, response));
