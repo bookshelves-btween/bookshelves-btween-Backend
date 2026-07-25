@@ -106,9 +106,10 @@ public class BookQueryService {
     String requestedIsbn =
         IsbnNormalizer.normalize(rawIsbn)
             .orElseThrow(() -> new BookException(BookErrorCode.INVALID_BOOK_ISBN));
+    String canonicalIsbn = IsbnNormalizer.toIsbn13(requestedIsbn);
     Long memberId = authenticationFacade.getCurrentMemberId();
 
-    Book savedBook = bookRepository.findByIsbn(requestedIsbn).orElse(null);
+    Book savedBook = bookRepository.findByIsbn(canonicalIsbn).orElse(null);
     MemberBook memberBook =
         savedBook == null
             ? null
