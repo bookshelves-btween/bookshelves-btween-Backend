@@ -14,6 +14,7 @@ import com.bookshelves.domain.auth.client.ProviderTokenVerifier;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
 import com.bookshelves.domain.auth.dto.request.ReissueRequest;
+import com.bookshelves.domain.auth.dto.request.RestoreRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
 import com.bookshelves.domain.auth.dto.response.ReissueResponse;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
@@ -261,6 +262,109 @@ class AuthCommandServiceTest {
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_UNREISSUABLE_MEMBER_STATUS);
     verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any());
+  }
+
+  @Test
+  void restoreSucceedsAndReissuesTokens() {
+    String restoreToken = jwtTokenProvider.generateToken(5L, TokenType.RESTORE);
+    Member member = mock(Member.class);
+    when(member.getId()).thenReturn(5L);
+    when(member.getStatus()).thenReturn(MemberStatus.WITHDRAWN, MemberStatus.ACTIVE);
+    when(member.getDeletedAt()).thenReturn(LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(5));
+    when(memberRepository.findById(5L)).thenReturn(Optional.of(member));
+    when(redisTokenRepository.consumeRestoreToken(5L, restoreToken)).thenReturn(true);
+
+    SocialLoginResponse response =
+        authCommandService.restore(RestoreRequest.builder().restoreToken(restoreToken).build());
+
+    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
+    assertThat(response.getAccessToken()).isNotNull();
+    assertThat(response.getRefreshToken()).isNotNull();
+    verify(member).restore();
+    verify(redisTokenRepository).saveRefreshToken(eq(5L), any(), eq(Duration.ofSeconds(1209600)));
+  }
+
+  @Test
+  void restoreThrowsInvalidRestoreTokenForWrongTokenType() {
+    String accessToken = jwtTokenProvider.generateToken(5L, TokenType.ACCESS);
+
+    assertThatThrownBy(
+            () ->
+                authCommandService.restore(
+                    RestoreRequest.builder().restoreToken(accessToken).build()))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(AuthErrorCode.AUTH_INVALID_RESTORE_TOKEN);
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
+  void restoreThrowsInvalidRestoreTokenWhenMemberNotFound() {
+    String restoreToken = jwtTokenProvider.generateToken(5L, TokenType.RESTORE);
+    when(memberRepository.findById(5L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                authCommandService.restore(
+                    RestoreRequest.builder().restoreToken(restoreToken).build()))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(AuthErrorCode.AUTH_INVALID_RESTORE_TOKEN);
+  }
+
+  @Test
+  void restoreThrowsUnrestorableMemberStatusWhenNotWithdrawn() {
+    String restoreToken = jwtTokenProvider.generateToken(5L, TokenType.RESTORE);
+    Member member = mock(Member.class);
+    when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
+    when(memberRepository.findById(5L)).thenReturn(Optional.of(member));
+
+    assertThatThrownBy(
+            () ->
+                authCommandService.restore(
+                    RestoreRequest.builder().restoreToken(restoreToken).build()))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(AuthErrorCode.AUTH_UNRESTORABLE_MEMBER_STATUS);
+    verify(redisTokenRepository, never()).consumeRestoreToken(any(), any());
+  }
+
+  @Test
+  void restoreThrowsRestorePeriodExpiredWhenPastThirtyDays() {
+    String restoreToken = jwtTokenProvider.generateToken(5L, TokenType.RESTORE);
+    Member member = mock(Member.class);
+    when(member.getStatus()).thenReturn(MemberStatus.WITHDRAWN);
+    when(member.getDeletedAt())
+        .thenReturn(LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(31));
+    when(memberRepository.findById(5L)).thenReturn(Optional.of(member));
+
+    assertThatThrownBy(
+            () ->
+                authCommandService.restore(
+                    RestoreRequest.builder().restoreToken(restoreToken).build()))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(AuthErrorCode.AUTH_RESTORE_PERIOD_EXPIRED);
+    verify(redisTokenRepository, never()).consumeRestoreToken(any(), any());
+  }
+
+  @Test
+  void restoreThrowsInvalidRestoreTokenWhenRedisDoesNotMatch() {
+    String restoreToken = jwtTokenProvider.generateToken(5L, TokenType.RESTORE);
+    Member member = mock(Member.class);
+    when(member.getStatus()).thenReturn(MemberStatus.WITHDRAWN);
+    when(member.getDeletedAt()).thenReturn(LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(5));
+    when(memberRepository.findById(5L)).thenReturn(Optional.of(member));
+    when(redisTokenRepository.consumeRestoreToken(5L, restoreToken)).thenReturn(false);
+
+    assertThatThrownBy(
+            () ->
+                authCommandService.restore(
+                    RestoreRequest.builder().restoreToken(restoreToken).build()))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(AuthErrorCode.AUTH_INVALID_RESTORE_TOKEN);
+    verify(member, never()).restore();
   }
 
   private ProviderTokenVerifier stubVerifier(
