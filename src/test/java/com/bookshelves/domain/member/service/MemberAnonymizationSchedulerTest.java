@@ -55,7 +55,8 @@ class MemberAnonymizationSchedulerTest {
 
     LocalDateTime expected =
         LocalDateTime.now(Member.SERVICE_ZONE).minusDays(Member.RESTORE_PERIOD_DAYS);
-    assertThat(ChronoUnit.SECONDS.between(thresholdCaptor.getValue(), expected)).isLessThan(5);
+    long diffSeconds = Math.abs(ChronoUnit.SECONDS.between(thresholdCaptor.getValue(), expected));
+    assertThat(diffSeconds).isLessThan(5);
   }
 
   @Test
