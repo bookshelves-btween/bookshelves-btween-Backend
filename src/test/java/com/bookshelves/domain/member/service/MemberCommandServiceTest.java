@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.member.dto.request.MemberUpdateRequest;
+import com.bookshelves.domain.member.dto.request.OnboardingRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
 import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.entity.Member;
@@ -233,6 +234,135 @@ class MemberCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+  }
+
+  @Test
+  void completeOnboardingActivatesMemberWithoutCategories() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .build();
+
+    MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
+
+    assertThat(response.getNickname()).isEqualTo("책 먹는 여우");
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.ORANGE);
+    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
+    verify(memberCategoryRepository, never()).deleteByMember_Id(any());
+  }
+
+  @Test
+  void completeOnboardingSetsCategoriesWhenProvided() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    Category novel = mock(Category.class);
+    when(novel.getId()).thenReturn(1L);
+    when(novel.getName()).thenReturn("소설");
+    when(categoryRepository.findAllById(List.of(1L))).thenReturn(List.of(novel));
+    when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of(novel));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .categoryIds(List.of(1L))
+            .build();
+
+    MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
+
+    assertThat(response.getCategories()).hasSize(1);
+    verify(memberCategoryRepository).deleteByMember_Id(1L);
+    verify(memberCategoryRepository).saveAll(any());
+  }
+
+  @Test
+  void completeOnboardingThrowsAlreadyOnboardedWhenStatusIsNotPendingOnboarding() {
+    Member member = mock(Member.class);
+    when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_ALREADY_ONBOARDED);
+    verify(member, never()).completeOnboarding();
+  }
+
+  @Test
+  void completeOnboardingThrowsMemberNotFoundWhenMemberDoesNotExist() {
+    when(memberRepository.findById(1L)).thenReturn(Optional.empty());
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenNicknamePartExceedsMaxLength() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("a".repeat(31))
+            .nicknameModifier("modifier")
+            .nicknameAnimal("animal")
+            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenCategoryIdDoesNotExist() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(categoryRepository.findAllById(List.of(999L))).thenReturn(List.of());
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .categoryIds(List.of(999L))
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
 
   @Test

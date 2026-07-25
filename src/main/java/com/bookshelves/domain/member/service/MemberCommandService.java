@@ -4,6 +4,7 @@ import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.member.converter.MemberConverter;
 import com.bookshelves.domain.member.dto.request.MemberUpdateRequest;
+import com.bookshelves.domain.member.dto.request.OnboardingRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
 import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.entity.Member;
@@ -78,6 +79,33 @@ public class MemberCommandService {
     return MemberConverter.toMemberInfoResponse(member, categories);
   }
 
+  public MemberInfoResponse completeOnboarding(Long memberId, OnboardingRequest request) {
+    Member member =
+        memberRepository
+            .findById(memberId)
+            .orElseThrow(() -> new ProjectException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+    if (member.getStatus() != MemberStatus.PENDING_ONBOARDING) {
+      throw new ProjectException(MemberErrorCode.MEMBER_ALREADY_ONBOARDED);
+    }
+
+    validateNicknameLength(
+        request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
+
+    member.updateNickname(
+        request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
+    member.updateProfileBackgroundColor(request.getProfileBackgroundColor());
+
+    if (request.getCategoryIds() != null) {
+      updateCategories(memberId, member, request.getCategoryIds());
+    }
+
+    member.completeOnboarding();
+
+    List<Category> categories = memberCategoryRepository.findCategoriesByMemberId(memberId);
+    return MemberConverter.toMemberInfoResponse(member, categories);
+  }
+
   public MemberWithdrawResponse withdraw(Long memberId) {
     Member member =
         memberRepository
@@ -145,15 +173,12 @@ public class MemberCommandService {
     }
 
     if (providedCount == 3) {
-      validateNicknameLength(request);
+      validateNicknameLength(
+          request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
     }
   }
 
-  private void validateNicknameLength(MemberUpdateRequest request) {
-    String noun = request.getNicknameNoun();
-    String modifier = request.getNicknameModifier();
-    String animal = request.getNicknameAnimal();
-
+  private void validateNicknameLength(String noun, String modifier, String animal) {
     boolean anyPartTooLong =
         noun.length() > NICKNAME_PART_MAX_LENGTH
             || modifier.length() > NICKNAME_PART_MAX_LENGTH
