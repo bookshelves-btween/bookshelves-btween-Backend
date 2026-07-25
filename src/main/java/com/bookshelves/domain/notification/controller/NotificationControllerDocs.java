@@ -35,7 +35,7 @@ public interface NotificationControllerDocs {
                             """
               {
                 "isSuccess": true,
-                "code": "NOTI200",
+                "code": "NOTI200_1",
                 "message": "FCM 토큰이 등록되었습니다.",
                 "result": null
               }
@@ -114,7 +114,7 @@ public interface NotificationControllerDocs {
                             """
               {
                 "isSuccess": false,
-                "code": "COMMON415",
+                "code": "COMMON415_1",
                 "message": "지원하지 않는 Content-Type입니다.",
                 "result": {}
               }

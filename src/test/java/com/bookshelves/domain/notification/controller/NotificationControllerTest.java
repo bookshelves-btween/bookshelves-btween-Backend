@@ -31,7 +31,7 @@ class NotificationControllerTest {
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().isSuccess()).isTrue();
-    assertThat(response.getBody().getCode()).isEqualTo("NOTI200");
+    assertThat(response.getBody().getCode()).isEqualTo("NOTI200_1");
     assertThat(response.getBody().getMessage()).isEqualTo("FCM 토큰이 등록되었습니다.");
     assertThat(response.getBody().getResult()).isNull();
     verify(notificationCommandService).registerFcmToken(1L, "fcm-token");
