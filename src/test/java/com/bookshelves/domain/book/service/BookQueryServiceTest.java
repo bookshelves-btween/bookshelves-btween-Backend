@@ -275,6 +275,25 @@ class BookQueryServiceTest {
   }
 
   @Test
+  void getBookDetailFindsSavedBookWhenRequestedWithEquivalentIsbn10() {
+    Book savedBook = mock(Book.class);
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(bookRepository.findByIsbn("9788936434595")).willReturn(Optional.of(savedBook));
+    given(savedBook.getId()).willReturn(10L);
+    given(savedBook.getIsbn()).willReturn("9788936434595");
+    given(savedBook.getTitle()).willReturn("아몬드");
+    given(savedBook.getKdcName()).willReturn("문학");
+    given(memberBookRepository.findByMemberIdAndBookId(7L, 10L)).willReturn(Optional.empty());
+
+    BookDetailResDTO result = bookQueryService.getBookDetail("8936434594");
+
+    assertThat(result.book().id()).isEqualTo(10L);
+    assertThat(result.memberBook()).isNull();
+    verifyNoInteractions(kakaoBookSearchClient, data4LibraryBookDetailClient);
+  }
+
+  @Test
   void getBookDetailReturnsNullMemberBookAndUnclassifiedWhenBookIsNotSaved() {
     KakaoBookItem externalBook =
         new KakaoBookItem(
