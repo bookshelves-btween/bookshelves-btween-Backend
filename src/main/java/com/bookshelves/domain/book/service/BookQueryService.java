@@ -45,6 +45,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookQueryService {
 
   private static final ZoneId SEOUL_ZONE_ID = ZoneId.of("Asia/Seoul");
+  private static final int DESCRIPTION_PREVIEW_LENGTH = 126;
+  private static final String DESCRIPTION_SUFFIX = "...";
 
   private final CategoryRepository categoryRepository;
   private final BookRepository bookRepository;
@@ -138,7 +140,7 @@ public class BookQueryService {
         toAuthor(item),
         item.publisher(),
         parsePublishedDate(item.datetime()),
-        item.contents(),
+        truncateDescription(item.contents()),
         item.thumbnail(),
         kdcInfo.code(),
         kdcInfo.name());
@@ -157,7 +159,7 @@ public class BookQueryService {
         book.getAuthor(),
         book.getPublisher(),
         book.getPublishedDate(),
-        book.getDescription(),
+        truncateDescription(book.getDescription()),
         book.getCoverImageUrl(),
         book.getKdcCode(),
         kdcName);
@@ -169,6 +171,16 @@ public class BookQueryService {
     }
     return new MemberBookInfo(
         memberBook.getId(), memberBook.getProgress(), memberBook.getRating(), memberBook.getMemo());
+  }
+
+  private String truncateDescription(String description) {
+    if (description == null
+        || description.codePointCount(0, description.length()) <= DESCRIPTION_PREVIEW_LENGTH) {
+      return description;
+    }
+
+    int endIndex = description.offsetByCodePoints(0, DESCRIPTION_PREVIEW_LENGTH);
+    return description.substring(0, endIndex) + DESCRIPTION_SUFFIX;
   }
 
   private RecentSearchInfo toRecentSearchInfo(RecentSearch recentSearch) {
