@@ -1,4 +1,3 @@
 reviews:
   path_filters:
-    - "!**/*.png"
-    - "src/main/resources/static/images/**"
+    - "!src/main/resources/static/images/**"
