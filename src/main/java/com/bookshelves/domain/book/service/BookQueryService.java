@@ -100,7 +100,6 @@ public class BookQueryService {
     }
   }
 
-  @Transactional(readOnly = true)
   public BookDetailResDTO getBookDetail(String rawIsbn) {
     String requestedIsbn =
         IsbnNormalizer.normalize(rawIsbn)
