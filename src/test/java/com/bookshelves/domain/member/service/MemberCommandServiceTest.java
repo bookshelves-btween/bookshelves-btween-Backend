@@ -15,6 +15,7 @@ import com.bookshelves.domain.member.dto.request.OnboardingRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
 import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.entity.Member;
+import com.bookshelves.domain.member.entity.MemberTerms;
 import com.bookshelves.domain.member.entity.Terms;
 import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class MemberCommandServiceTest {
@@ -378,14 +380,16 @@ class MemberCommandServiceTest {
   }
 
   @Test
-  void completeOnboardingSavesAgreedTerms() {
+  @SuppressWarnings("unchecked")
+  void completeOnboardingSavesAgreedTermsWhenRequiredTermsAreSatisfied() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
     when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
 
-    Terms serviceTerms = mock(Terms.class);
-    when(serviceTerms.getId()).thenReturn(1L);
-    when(termsRepository.findAllById(Set.of(1L))).thenReturn(List.of(serviceTerms));
+    Terms requiredTerms = mock(Terms.class);
+    when(requiredTerms.getId()).thenReturn(1L);
+    when(termsRepository.findByIsRequiredTrue()).thenReturn(List.of(requiredTerms));
+    when(termsRepository.findAllById(Set.of(1L))).thenReturn(List.of(requiredTerms));
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -396,9 +400,15 @@ class MemberCommandServiceTest {
             .agreedTermsIds(List.of(1L))
             .build();
 
-    memberCommandService.completeOnboarding(1L, request);
+    MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
 
-    verify(memberTermsRepository).saveAll(any());
+    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
+
+    ArgumentCaptor<List<MemberTerms>> captor = ArgumentCaptor.forClass(List.class);
+    verify(memberTermsRepository).saveAll(captor.capture());
+    assertThat(captor.getValue()).hasSize(1);
+    assertThat(captor.getValue().get(0).getMember()).isEqualTo(member);
+    assertThat(captor.getValue().get(0).getTerms()).isEqualTo(requiredTerms);
   }
 
   @Test
