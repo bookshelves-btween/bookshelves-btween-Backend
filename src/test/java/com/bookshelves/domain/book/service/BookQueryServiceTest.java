@@ -8,22 +8,31 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient;
+import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookItem;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookSearchResult;
+import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
+import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.Category;
+import com.bookshelves.domain.book.entity.MemberBook;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
+import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
+import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.global.security.AuthenticationFacade;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -35,7 +44,10 @@ import org.springframework.dao.DataAccessResourceFailureException;
 class BookQueryServiceTest {
 
   @Mock private CategoryRepository categoryRepository;
+  @Mock private BookRepository bookRepository;
+  @Mock private MemberBookRepository memberBookRepository;
   @Mock private KakaoBookSearchClient kakaoBookSearchClient;
+  @Mock private Data4LibraryBookDetailClient data4LibraryBookDetailClient;
   @Mock private RecentBookSearchRepository recentBookSearchRepository;
   @Mock private AuthenticationFacade authenticationFacade;
   @InjectMocks private BookQueryService bookQueryService;
@@ -196,6 +208,109 @@ class BookQueryServiceTest {
             exception ->
                 assertThat(((BookException) exception).getErrorCode())
                     .isEqualTo(BookErrorCode.RECENT_BOOK_SEARCHES_FAILED));
+  }
+
+  @Test
+  void getBookDetailReturnsExternalBookAndMemberBookWhenSaved() {
+    KakaoBookItem externalBook =
+        new KakaoBookItem(
+            "9788936434595",
+            "혼모노",
+            List.of("성해나"),
+            "창비",
+            "2024-03-29T00:00:00.000+09:00",
+            "도서 설명입니다.",
+            "https://example.com/book.jpg");
+    Book savedBook = mock(Book.class);
+    MemberBook memberBook = mock(MemberBook.class);
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(bookRepository.findByIsbn("9788936434595")).willReturn(Optional.of(savedBook));
+    given(savedBook.getId()).willReturn(10L);
+    given(savedBook.getIsbn()).willReturn("9788936434595");
+    given(savedBook.getTitle()).willReturn("혼모노");
+    given(savedBook.getAuthor()).willReturn("성해나");
+    given(savedBook.getPublisher()).willReturn("창비");
+    given(savedBook.getPublishedDate()).willReturn(LocalDate.of(2024, 3, 29));
+    given(savedBook.getDescription()).willReturn("도서 설명입니다.");
+    given(savedBook.getCoverImageUrl()).willReturn("https://example.com/book.jpg");
+    given(savedBook.getKdcCode()).willReturn("813");
+    given(savedBook.getKdcName()).willReturn("문학");
+    given(memberBookRepository.findByMemberIdAndBookId(7L, 10L))
+        .willReturn(Optional.of(memberBook));
+    given(memberBook.getId()).willReturn(20L);
+    given(memberBook.getProgress()).willReturn(70);
+    given(memberBook.getRating()).willReturn(BigDecimal.valueOf(4.5));
+    given(memberBook.getMemo()).willReturn("진짜란 무엇인가?");
+
+    BookDetailResDTO result = bookQueryService.getBookDetail("9788936434595");
+
+    assertThat(result.book().id()).isEqualTo(10L);
+    assertThat(result.book().kdcCode()).isEqualTo("813");
+    assertThat(result.book().kdcName()).isEqualTo("문학");
+    assertThat(result.memberBook().progress()).isEqualTo(70);
+    assertThat(result.memberBook().rating()).isEqualByComparingTo("4.5");
+    verifyNoInteractions(kakaoBookSearchClient, data4LibraryBookDetailClient);
+  }
+
+  @Test
+  void getBookDetailReturnsNullMemberBookAndUnclassifiedWhenBookIsNotSaved() {
+    KakaoBookItem externalBook =
+        new KakaoBookItem(
+            "9788936434595",
+            "혼모노",
+            List.of("성해나"),
+            "창비",
+            "2024-03-29T00:00:00.000+09:00",
+            "도서 설명입니다.",
+            "https://example.com/book.jpg");
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(kakaoBookSearchClient.searchByIsbn("9788936434595"))
+        .willReturn(new KakaoBookSearchResult(List.of(externalBook), true));
+    given(bookRepository.findByIsbn("9788936434595")).willReturn(Optional.empty());
+    given(data4LibraryBookDetailClient.findKdcByIsbn("9788936434595"))
+        .willReturn(new KdcInfo("813", "문학"));
+
+    BookDetailResDTO result = bookQueryService.getBookDetail("9788936434595");
+
+    assertThat(result.book().id()).isNull();
+    assertThat(result.book().kdcCode()).isEqualTo("813");
+    assertThat(result.book().kdcName()).isEqualTo("문학");
+    assertThat(result.memberBook()).isNull();
+    verifyNoInteractions(memberBookRepository);
+  }
+
+  @Test
+  void getBookDetailRejectsInvalidIsbnBeforeAuthenticationAndExternalCall() {
+    assertThatThrownBy(() -> bookQueryService.getBookDetail("invalid-isbn"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_BOOK_ISBN));
+
+    verifyNoInteractions(
+        authenticationFacade,
+        kakaoBookSearchClient,
+        data4LibraryBookDetailClient,
+        bookRepository,
+        memberBookRepository);
+  }
+
+  @Test
+  void getBookDetailThrowsWhenExternalBookDoesNotExist() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(bookRepository.findByIsbn("9788936434595")).willReturn(Optional.empty());
+    given(kakaoBookSearchClient.searchByIsbn("9788936434595"))
+        .willReturn(new KakaoBookSearchResult(List.of(), true));
+
+    assertThatThrownBy(() -> bookQueryService.getBookDetail("9788936434595"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.BOOK_NOT_FOUND));
   }
 
   private Category category(Long id, String kdcCode, String name) {
