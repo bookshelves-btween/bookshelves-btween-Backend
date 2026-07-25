@@ -67,7 +67,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     MemberInfoResponse response = memberCommandService.updateMyInfo(1L, request);
@@ -76,7 +76,7 @@ class MemberCommandServiceTest {
     assertThat(response.getNicknameNoun()).isEqualTo("책");
     assertThat(response.getNicknameModifier()).isEqualTo("먹는");
     assertThat(response.getNicknameAnimal()).isEqualTo("여우");
-    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.ORANGE);
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
 
@@ -242,7 +242,7 @@ class MemberCommandServiceTest {
     when(memberRepository.findById(1L)).thenReturn(Optional.empty());
 
     MemberUpdateRequest request =
-        MemberUpdateRequest.builder().profileBackgroundColor(ProfileBackgroundColor.PINK).build();
+        MemberUpdateRequest.builder().profileBackgroundColor(ProfileBackgroundColor.RED).build();
 
     assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
         .isInstanceOf(ProjectException.class)
@@ -261,13 +261,13 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
 
     assertThat(response.getNickname()).isEqualTo("책 먹는 여우");
-    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.ORANGE);
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
@@ -288,7 +288,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .categoryIds(List.of(1L))
             .build();
 
@@ -310,7 +310,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
@@ -329,7 +329,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
@@ -348,7 +348,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("a".repeat(31))
             .nicknameModifier("modifier")
             .nicknameAnimal("animal")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
@@ -368,7 +368,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .categoryIds(List.of(999L))
             .build();
 
@@ -396,7 +396,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .agreedTermsIds(List.of(1L))
             .build();
 
@@ -425,7 +425,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
@@ -446,7 +446,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .agreedTermsIds(List.of(999L))
             .build();
 
