@@ -24,23 +24,23 @@ public class NotificationController implements NotificationControllerDocs {
 
   @Override
   public ResponseEntity<ApiResponse<Void>> registerFcmToken(
-    @Valid @RequestBody FcmTokenRegisterRequest request) {
+      @Valid @RequestBody FcmTokenRegisterRequest request) {
     notificationCommandService.registerFcmToken(
-      authenticationFacade.getCurrentMemberId(), request.fcmToken());
+        authenticationFacade.getCurrentMemberId(), request.fcmToken());
 
     return ResponseEntity.ok(
-      ApiResponse.onSuccess(NotificationSuccessCode.FCM_TOKEN_REGISTERED, null));
+        ApiResponse.onSuccess(NotificationSuccessCode.FCM_TOKEN_REGISTERED, null));
   }
 
   @Override
   public ResponseEntity<ApiResponse<NotificationListResponse>> getNotifications(
-    @RequestParam(defaultValue = "1") Integer page,
-    @RequestParam(defaultValue = "20") Integer size) {
+      @RequestParam(defaultValue = "1") Integer page,
+      @RequestParam(defaultValue = "20") Integer size) {
     NotificationListResponse response =
-      notificationQueryService.getNotifications(
-        authenticationFacade.getCurrentMemberId(), page, size);
+        notificationQueryService.getNotifications(
+            authenticationFacade.getCurrentMemberId(), page, size);
 
     return ResponseEntity.ok(
-      ApiResponse.onSuccess(NotificationSuccessCode.NOTIFICATION_LIST_FOUND, response));
+        ApiResponse.onSuccess(NotificationSuccessCode.NOTIFICATION_LIST_FOUND, response));
   }
 }
