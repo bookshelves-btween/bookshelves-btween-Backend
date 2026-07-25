@@ -1,5 +1,6 @@
 package com.bookshelves.domain.book.controller;
 
+import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
@@ -249,4 +250,27 @@ public interface BookControllerDocs {
                             """)))
   })
   ResponseEntity<ApiResponse<RecentBookSearchResDTO>> getRecentBookSearches();
+
+  @Operation(summary = "책 상세 조회", description = "ISBN으로 외부 도서 정보와 내 독서 기록을 함께 조회합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "책 상세 조회 성공"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "ISBN 형식 오류"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 필요"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "책을 찾을 수 없음"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "502",
+        description = "외부 도서 API 호출 실패")
+  })
+  ResponseEntity<ApiResponse<BookDetailResDTO>> getBookDetail(
+      @Parameter(description = "ISBN10 또는 ISBN13", example = "9788936434595", required = true)
+          String isbn);
 }

@@ -1,18 +1,26 @@
 package com.bookshelves.domain.book.service;
 
+import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient;
+import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookItem;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookSearchResult;
+import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
+import com.bookshelves.domain.book.dto.response.BookDetailResDTO.MemberBookInfo;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO.BookInfo;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO.CategoryInfo;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO.RecentSearchInfo;
+import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.Category;
+import com.bookshelves.domain.book.entity.MemberBook;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
+import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
+import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
@@ -39,7 +47,10 @@ public class BookQueryService {
   private static final ZoneId SEOUL_ZONE_ID = ZoneId.of("Asia/Seoul");
 
   private final CategoryRepository categoryRepository;
+  private final BookRepository bookRepository;
+  private final MemberBookRepository memberBookRepository;
   private final KakaoBookSearchClient kakaoBookSearchClient;
+  private final Data4LibraryBookDetailClient data4LibraryBookDetailClient;
   private final RecentBookSearchRepository recentBookSearchRepository;
   private final AuthenticationFacade authenticationFacade;
 
@@ -89,6 +100,78 @@ public class BookQueryService {
     }
   }
 
+  @Transactional(readOnly = true)
+  public BookDetailResDTO getBookDetail(String rawIsbn) {
+    String requestedIsbn =
+        IsbnNormalizer.normalize(rawIsbn)
+            .orElseThrow(() -> new BookException(BookErrorCode.INVALID_BOOK_ISBN));
+    Long memberId = authenticationFacade.getCurrentMemberId();
+
+    Book savedBook = bookRepository.findByIsbn(requestedIsbn).orElse(null);
+    MemberBook memberBook =
+        savedBook == null
+            ? null
+            : memberBookRepository
+                .findByMemberIdAndBookId(memberId, savedBook.getId())
+                .orElse(null);
+
+    if (savedBook != null) {
+      return new BookDetailResDTO(toSavedBookDetailInfo(savedBook), toMemberBookInfo(memberBook));
+    }
+
+    KakaoBookItem externalBook =
+        kakaoBookSearchClient.searchByIsbn(requestedIsbn).books().stream()
+            .findFirst()
+            .orElseThrow(() -> new BookException(BookErrorCode.BOOK_NOT_FOUND));
+    String normalizedIsbn = IsbnNormalizer.normalize(externalBook.isbn()).orElse(requestedIsbn);
+    KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(normalizedIsbn);
+
+    return new BookDetailResDTO(
+        toExternalBookDetailInfo(externalBook, normalizedIsbn, kdcInfo), null);
+  }
+
+  private BookDetailResDTO.BookInfo toExternalBookDetailInfo(
+      KakaoBookItem item, String isbn, KdcInfo kdcInfo) {
+    return new BookDetailResDTO.BookInfo(
+        null,
+        isbn,
+        item.title(),
+        toAuthor(item),
+        item.publisher(),
+        parsePublishedDate(item.datetime()),
+        item.contents(),
+        item.thumbnail(),
+        kdcInfo.code(),
+        kdcInfo.name());
+  }
+
+  private BookDetailResDTO.BookInfo toSavedBookDetailInfo(Book book) {
+    String kdcName = book.getKdcName();
+    if (kdcName == null || kdcName.isBlank()) {
+      kdcName = "미분류";
+    }
+
+    return new BookDetailResDTO.BookInfo(
+        book.getId(),
+        book.getIsbn(),
+        book.getTitle(),
+        book.getAuthor(),
+        book.getPublisher(),
+        book.getPublishedDate(),
+        book.getDescription(),
+        book.getCoverImageUrl(),
+        book.getKdcCode(),
+        kdcName);
+  }
+
+  private MemberBookInfo toMemberBookInfo(MemberBook memberBook) {
+    if (memberBook == null) {
+      return null;
+    }
+    return new MemberBookInfo(
+        memberBook.getId(), memberBook.getProgress(), memberBook.getRating(), memberBook.getMemo());
+  }
+
   private RecentSearchInfo toRecentSearchInfo(RecentSearch recentSearch) {
     return new RecentSearchInfo(
         recentSearch.keyword(),
@@ -126,19 +209,21 @@ public class BookQueryService {
   }
 
   private BookInfo toBookInfo(KakaoBookItem item, String isbn) {
-    String author =
-        item.authors() == null || item.authors().isEmpty()
-            ? null
-            : String.join(", ", item.authors());
     return new BookInfo(
         isbn,
         item.title(),
-        author,
+        toAuthor(item),
         item.publisher(),
         parsePublishedDate(item.datetime()),
         item.contents(),
         item.thumbnail(),
         isbn != null);
+  }
+
+  private String toAuthor(KakaoBookItem item) {
+    return item.authors() == null || item.authors().isEmpty()
+        ? null
+        : String.join(", ", item.authors());
   }
 
   private LocalDate parsePublishedDate(String datetime) {

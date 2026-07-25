@@ -1,5 +1,6 @@
 package com.bookshelves.domain.book.controller;
 
+import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
@@ -9,6 +10,7 @@ import com.bookshelves.global.apiPayload.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,6 +36,13 @@ public class BookController implements BookControllerDocs {
     BookSearchResDTO response = bookQueryService.searchExternalBooks(query, page, size);
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.EXTERNAL_BOOK_SEARCHED, response));
+  }
+
+  @Override
+  @GetMapping("/api/v1/books/{isbn}")
+  public ResponseEntity<ApiResponse<BookDetailResDTO>> getBookDetail(@PathVariable String isbn) {
+    BookDetailResDTO response = bookQueryService.getBookDetail(isbn);
+    return ResponseEntity.ok(ApiResponse.onSuccess(BookSuccessCode.BOOK_DETAIL_FOUND, response));
   }
 
   @Override
