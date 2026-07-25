@@ -1,6 +1,7 @@
 package com.bookshelves.global.websocket;
 
 import com.bookshelves.domain.chat.service.ChatPresenceService;
+import com.bookshelves.domain.meeting.service.MeetingCommandService;
 import com.bookshelves.global.security.MemberPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ public class WebSocketEventListener {
   private static final String CHATROOM_SUBSCRIBE_PREFIX = "/sub/chatrooms/";
 
   private final ChatPresenceService chatPresenceService;
+  private final MeetingCommandService meetingCommandService;
 
   // presence 등록은 브로커에 구독이 등록된 뒤(SessionSubscribeEvent)에 수행 —
   // 인터셉터 시점에 등록하면 입장자 본인이 자신의 JOINED 프레임을 받지 못한다.
@@ -36,6 +38,13 @@ public class WebSocketEventListener {
 
     chatPresenceService.join(
         chatroomId, memberId, accessor.getSessionId(), accessor.getSubscriptionId());
+
+    // 출석 처리는 presence(인메모리)와 독립 — DB 실패가 구독/presence를 깨지 않도록 격리한다
+    try {
+      meetingCommandService.markAttended(chatroomId, memberId);
+    } catch (Exception e) {
+      log.warn("출석 처리 실패: chatroomId={}, memberId={}", chatroomId, memberId, e);
+    }
   }
 
   @EventListener
