@@ -29,6 +29,21 @@ public class RedisTokenRepository {
           """,
           Long.class);
 
+  // GET한 값이 tokenHash와 일치할 때만 원자적으로 삭제(소모)한다.
+  // matches 확인과 delete 사이에 다른 요청이 끼어들어 같은 토큰으로 두 번 복구가
+  // 성공하는 재사용(replay) 경쟁을 Redis 레벨에서 차단한다.
+  private static final RedisScript<Long> CONSUME_RESTORE_TOKEN_SCRIPT =
+      RedisScript.of(
+          """
+          if redis.call('GET', KEYS[1]) == ARGV[1] then
+            redis.call('DEL', KEYS[1])
+            return 1
+          else
+            return 0
+          end
+          """,
+          Long.class);
+
   private final StringRedisTemplate stringRedisTemplate;
 
   public RedisTokenRepository(StringRedisTemplate stringRedisTemplate) {
@@ -61,12 +76,15 @@ public class RedisTokenRepository {
     saveToken(getRestoreTokenKey(memberId), restoreToken, ttl);
   }
 
-  public boolean matchesRestoreToken(Long memberId, String restoreToken) {
-    return matchesToken(getRestoreTokenKey(memberId), restoreToken);
-  }
+  /** restoreToken이 현재 저장된 값과 일치할 때만 원자적으로 삭제(소모)한다. */
+  public boolean consumeRestoreToken(Long memberId, String restoreToken) {
+    Long result =
+        stringRedisTemplate.execute(
+            CONSUME_RESTORE_TOKEN_SCRIPT,
+            List.of(getRestoreTokenKey(memberId)),
+            hash(restoreToken));
 
-  public void deleteRestoreToken(Long memberId) {
-    stringRedisTemplate.delete(getRestoreTokenKey(memberId));
+    return result != null && result == 1L;
   }
 
   public void deleteAllTokens(Long memberId) {
@@ -76,16 +94,6 @@ public class RedisTokenRepository {
 
   private void saveToken(String key, String token, Duration ttl) {
     stringRedisTemplate.opsForValue().set(key, hash(token), ttl);
-  }
-
-  private boolean matchesToken(String key, String token) {
-    String savedTokenHash = stringRedisTemplate.opsForValue().get(key);
-    String tokenHash = hash(token);
-
-    return savedTokenHash != null
-        && MessageDigest.isEqual(
-            savedTokenHash.getBytes(StandardCharsets.UTF_8),
-            tokenHash.getBytes(StandardCharsets.UTF_8));
   }
 
   private String getRefreshTokenKey(Long memberId) {
