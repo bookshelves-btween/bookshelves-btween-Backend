@@ -15,12 +15,16 @@ import com.bookshelves.domain.member.dto.request.OnboardingRequest;
 import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
 import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.entity.Member;
+import com.bookshelves.domain.member.entity.Terms;
 import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.exception.MemberErrorCode;
+import com.bookshelves.domain.member.exception.TermsErrorCode;
 import com.bookshelves.domain.member.repository.MemberCategoryRepository;
 import com.bookshelves.domain.member.repository.MemberRepository;
+import com.bookshelves.domain.member.repository.MemberTermsRepository;
+import com.bookshelves.domain.member.repository.TermsRepository;
 import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.RedisTokenRepository;
 import java.time.OffsetDateTime;
@@ -28,6 +32,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -37,10 +42,17 @@ class MemberCommandServiceTest {
   private final MemberCategoryRepository memberCategoryRepository =
       mock(MemberCategoryRepository.class);
   private final CategoryRepository categoryRepository = mock(CategoryRepository.class);
+  private final TermsRepository termsRepository = mock(TermsRepository.class);
+  private final MemberTermsRepository memberTermsRepository = mock(MemberTermsRepository.class);
   private final RedisTokenRepository redisTokenRepository = mock(RedisTokenRepository.class);
   private final MemberCommandService memberCommandService =
       new MemberCommandService(
-          memberRepository, memberCategoryRepository, categoryRepository, redisTokenRepository);
+          memberRepository,
+          memberCategoryRepository,
+          categoryRepository,
+          termsRepository,
+          memberTermsRepository,
+          redisTokenRepository);
 
   @Test
   void updateMyInfoCombinesNicknamePartsAndSavesColor() {
@@ -363,6 +375,76 @@ class MemberCommandServiceTest {
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
+  }
+
+  @Test
+  void completeOnboardingSavesAgreedTerms() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
+
+    Terms serviceTerms = mock(Terms.class);
+    when(serviceTerms.getId()).thenReturn(1L);
+    when(termsRepository.findAllById(Set.of(1L))).thenReturn(List.of(serviceTerms));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .agreedTermsIds(List.of(1L))
+            .build();
+
+    memberCommandService.completeOnboarding(1L, request);
+
+    verify(memberTermsRepository).saveAll(any());
+  }
+
+  @Test
+  void completeOnboardingThrowsRequiredTermsNotAgreedWhenMissingRequiredTerms() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    Terms requiredTerms = mock(Terms.class);
+    when(requiredTerms.getId()).thenReturn(1L);
+    when(termsRepository.findByIsRequiredTrue()).thenReturn(List.of(requiredTerms));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(TermsErrorCode.TERMS_REQUIRED_NOT_AGREED);
+    verify(memberTermsRepository, never()).saveAll(any());
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenAgreedTermsIdDoesNotExist() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(termsRepository.findAllById(Set.of(999L))).thenReturn(List.of());
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.ORANGE)
+            .agreedTermsIds(List.of(999L))
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberTermsRepository, never()).saveAll(any());
   }
 
   @Test
