@@ -87,6 +87,12 @@ public class Member extends BaseEntity {
     this.deletedAt = LocalDateTime.now(SERVICE_ZONE);
   }
 
+  // 탈퇴는 ACTIVE 상태에서만 가능하도록 제한돼 있으므로, 복구 후 상태는 항상 ACTIVE로 되돌린다.
+  public void restore() {
+    this.status = MemberStatus.ACTIVE;
+    this.deletedAt = null;
+  }
+
   // provider/providerId까지 지워야 동일 소셜 계정으로 재가입이 가능해진다.
   public void anonymize() {
     this.status = MemberStatus.ANONYMIZED;

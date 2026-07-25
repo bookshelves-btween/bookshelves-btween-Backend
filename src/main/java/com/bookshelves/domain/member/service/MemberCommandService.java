@@ -8,6 +8,7 @@ import com.bookshelves.domain.member.dto.response.MemberInfoResponse;
 import com.bookshelves.domain.member.dto.response.MemberWithdrawResponse;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.entity.MemberCategory;
+import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.exception.MemberErrorCode;
 import com.bookshelves.domain.member.repository.MemberCategoryRepository;
@@ -82,6 +83,10 @@ public class MemberCommandService {
         memberRepository
             .findById(memberId)
             .orElseThrow(() -> new ProjectException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+    if (member.getStatus() != MemberStatus.ACTIVE) {
+      throw new ProjectException(MemberErrorCode.MEMBER_NOT_ACTIVE);
+    }
 
     member.withdraw();
     redisTokenRepository.deleteAllTokens(memberId);
