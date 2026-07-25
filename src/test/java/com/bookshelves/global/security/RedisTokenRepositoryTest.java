@@ -69,6 +69,28 @@ class RedisTokenRepositoryTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  void consumeRestoreTokenReturnsTrueWhenScriptReportsMatch() {
+    when(stringRedisTemplate.execute(any(RedisScript.class), eq(List.of("auth:restore:1")), any()))
+        .thenReturn(1L);
+
+    boolean consumed = redisTokenRepository.consumeRestoreToken(1L, "restore-token");
+
+    assertThat(consumed).isTrue();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void consumeRestoreTokenReturnsFalseWhenScriptReportsMismatch() {
+    when(stringRedisTemplate.execute(any(RedisScript.class), eq(List.of("auth:restore:1")), any()))
+        .thenReturn(0L);
+
+    boolean consumed = redisTokenRepository.consumeRestoreToken(1L, "restore-token");
+
+    assertThat(consumed).isFalse();
+  }
+
+  @Test
   void deleteAllTokensDeletesRefreshAndRestoreTokens() {
     redisTokenRepository.deleteAllTokens(1L);
 

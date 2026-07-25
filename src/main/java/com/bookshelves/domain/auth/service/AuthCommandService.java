@@ -5,6 +5,7 @@ import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
 import com.bookshelves.domain.auth.converter.AuthConverter;
 import com.bookshelves.domain.auth.dto.request.ReissueRequest;
+import com.bookshelves.domain.auth.dto.request.RestoreRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
 import com.bookshelves.domain.auth.dto.response.ReissueResponse;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
@@ -19,6 +20,7 @@ import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.RedisTokenRepository;
 import com.bookshelves.global.security.TokenType;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -87,6 +89,44 @@ public class AuthCommandService {
     }
 
     return issueReissuedTokens(member, oldRefreshToken);
+  }
+
+  public SocialLoginResponse restore(RestoreRequest request) {
+    String restoreToken = request.getRestoreToken();
+
+    if (!jwtTokenProvider.isValidToken(restoreToken, TokenType.RESTORE)) {
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_RESTORE_TOKEN);
+    }
+
+    Long memberId = jwtTokenProvider.getMemberId(restoreToken);
+
+    Member member =
+        memberRepository
+            .findById(memberId)
+            .orElseThrow(() -> new AuthException(AuthErrorCode.AUTH_INVALID_RESTORE_TOKEN));
+
+    if (member.getStatus() != MemberStatus.WITHDRAWN) {
+      throw new AuthException(AuthErrorCode.AUTH_UNRESTORABLE_MEMBER_STATUS);
+    }
+
+    if (isRestorePeriodExpired(member)) {
+      throw new AuthException(AuthErrorCode.AUTH_RESTORE_PERIOD_EXPIRED);
+    }
+
+    // 검증(matches)과 소모(delete) 사이 TOCTOU를 없애기 위해 Redis에서 원자적으로 비교 후 삭제한다.
+    // 동시에 같은 restore token으로 복구가 들어오면 하나만 성공하고 나머지는 거부된다.
+    if (!redisTokenRepository.consumeRestoreToken(memberId, restoreToken)) {
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_RESTORE_TOKEN);
+    }
+
+    member.restore();
+
+    return issueLoginTokens(member);
+  }
+
+  private boolean isRestorePeriodExpired(Member member) {
+    LocalDateTime restoreDeadline = member.getDeletedAt().plusDays(Member.RESTORE_PERIOD_DAYS);
+    return LocalDateTime.now(Member.SERVICE_ZONE).isAfter(restoreDeadline);
   }
 
   private boolean isReissuable(MemberStatus status) {

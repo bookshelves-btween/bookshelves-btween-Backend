@@ -1,6 +1,7 @@
 package com.bookshelves.domain.auth.controller;
 
 import com.bookshelves.domain.auth.dto.request.ReissueRequest;
+import com.bookshelves.domain.auth.dto.request.RestoreRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
 import com.bookshelves.domain.auth.dto.response.ReissueResponse;
 import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
@@ -257,4 +258,112 @@ public interface AuthControllerDocs {
   })
   @PostMapping("/api/v1/auth/reissue")
   ResponseEntity<ApiResponse<ReissueResponse>> reissue(@Valid @RequestBody ReissueRequest request);
+
+  @Operation(
+      summary = "계정 복구",
+      description =
+          "탈퇴(WITHDRAWN) 회원이 재로그인 시 발급받은 restoreToken으로 계정을 복구한다. "
+              + "복구에 성공하면 상태가 ACTIVE로 되돌아가고, 일반 로그인과 동일하게 access/refresh token이 발급된다. "
+              + "복구 가능 기간(탈퇴 후 30일)이 지나면 복구할 수 없다.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "복구 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": true,
+                "code": "AUTH200_4",
+                "message": "계정 복구에 성공하였습니다.",
+                "result": {
+                  "accessToken": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwibWVtYmVySWQiOjF9...",
+                  "refreshToken": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIxIiwibWVtYmVySWQiOjF9...",
+                  "accessTokenExpiresIn": 3600,
+                  "refreshTokenExpiresIn": 1209600,
+                  "restoreToken": null,
+                  "restoreTokenExpiresIn": null,
+                  "memberStatus": "ACTIVE",
+                  "scheduledDeletionAt": null
+                }
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "요청 값 검증 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "COMMON400_1",
+                "message": "잘못된 요청입니다.",
+                "result": {
+                  "restoreToken": "공백일 수 없습니다"
+                }
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "유효하지 않은 restore token (서명/만료/타입 불일치 또는 이미 소모됨)",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "AUTH401_4",
+                "message": "유효하지 않은 계정 복구 토큰입니다.",
+                "result": {}
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "복구할 수 있는 상태의 계정이 아님 (이미 ACTIVE이거나 ANONYMIZED 등)",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "AUTH409_1",
+                "message": "복구할 수 있는 상태의 계정이 아닙니다.",
+                "result": {}
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "410",
+        description = "복구 가능 기간(탈퇴 후 30일) 만료",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "AUTH410_1",
+                "message": "계정 복구 가능 기간이 만료되었습니다.",
+                "result": {}
+              }
+              """)))
+  })
+  @PostMapping("/api/v1/auth/restore")
+  ResponseEntity<ApiResponse<SocialLoginResponse>> restore(
+      @Valid @RequestBody RestoreRequest request);
 }

@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class MemberCommandServiceTest {
 
@@ -237,6 +238,7 @@ class MemberCommandServiceTest {
   @Test
   void withdrawSetsStatusWithdrawnAndDeletesAllTokens() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    ReflectionTestUtils.setField(member, "status", MemberStatus.ACTIVE);
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
 
     memberCommandService.withdraw(1L);
@@ -249,6 +251,7 @@ class MemberCommandServiceTest {
   @Test
   void withdrawReturnsScheduledDeletionAt30DaysAfterDeletedAt() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    ReflectionTestUtils.setField(member, "status", MemberStatus.ACTIVE);
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
 
     MemberWithdrawResponse response = memberCommandService.withdraw(1L);
@@ -266,6 +269,20 @@ class MemberCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+    verify(redisTokenRepository, never()).deleteAllTokens(any());
+  }
+
+  @Test
+  void withdrawThrowsMemberNotActiveWhenStatusIsNotActive() {
+    Member member = mock(Member.class);
+    when(member.getStatus()).thenReturn(MemberStatus.PENDING_ONBOARDING);
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    assertThatThrownBy(() -> memberCommandService.withdraw(1L))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_NOT_ACTIVE);
+    verify(member, never()).withdraw();
     verify(redisTokenRepository, never()).deleteAllTokens(any());
   }
 }
