@@ -20,11 +20,11 @@ public class NotificationController implements NotificationControllerDocs {
 
   @Override
   public ResponseEntity<ApiResponse<Void>> registerFcmToken(
-    @Valid @RequestBody FcmTokenRegisterRequest request) {
+      @Valid @RequestBody FcmTokenRegisterRequest request) {
     notificationCommandService.registerFcmToken(
-      authenticationFacade.getCurrentMemberId(), request.fcmToken());
+        authenticationFacade.getCurrentMemberId(), request.fcmToken());
 
     return ResponseEntity.ok(
-      ApiResponse.onSuccess(NotificationSuccessCode.FCM_TOKEN_REGISTERED, null));
+        ApiResponse.onSuccess(NotificationSuccessCode.FCM_TOKEN_REGISTERED, null));
   }
 }

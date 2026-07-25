@@ -16,17 +16,17 @@ import org.springframework.http.ResponseEntity;
 class NotificationControllerTest {
 
   private final NotificationCommandService notificationCommandService =
-    mock(NotificationCommandService.class);
+      mock(NotificationCommandService.class);
   private final AuthenticationFacade authenticationFacade = mock(AuthenticationFacade.class);
   private final NotificationController notificationController =
-    new NotificationController(notificationCommandService, authenticationFacade);
+      new NotificationController(notificationCommandService, authenticationFacade);
 
   @Test
   void registerFcmTokenReturnsSpecifiedSuccessResponse() {
     when(authenticationFacade.getCurrentMemberId()).thenReturn(1L);
 
     ResponseEntity<ApiResponse<Void>> response =
-      notificationController.registerFcmToken(new FcmTokenRegisterRequest("fcm-token"));
+        notificationController.registerFcmToken(new FcmTokenRegisterRequest("fcm-token"));
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).isNotNull();
