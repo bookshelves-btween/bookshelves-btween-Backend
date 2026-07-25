@@ -256,19 +256,121 @@ public interface BookControllerDocs {
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",
-        description = "책 상세 조회 성공"),
+        description = "책 상세 조회 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples = {
+                  @ExampleObject(
+                      name = "저장된 책",
+                      value =
+                          """
+                          {
+                            "isSuccess": true,
+                            "code": "BOOK200_4",
+                            "message": "책 상세 조회에 성공했습니다.",
+                            "result": {
+                              "book": {
+                                "id": 10,
+                                "isbn": "9788936434595",
+                                "title": "혼모노",
+                                "author": "성해나",
+                                "publisher": "창비",
+                                "publishedDate": "2024-03-29",
+                                "description": "도서 설명입니다.",
+                                "coverImageUrl": "https://image.example.com/book.jpg",
+                                "kdcCode": "813",
+                                "kdcName": "문학"
+                              },
+                              "memberBook": {
+                                "id": 20,
+                                "progress": 70,
+                                "rating": 4.5,
+                                "memo": "진짜란 무엇인가?"
+                              }
+                            }
+                          }
+                          """),
+                  @ExampleObject(
+                      name = "저장 전 책",
+                      value =
+                          """
+                          {
+                            "isSuccess": true,
+                            "code": "BOOK200_4",
+                            "message": "책 상세 조회에 성공했습니다.",
+                            "result": {
+                              "book": {
+                                "id": null,
+                                "isbn": "9788936434595",
+                                "title": "혼모노",
+                                "author": "성해나",
+                                "publisher": "창비",
+                                "publishedDate": "2024-03-29",
+                                "description": "도서 설명입니다.",
+                                "coverImageUrl": "https://image.example.com/book.jpg",
+                                "kdcCode": "813",
+                                "kdcName": "문학"
+                              },
+                              "memberBook": null
+                            }
+                          }
+                          """)
+                })),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "ISBN 형식 오류"),
+        description = "ISBN 형식 오류",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK400_2",
+                              "message": "ISBN 형식이 올바르지 않습니다.",
+                              "result": null
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
         description = "인증 필요"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
-        description = "책을 찾을 수 없음"),
+        description = "책을 찾을 수 없음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK404_1",
+                              "message": "해당 책을 찾을 수 없습니다.",
+                              "result": null
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "502",
-        description = "외부 도서 API 호출 실패")
+        description = "외부 도서 API 호출 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK502_1",
+                              "message": "외부 도서 API 호출에 실패했습니다.",
+                              "result": null
+                            }
+                            """)))
   })
   ResponseEntity<ApiResponse<BookDetailResDTO>> getBookDetail(
       @Parameter(description = "ISBN10 또는 ISBN13", example = "9788936434595", required = true)
