@@ -34,8 +34,8 @@ public class NotificationController implements NotificationControllerDocs {
 
   @Override
   public ResponseEntity<ApiResponse<NotificationListResponse>> getNotifications(
-      @RequestParam(defaultValue = "1") Integer page,
-      @RequestParam(defaultValue = "20") Integer size) {
+      @RequestParam(name = "page", defaultValue = "1") Integer page,
+      @RequestParam(name = "size", defaultValue = "20") Integer size) {
     NotificationListResponse response =
         notificationQueryService.getNotifications(
             authenticationFacade.getCurrentMemberId(), page, size);
