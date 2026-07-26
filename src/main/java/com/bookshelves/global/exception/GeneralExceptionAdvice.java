@@ -3,6 +3,7 @@ package com.bookshelves.global.exception;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import com.bookshelves.global.apiPayload.code.BaseErrorCode;
 import com.bookshelves.global.apiPayload.code.GeneralErrorCode;
+import jakarta.validation.ConstraintViolationException;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +53,7 @@ public class GeneralExceptionAdvice {
   // 쿼리 파라미터 제약 조건 및 타입 검증 실패
   @ExceptionHandler({
     HandlerMethodValidationException.class,
+    ConstraintViolationException.class,
     MethodArgumentTypeMismatchException.class,
     MissingServletRequestParameterException.class
   })
