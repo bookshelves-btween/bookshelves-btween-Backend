@@ -474,5 +474,4 @@ public interface MeetingControllerDocs {
   })
   ResponseEntity<ApiResponse<MeetingParticipationResDTO>> participate(
       @Parameter(description = "모임 ID", example = "1", required = true) Long meetingId);
-
 }
