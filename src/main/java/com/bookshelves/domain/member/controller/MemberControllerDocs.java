@@ -134,7 +134,8 @@ public interface MemberControllerDocs {
               """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "수정할 필드가 없거나, 닉네임 3조각이 일부만 오거나, 존재하지 않는 카테고리 ID를 포함함",
+        description =
+            "수정할 필드가 없거나, 닉네임 3조각이 일부만 오거나, 닉네임 길이 초과, 허용되지 않은 닉네임 구성 요소 또는 존재하지 않는 카테고리 ID를 포함함",
         content =
             @Content(
                 mediaType = "application/json",
@@ -151,7 +152,7 @@ public interface MemberControllerDocs {
               }
               """),
                   @ExampleObject(
-                      name = "잘못된 요청(닉네임 일부만 전달/존재하지 않는 카테고리 등)",
+                      name = "잘못된 요청(닉네임 일부만 전달/닉네임 길이 초과/허용되지 않은 닉네임 구성 요소/존재하지 않는 카테고리 등)",
                       value =
                           """
               {
@@ -305,7 +306,8 @@ public interface MemberControllerDocs {
               """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "요청 값 검증 실패(닉네임 누락/길이 초과 등), 존재하지 않는 카테고리/약관 ID를 포함, 또는 필수 약관 미동의",
+        description =
+            "요청 값 검증 실패(닉네임 누락/길이 초과 등), 허용되지 않은 닉네임 구성 요소 또는 존재하지 않는 카테고리/약관 ID를 포함, 또는 필수 약관 미동의",
         content =
             @Content(
                 mediaType = "application/json",
@@ -324,7 +326,7 @@ public interface MemberControllerDocs {
               }
               """),
                   @ExampleObject(
-                      name = "잘못된 요청(닉네임 길이 초과/존재하지 않는 카테고리·약관 ID 등)",
+                      name = "잘못된 요청(닉네임 길이 초과/허용되지 않은 닉네임 구성 요소/존재하지 않는 카테고리·약관 ID 등)",
                       value =
                           """
               {
