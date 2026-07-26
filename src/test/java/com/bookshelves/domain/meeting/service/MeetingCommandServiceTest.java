@@ -6,10 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.service.BookCommandService;
+import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingCreateResDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingParticipationResDTO;
@@ -29,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -38,6 +41,7 @@ class MeetingCommandServiceTest {
   @Mock private BookCommandService bookCommandService;
   @Mock private MeetingRepository meetingRepository;
   @Mock private MeetingParticipantRepository meetingParticipantRepository;
+  @Mock private ChatRoomRepository chatRoomRepository;
   @Mock private MemberRepository memberRepository;
   @Mock private AuthenticationFacade authenticationFacade;
   @InjectMocks private MeetingCommandService meetingCommandService;
@@ -146,14 +150,17 @@ class MeetingCommandServiceTest {
   }
 
   @Test
-  void deletesMeetingAndItsParticipants() {
+  void deletesMeetingAndItsRelatedData() {
     Meeting meeting = mock(Meeting.class);
     given(meetingRepository.findById(1L)).willReturn(Optional.of(meeting));
 
     meetingCommandService.deleteMeeting(1L);
 
-    verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
-    verify(meetingRepository).delete(meeting);
+    InOrder deletionOrder =
+        inOrder(chatRoomRepository, meetingParticipantRepository, meetingRepository);
+    deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
+    deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
+    deletionOrder.verify(meetingRepository).delete(meeting);
   }
 
   @Test
@@ -165,6 +172,7 @@ class MeetingCommandServiceTest {
         .extracting("errorCode")
         .isEqualTo(MeetingErrorCode.MEETING_NOT_FOUND);
     verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
+    verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
     verify(meetingRepository, never()).delete(any());
   }
 }
