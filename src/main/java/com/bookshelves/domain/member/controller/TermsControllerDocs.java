@@ -34,18 +34,18 @@ public interface TermsControllerDocs {
                   {
                     "id": 1,
                     "title": "서비스 이용약관",
-                    "content": "제1조 (목적) ...",
+                    "content": "## 제1조 목적\\n본 약관은 ...",
                     "type": "SERVICE",
                     "version": "1.0.0",
                     "isRequired": true
                   },
                   {
                     "id": 2,
-                    "title": "마케팅 정보 수신 동의",
-                    "content": "...",
-                    "type": "MARKETING",
+                    "title": "개인정보 수집 및 이용 동의",
+                    "content": "## 1. 수집·이용 목적\\n...",
+                    "type": "PRIVACY",
                     "version": "1.0.0",
-                    "isRequired": false
+                    "isRequired": true
                   }
                 ]
               }
