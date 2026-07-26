@@ -71,9 +71,10 @@ public class MeetingQueryService {
   public MeetingSearchResDTO getMyMeetings(
       boolean isLeader, Integer year, Integer month, int page, int size) {
     Long memberId = authenticationFacade.getCurrentMemberId();
+    Integer normalizedMonth = year == null ? null : month;
     PageRequest pageRequest = PageRequest.of(page - 1, size);
     Page<Meeting> meetingPage =
-        meetingRepository.findMyMeetings(memberId, isLeader, year, month, pageRequest);
+        meetingRepository.findMyMeetings(memberId, isLeader, year, normalizedMonth, pageRequest);
 
     List<Long> meetingIds = meetingPage.getContent().stream().map(Meeting::getId).toList();
     Map<Long, Long> chatroomIds =
