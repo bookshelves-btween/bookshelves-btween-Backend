@@ -68,4 +68,13 @@ public class Meeting extends BaseEntity {
       this.status = MeetingStatus.RECRUIT_CLOSED;
     }
   }
+
+  public void complete() {
+    this.status = MeetingStatus.COMPLETED;
+  }
+
+  // 종료 시각 = 시작 시각 + 진행 시간(분)
+  public LocalDateTime getEndDate() {
+    return this.startDate.plusMinutes(this.duration);
+  }
 }
