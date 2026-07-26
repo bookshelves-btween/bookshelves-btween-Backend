@@ -115,23 +115,23 @@ class BookCommandServiceTest {
         .extracting(exception -> ((BookException) exception).getErrorCode())
         .isEqualTo(BookErrorCode.BOOK_NOT_FOUND);
 
-    verify(bookRepository, never()).upsert(
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any());
+    verify(bookRepository, never())
+        .upsert(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any());
     verify(data4LibraryBookDetailClient, never()).findKdcByIsbn(ISBN);
   }
 
   @Test
   void concurrentCreationReloadsBookSavedByWinningRequest() throws Exception {
-    KakaoBookItem item =
-        new KakaoBookItem(ISBN, "아몬드", List.of("손원평"), "창비", null, null, null);
+    KakaoBookItem item = new KakaoBookItem(ISBN, "아몬드", List.of("손원평"), "창비", null, null, null);
     Book winningBook = Book.builder().isbn(ISBN).title("아몬드").build();
     CountDownLatch bothRequestsReachedLookup = new CountDownLatch(2);
     CountDownLatch releaseLookup = new CountDownLatch(1);
@@ -145,8 +145,7 @@ class BookCommandServiceTest {
             });
     given(kakaoBookSearchClient.searchByIsbn(ISBN))
         .willReturn(new KakaoBookSearchResult(List.of(item), true));
-    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN))
-        .willReturn(new KdcInfo(null, "미분류"));
+    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(new KdcInfo(null, "미분류"));
     given(bookRepository.findByIsbnForUpdate(ISBN)).willReturn(Optional.of(winningBook));
 
     CompletableFuture<Book> first =
