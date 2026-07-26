@@ -178,8 +178,7 @@ class MeetingCommandServiceTest {
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.empty());
 
     boolean deleted =
-        meetingCommandService.deleteUnderstaffedMeeting(
-            1L, LocalDateTime.of(2026, 8, 1, 20, 0));
+        meetingCommandService.deleteUnderstaffedMeeting(1L, LocalDateTime.of(2026, 8, 1, 20, 0));
 
     assertThat(deleted).isFalse();
     verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
