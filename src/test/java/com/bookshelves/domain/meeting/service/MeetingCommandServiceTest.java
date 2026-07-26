@@ -27,6 +27,9 @@ import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -152,7 +155,7 @@ class MeetingCommandServiceTest {
   @Test
   void deletesMeetingAndItsRelatedData() {
     Meeting meeting = mock(Meeting.class);
-    given(meetingRepository.findById(1L)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
 
     meetingCommandService.deleteMeeting(1L);
 
@@ -165,7 +168,7 @@ class MeetingCommandServiceTest {
 
   @Test
   void rejectsDeletingUnknownMeeting() {
-    given(meetingRepository.findById(1L)).willReturn(Optional.empty());
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.empty());
 
     assertThatThrownBy(() -> meetingCommandService.deleteMeeting(1L))
         .isInstanceOf(MeetingException.class)
@@ -174,5 +177,38 @@ class MeetingCommandServiceTest {
     verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
     verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
     verify(meetingRepository, never()).delete(any());
+  }
+
+  @Test
+  void waitsForMeetingLockBeforeDeletingRelatedData() throws Exception {
+    Meeting meeting = mock(Meeting.class);
+    CountDownLatch lockRequested = new CountDownLatch(1);
+    CountDownLatch lockAcquired = new CountDownLatch(1);
+    given(meetingRepository.findByIdForUpdate(1L))
+        .willAnswer(
+            invocation -> {
+              lockRequested.countDown();
+              if (!lockAcquired.await(1, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("모임 잠금 획득 대기 시간이 초과되었습니다.");
+              }
+              return Optional.of(meeting);
+            });
+
+    CompletableFuture<Void> deletion =
+        CompletableFuture.runAsync(() -> meetingCommandService.deleteMeeting(1L));
+
+    assertThat(lockRequested.await(1, TimeUnit.SECONDS)).isTrue();
+    verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
+    verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
+    verify(meetingRepository, never()).delete(any());
+
+    lockAcquired.countDown();
+    deletion.get(1, TimeUnit.SECONDS);
+
+    InOrder deletionOrder =
+        inOrder(chatRoomRepository, meetingParticipantRepository, meetingRepository);
+    deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
+    deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
+    deletionOrder.verify(meetingRepository).delete(meeting);
   }
 }

@@ -74,7 +74,7 @@ public class MeetingCommandService {
   public void deleteMeeting(Long meetingId) {
     Meeting meeting =
         meetingRepository
-            .findById(meetingId)
+            .findByIdForUpdate(meetingId)
             .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
 
     chatRoomRepository.deleteAllByMeetingId(meetingId);
