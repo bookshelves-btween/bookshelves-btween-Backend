@@ -69,6 +69,16 @@ public class MeetingCommandService {
     return MeetingParticipationResDTO.from(meetingParticipant);
   }
 
+  public void deleteMeeting(Long meetingId) {
+    Meeting meeting =
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
+
+    meetingParticipantRepository.deleteAllByMeetingId(meetingId);
+    meetingRepository.delete(meeting);
+  }
+
   // 채팅방 최초 유효 구독 시 출석 처리("1회 이상 입장 = 출석"). 이미 true면 멱등하게 무시하며,
   // 한번 true가 되면 재접속·해제로 되돌리지 않는다. 모임 종료 시 attended != true가 노쇼로 확정된다.
   public void markAttended(Long chatroomId, Long memberId) {
