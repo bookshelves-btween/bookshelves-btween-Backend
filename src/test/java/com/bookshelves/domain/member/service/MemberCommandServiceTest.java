@@ -66,16 +66,16 @@ class MemberCommandServiceTest {
         MemberUpdateRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     MemberInfoResponse response = memberCommandService.updateMyInfo(1L, request);
 
-    assertThat(response.getNickname()).isEqualTo("책 먹는 여우");
+    assertThat(response.getNickname()).isEqualTo("책 먹는 토끼");
     assertThat(response.getNicknameNoun()).isEqualTo("책");
     assertThat(response.getNicknameModifier()).isEqualTo("먹는");
-    assertThat(response.getNicknameAnimal()).isEqualTo("여우");
+    assertThat(response.getNicknameAnimal()).isEqualTo("토끼");
     assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
@@ -260,13 +260,13 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
 
-    assertThat(response.getNickname()).isEqualTo("책 먹는 여우");
+    assertThat(response.getNickname()).isEqualTo("책 먹는 토끼");
     assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
@@ -287,7 +287,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .categoryIds(List.of(1L))
             .build();
@@ -309,7 +309,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
@@ -328,7 +328,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
@@ -367,7 +367,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .categoryIds(List.of(999L))
             .build();
@@ -395,7 +395,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .agreedTermsIds(List.of(1L))
             .build();
@@ -424,7 +424,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
@@ -445,7 +445,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .agreedTermsIds(List.of(999L))
             .build();
@@ -506,5 +506,110 @@ class MemberCommandServiceTest {
         .isEqualTo(MemberErrorCode.MEMBER_NOT_ACTIVE);
     verify(member, never()).withdraw();
     verify(redisTokenRepository, never()).deleteAllTokens(any());
+  }
+
+  @Test
+  void updateMyInfoThrowsInvalidRequestWhenNicknameNounNotInAllowedList() {
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("허용안된명사")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("토끼")
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
+  void updateMyInfoThrowsInvalidRequestWhenNicknameModifierNotInAllowedList() {
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("허용안된수식어")
+            .nicknameAnimal("토끼")
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
+  void updateMyInfoThrowsInvalidRequestWhenNicknameAnimalNotInAllowedList() {
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenNicknameNounNotInAllowedList() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("허용안된명사")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenNicknameModifierNotInAllowedList() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("허용안된수식어")
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenNicknameAnimalNotInAllowedList() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
   }
 }
