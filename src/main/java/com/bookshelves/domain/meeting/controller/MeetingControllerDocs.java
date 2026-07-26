@@ -71,10 +71,10 @@ public interface MeetingControllerDocs {
             @Content(
                 mediaType = "application/json",
                 examples = {
-                    @ExampleObject(
-                        name = "요청 값 검증 실패",
-                        value =
-                            """
+                  @ExampleObject(
+                      name = "요청 값 검증 실패",
+                      value =
+                          """
               {
                 "isSuccess": false,
                 "code": "COMMON400_1",
@@ -82,10 +82,10 @@ public interface MeetingControllerDocs {
                 "result": {}
               }
               """),
-                    @ExampleObject(
-                        name = "연도 없이 월만 요청",
-                        value =
-                            """
+                  @ExampleObject(
+                      name = "연도 없이 월만 요청",
+                      value =
+                          """
               {
                 "isSuccess": false,
                 "code": "MEETING400_2",
