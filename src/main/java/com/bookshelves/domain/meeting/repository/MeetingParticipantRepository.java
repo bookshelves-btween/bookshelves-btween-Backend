@@ -12,6 +12,8 @@ public interface MeetingParticipantRepository extends JpaRepository<MeetingParti
 
   int countByMeetingId(Long meetingId);
 
+  void deleteAllByMeetingId(Long meetingId);
+
   // 채팅방 최초 유효 구독 = 출석. 이미 true면 갱신하지 않아 멱등하며, 한번 true가 되면
   // 재접속·해제로 되돌리지 않는다. chatroomId로 대상 모임을 특정한다.
   @Modifying(clearAutomatically = true)

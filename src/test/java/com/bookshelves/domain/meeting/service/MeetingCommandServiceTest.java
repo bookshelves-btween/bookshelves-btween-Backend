@@ -144,4 +144,27 @@ class MeetingCommandServiceTest {
         .isEqualTo(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
     verify(meetingParticipantRepository, never()).save(org.mockito.ArgumentMatchers.any());
   }
+
+  @Test
+  void deletesMeetingAndItsParticipants() {
+    Meeting meeting = mock(Meeting.class);
+    given(meetingRepository.findById(1L)).willReturn(Optional.of(meeting));
+
+    meetingCommandService.deleteMeeting(1L);
+
+    verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
+    verify(meetingRepository).delete(meeting);
+  }
+
+  @Test
+  void rejectsDeletingUnknownMeeting() {
+    given(meetingRepository.findById(1L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> meetingCommandService.deleteMeeting(1L))
+        .isInstanceOf(MeetingException.class)
+        .extracting("errorCode")
+        .isEqualTo(MeetingErrorCode.MEETING_NOT_FOUND);
+    verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
+    verify(meetingRepository, never()).delete(any());
+  }
 }

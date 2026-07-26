@@ -474,4 +474,31 @@ public interface MeetingControllerDocs {
   })
   ResponseEntity<ApiResponse<MeetingParticipationResDTO>> participate(
       @Parameter(description = "모임 ID", example = "1", required = true) Long meetingId);
+
+  @Operation(summary = "모임 삭제", description = "모집 인원이 미달된 모임을 삭제합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "204",
+        description = "모임 삭제 성공"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "모임을 찾을 수 없음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "MEETING404_1",
+                "message": "해당 모임을 찾을 수 없습니다.",
+                "result": null
+              }
+              """)))
+  })
+  ResponseEntity<Void> deleteMeeting(
+      @Parameter(description = "모임 ID", example = "1", required = true) Long meetingId);
 }
