@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -46,16 +47,26 @@ class MeetingCommandServiceTest {
     String isbn = "9788936434595";
     Book book = Book.builder().isbn(isbn).title("아몬드").author("손원평").publisher("창비").build();
     Meeting savedMeeting = mock(Meeting.class);
+    Member leader = mock(Member.class);
     MeetingCreateReqDTO request = new MeetingCreateReqDTO(LocalDate.of(2026, 8, 1), "20:00", 4, 60);
     given(bookCommandService.getOrCreateByIsbn(isbn)).willReturn(book);
     given(meetingRepository.save(any(Meeting.class))).willReturn(savedMeeting);
     given(savedMeeting.getId()).willReturn(1L);
+    given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
+    given(memberRepository.getReferenceById(10L)).willReturn(leader);
 
     MeetingCreateResDTO response = meetingCommandService.createMeeting(isbn, request);
 
+    ArgumentCaptor<MeetingParticipant> participantCaptor =
+        ArgumentCaptor.forClass(MeetingParticipant.class);
     assertThat(response.id()).isEqualTo(1L);
     verify(bookCommandService).getOrCreateByIsbn(isbn);
     verify(meetingRepository).save(any(Meeting.class));
+    verify(meetingParticipantRepository).save(participantCaptor.capture());
+    assertThat(participantCaptor.getValue().getMeeting()).isSameAs(savedMeeting);
+    assertThat(participantCaptor.getValue().getMember()).isSameAs(leader);
+    assertThat(participantCaptor.getValue().getIsLeader()).isTrue();
+    verify(savedMeeting).addParticipant();
   }
 
   @Test
