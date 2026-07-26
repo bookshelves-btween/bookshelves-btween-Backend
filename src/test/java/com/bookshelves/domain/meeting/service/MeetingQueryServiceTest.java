@@ -180,6 +180,36 @@ class MeetingQueryServiceTest {
     verifyNoInteractions(chatRoomRepository);
   }
 
+  @Test
+  void getMyMeetingsIgnoresMonthWhenYearIsNotProvided() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1001L);
+    given(
+            meetingRepository.findMyMeetings(
+                eq(1001L), eq(false), eq(null), eq(null), any(Pageable.class)))
+        .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+    MeetingSearchResDTO result = meetingQueryService.getMyMeetings(false, null, 7, 1, 20);
+
+    assertThat(result.page()).isEqualTo(1);
+    assertThat(result.size()).isEqualTo(20);
+    assertThat(result.meetings()).isEmpty();
+    verifyNoInteractions(chatRoomRepository);
+  }
+
+  @Test
+  void getMyMeetingsAppliesYearWithoutMonth() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1001L);
+    given(
+            meetingRepository.findMyMeetings(
+                eq(1001L), eq(true), eq(2026), eq(null), any(Pageable.class)))
+        .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+    MeetingSearchResDTO result = meetingQueryService.getMyMeetings(true, 2026, null, 1, 20);
+
+    assertThat(result.meetings()).isEmpty();
+    verifyNoInteractions(chatRoomRepository);
+  }
+
   private Meeting meeting(Long meetingId, MeetingStatus meetingStatus) {
     Meeting meeting = mock(Meeting.class);
     Book book = mock(Book.class);
