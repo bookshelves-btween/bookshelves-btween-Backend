@@ -58,7 +58,9 @@ public class Book extends BaseEntity {
       String publisher,
       LocalDate publishedDate,
       String description,
-      String coverImageUrl) {
+      String coverImageUrl,
+      String kdcCode,
+      String kdcName) {
     this.isbn = isbn;
     this.title = title;
     this.author = author;
@@ -66,5 +68,7 @@ public class Book extends BaseEntity {
     this.publishedDate = publishedDate;
     this.description = description;
     this.coverImageUrl = coverImageUrl;
+    this.kdcCode = kdcCode;
+    this.kdcName = kdcName;
   }
 }

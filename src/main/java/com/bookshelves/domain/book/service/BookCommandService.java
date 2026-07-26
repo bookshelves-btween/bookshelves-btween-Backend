@@ -1,5 +1,7 @@
 package com.bookshelves.domain.book.service;
 
+import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient;
+import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookItem;
 import com.bookshelves.domain.book.converter.BookConverter;
@@ -19,6 +21,7 @@ public class BookCommandService {
 
   private final BookRepository bookRepository;
   private final KakaoBookSearchClient kakaoBookSearchClient;
+  private final Data4LibraryBookDetailClient data4LibraryBookDetailClient;
 
   public Book getOrCreateByIsbn(String rawIsbn) {
     String requestedIsbn =
@@ -37,7 +40,8 @@ public class BookCommandService {
             .findFirst()
             .orElseThrow(() -> new BookException(BookErrorCode.BOOK_NOT_FOUND));
 
-    Book book = BookConverter.toEntity(item, canonicalIsbn);
+    KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(canonicalIsbn);
+    Book book = BookConverter.toEntity(item, canonicalIsbn, kdcInfo);
     return bookRepository.save(book);
   }
 }
