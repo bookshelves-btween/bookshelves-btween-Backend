@@ -1,9 +1,7 @@
 package com.bookshelves.domain.meeting.service;
 
 import com.bookshelves.domain.book.entity.Book;
-import com.bookshelves.domain.book.exception.BookException;
-import com.bookshelves.domain.book.exception.code.BookErrorCode;
-import com.bookshelves.domain.book.repository.BookRepository;
+import com.bookshelves.domain.book.service.BookCommandService;
 import com.bookshelves.domain.meeting.converter.MeetingConverter;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingCreateResDTO;
@@ -27,23 +25,22 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MeetingCommandService {
 
-  private final BookRepository bookRepository;
+  private final BookCommandService bookCommandService;
   private final MeetingRepository meetingRepository;
   private final MeetingParticipantRepository meetingParticipantRepository;
   private final MemberRepository memberRepository;
   private final AuthenticationFacade authenticationFacade;
 
   public MeetingCreateResDTO createMeeting(String isbn, MeetingCreateReqDTO request) {
-
-    Book book =
-        bookRepository
-            .findByIsbn(isbn)
-            .orElseThrow(
-                () -> // TODO: 카카오 도서 API에서 조회한 도서 정보를 DB에 저장한 뒤 반환하도록 변경
-                new BookException(BookErrorCode.BOOK_NOT_FOUND));
+    Book book = bookCommandService.getOrCreateByIsbn(isbn);
 
     Meeting meeting = MeetingConverter.toEntity(book, request);
     Meeting savedMeeting = meetingRepository.save(meeting);
+
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    Member leader = memberRepository.getReferenceById(memberId);
+    meetingParticipantRepository.save(MeetingParticipant.createLeader(savedMeeting, leader));
+    savedMeeting.addParticipant();
 
     return MeetingCreateResDTO.from(savedMeeting);
   }
