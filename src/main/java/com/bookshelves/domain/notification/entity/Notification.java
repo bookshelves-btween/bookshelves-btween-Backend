@@ -45,4 +45,8 @@ public class Notification extends BaseEntity {
 
   @Column(name = "related_id")
   private Long relatedId;
+
+  public void markAsRead() {
+    this.isRead = true;
+  }
 }

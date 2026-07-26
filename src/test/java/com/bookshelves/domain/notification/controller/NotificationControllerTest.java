@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.bookshelves.domain.notification.dto.request.FcmTokenRegisterRequest;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
+import com.bookshelves.domain.notification.dto.response.NotificationReadResponse;
 import com.bookshelves.domain.notification.service.NotificationCommandService;
 import com.bookshelves.domain.notification.service.NotificationQueryService;
 import com.bookshelves.global.apiPayload.ApiResponse;
@@ -59,5 +60,23 @@ class NotificationControllerTest {
     assertThat(response.getBody().getMessage()).isEqualTo("알림 목록 조회에 성공했습니다.");
     assertThat(response.getBody().getResult()).isSameAs(result);
     verify(notificationQueryService).getNotifications(1L, 1, 20);
+  }
+
+  @Test
+  void readNotificationReturnsSpecifiedSuccessResponse() {
+    NotificationReadResponse result = new NotificationReadResponse(101L);
+    when(authenticationFacade.getCurrentMemberId()).thenReturn(1L);
+    when(notificationCommandService.readNotification(101L, 1L)).thenReturn(result);
+
+    ResponseEntity<ApiResponse<NotificationReadResponse>> response =
+        notificationController.readNotification(101L);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().isSuccess()).isTrue();
+    assertThat(response.getBody().getCode()).isEqualTo("NOTI200_3");
+    assertThat(response.getBody().getMessage()).isEqualTo("알림을 읽음 처리했습니다.");
+    assertThat(response.getBody().getResult()).isSameAs(result);
+    verify(notificationCommandService).readNotification(101L, 1L);
   }
 }
