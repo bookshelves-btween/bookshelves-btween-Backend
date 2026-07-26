@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import java.time.LocalDate;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -48,4 +49,22 @@ public class Book extends BaseEntity {
 
   @Column(name = "kdc_name", length = 100)
   private String kdcName;
+
+  @Builder
+  private Book(
+      String isbn,
+      String title,
+      String author,
+      String publisher,
+      LocalDate publishedDate,
+      String description,
+      String coverImageUrl) {
+    this.isbn = isbn;
+    this.title = title;
+    this.author = author;
+    this.publisher = publisher;
+    this.publishedDate = publishedDate;
+    this.description = description;
+    this.coverImageUrl = coverImageUrl;
+  }
 }
