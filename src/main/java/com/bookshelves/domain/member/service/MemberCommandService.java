@@ -14,12 +14,12 @@ import com.bookshelves.domain.member.entity.Terms;
 import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.exception.MemberErrorCode;
+import com.bookshelves.domain.member.exception.MemberException;
 import com.bookshelves.domain.member.exception.TermsErrorCode;
 import com.bookshelves.domain.member.repository.MemberCategoryRepository;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.repository.MemberTermsRepository;
 import com.bookshelves.domain.member.repository.TermsRepository;
-import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.RedisTokenRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -72,7 +72,7 @@ public class MemberCommandService {
     Member member =
         memberRepository
             .findById(memberId)
-            .orElseThrow(() -> new ProjectException(MemberErrorCode.MEMBER_NOT_FOUND));
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     if (hasAllNicknameParts(request)) {
       member.updateNickname(
@@ -95,10 +95,10 @@ public class MemberCommandService {
     Member member =
         memberRepository
             .findById(memberId)
-            .orElseThrow(() -> new ProjectException(MemberErrorCode.MEMBER_NOT_FOUND));
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     if (member.getStatus() != MemberStatus.PENDING_ONBOARDING) {
-      throw new ProjectException(MemberErrorCode.MEMBER_ALREADY_ONBOARDED);
+      throw new MemberException(MemberErrorCode.MEMBER_ALREADY_ONBOARDED);
     }
 
     validateNicknameLength(
@@ -125,10 +125,10 @@ public class MemberCommandService {
     Member member =
         memberRepository
             .findById(memberId)
-            .orElseThrow(() -> new ProjectException(MemberErrorCode.MEMBER_NOT_FOUND));
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     if (member.getStatus() != MemberStatus.ACTIVE) {
-      throw new ProjectException(MemberErrorCode.MEMBER_NOT_ACTIVE);
+      throw new MemberException(MemberErrorCode.MEMBER_NOT_ACTIVE);
     }
 
     member.withdraw();
@@ -150,7 +150,7 @@ public class MemberCommandService {
         termsRepository.findByIsRequiredTrue().stream().map(Terms::getId).toList();
 
     if (!agreed.containsAll(requiredTermsIds)) {
-      throw new ProjectException(TermsErrorCode.TERMS_REQUIRED_NOT_AGREED);
+      throw new MemberException(TermsErrorCode.TERMS_REQUIRED_NOT_AGREED);
     }
   }
 
@@ -161,13 +161,13 @@ public class MemberCommandService {
 
     // List.of(...) 등 일부 불변 리스트 구현은 contains(null) 자체가 NPE를 던지므로 스트림으로 검사한다.
     if (agreedTermsIds.stream().anyMatch(Objects::isNull)) {
-      throw new ProjectException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
 
     Set<Long> distinctTermsIds = Set.copyOf(agreedTermsIds);
     List<Terms> terms = termsRepository.findAllById(distinctTermsIds);
     if (terms.size() != distinctTermsIds.size()) {
-      throw new ProjectException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
 
     memberTermsRepository.saveAll(terms.stream().map(t -> MemberTerms.create(member, t)).toList());
@@ -176,13 +176,13 @@ public class MemberCommandService {
   private void updateCategories(Long memberId, Member member, List<Long> categoryIds) {
     // List.of(...) 등 일부 불변 리스트 구현은 contains(null) 자체가 NPE를 던지므로 스트림으로 검사한다.
     if (categoryIds.stream().anyMatch(Objects::isNull)) {
-      throw new ProjectException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
 
     List<Long> distinctCategoryIds = categoryIds.stream().distinct().toList();
     List<Category> categories = categoryRepository.findAllById(distinctCategoryIds);
     if (categories.size() != distinctCategoryIds.size()) {
-      throw new ProjectException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
 
     memberCategoryRepository.deleteByMember_Id(memberId);
@@ -199,7 +199,7 @@ public class MemberCommandService {
             && request.getCategoryIds() == null;
 
     if (noFields) {
-      throw new ProjectException(MemberErrorCode.MEMBER_NO_FIELDS_TO_UPDATE);
+      throw new MemberException(MemberErrorCode.MEMBER_NO_FIELDS_TO_UPDATE);
     }
   }
 
@@ -213,7 +213,7 @@ public class MemberCommandService {
             .count();
 
     if (providedCount != 0 && providedCount != 3) {
-      throw new ProjectException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
 
     if (providedCount == 3) {
@@ -231,7 +231,7 @@ public class MemberCommandService {
     int combinedLength = noun.length() + 1 + modifier.length() + 1 + animal.length();
 
     if (anyPartTooLong || combinedLength > NICKNAME_MAX_LENGTH) {
-      throw new ProjectException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
   }
 
