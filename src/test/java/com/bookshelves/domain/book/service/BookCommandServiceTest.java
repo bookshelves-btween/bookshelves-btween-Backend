@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient;
@@ -18,9 +19,11 @@ import com.bookshelves.domain.book.repository.BookRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -62,14 +65,34 @@ class BookCommandServiceTest {
     given(kakaoBookSearchClient.searchByIsbn(ISBN))
         .willReturn(new KakaoBookSearchResult(List.of(item), true));
     given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(new KdcInfo("813", "문학"));
-    given(bookRepository.save(org.mockito.ArgumentMatchers.any(Book.class)))
-        .willAnswer(invocation -> invocation.getArgument(0));
+    Book savedBook =
+        Book.builder()
+            .isbn(ISBN)
+            .title("아몬드")
+            .author("손원평")
+            .publisher("창비")
+            .publishedDate(LocalDate.of(2017, 3, 31))
+            .description("책 소개")
+            .coverImageUrl("https://image.example.com/almond.jpg")
+            .kdcCode("813")
+            .kdcName("문학")
+            .build();
+    given(bookRepository.findByIsbnForUpdate(ISBN)).willReturn(Optional.of(savedBook));
 
     Book result = bookCommandService.getOrCreateByIsbn(ISBN);
 
-    ArgumentCaptor<Book> captor = ArgumentCaptor.forClass(Book.class);
-    verify(bookRepository).save(captor.capture());
-    assertThat(result).isSameAs(captor.getValue());
+    verify(bookRepository)
+        .upsert(
+            ISBN,
+            "아몬드",
+            "손원평",
+            "창비",
+            LocalDate.of(2017, 3, 31),
+            "책 소개",
+            "https://image.example.com/almond.jpg",
+            "813",
+            "문학");
+    assertThat(result).isSameAs(savedBook);
     assertThat(result.getIsbn()).isEqualTo(ISBN);
     assertThat(result.getTitle()).isEqualTo("아몬드");
     assertThat(result.getAuthor()).isEqualTo("손원평");
@@ -92,7 +115,50 @@ class BookCommandServiceTest {
         .extracting(exception -> ((BookException) exception).getErrorCode())
         .isEqualTo(BookErrorCode.BOOK_NOT_FOUND);
 
-    verify(bookRepository, never()).save(org.mockito.ArgumentMatchers.any(Book.class));
+    verify(bookRepository, never()).upsert(
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any());
     verify(data4LibraryBookDetailClient, never()).findKdcByIsbn(ISBN);
+  }
+
+  @Test
+  void concurrentCreationReloadsBookSavedByWinningRequest() throws Exception {
+    KakaoBookItem item =
+        new KakaoBookItem(ISBN, "아몬드", List.of("손원평"), "창비", null, null, null);
+    Book winningBook = Book.builder().isbn(ISBN).title("아몬드").build();
+    CountDownLatch bothRequestsReachedLookup = new CountDownLatch(2);
+    CountDownLatch releaseLookup = new CountDownLatch(1);
+
+    given(bookRepository.findByIsbn(ISBN))
+        .willAnswer(
+            invocation -> {
+              bothRequestsReachedLookup.countDown();
+              releaseLookup.await(3, TimeUnit.SECONDS);
+              return Optional.empty();
+            });
+    given(kakaoBookSearchClient.searchByIsbn(ISBN))
+        .willReturn(new KakaoBookSearchResult(List.of(item), true));
+    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN))
+        .willReturn(new KdcInfo(null, "미분류"));
+    given(bookRepository.findByIsbnForUpdate(ISBN)).willReturn(Optional.of(winningBook));
+
+    CompletableFuture<Book> first =
+        CompletableFuture.supplyAsync(() -> bookCommandService.getOrCreateByIsbn(ISBN));
+    CompletableFuture<Book> second =
+        CompletableFuture.supplyAsync(() -> bookCommandService.getOrCreateByIsbn(ISBN));
+
+    assertThat(bothRequestsReachedLookup.await(3, TimeUnit.SECONDS)).isTrue();
+    releaseLookup.countDown();
+
+    assertThat(first.get(3, TimeUnit.SECONDS)).isSameAs(winningBook);
+    assertThat(second.get(3, TimeUnit.SECONDS)).isSameAs(winningBook);
+    verify(bookRepository, times(2)).findByIsbnForUpdate(ISBN);
   }
 }

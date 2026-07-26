@@ -42,6 +42,18 @@ public class BookCommandService {
 
     KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(canonicalIsbn);
     Book book = BookConverter.toEntity(item, canonicalIsbn, kdcInfo);
-    return bookRepository.save(book);
+    bookRepository.upsert(
+        book.getIsbn(),
+        book.getTitle(),
+        book.getAuthor(),
+        book.getPublisher(),
+        book.getPublishedDate(),
+        book.getDescription(),
+        book.getCoverImageUrl(),
+        book.getKdcCode(),
+        book.getKdcName());
+    return bookRepository
+        .findByIsbnForUpdate(canonicalIsbn)
+        .orElseThrow(() -> new BookException(BookErrorCode.BOOK_NOT_FOUND));
   }
 }
