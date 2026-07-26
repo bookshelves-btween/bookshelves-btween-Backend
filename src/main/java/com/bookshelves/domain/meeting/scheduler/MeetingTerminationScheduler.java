@@ -22,7 +22,7 @@ public class MeetingTerminationScheduler {
   private final MeetingRepository meetingRepository;
   private final MeetingTerminationService meetingTerminationService;
 
-  @Scheduled(fixedDelay = 60_000)
+  @Scheduled(fixedRate = 60_000)
   public void terminateEndedMeetings() {
     LocalDateTime now = LocalDateTime.now();
 
