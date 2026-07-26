@@ -38,9 +38,12 @@ public class MeetingTerminationService {
   public record MeetingEndedEvent(Long chatroomId) {}
 
   // 스케줄러가 넘긴 엔티티는 detached이므로 트랜잭션 안에서 ID로 다시 로드해 관리 상태로 만든다.
+  // 비관적 락(findByIdForUpdate)으로 종료 처리를 직렬화한다 — 다중 인스턴스/재실행에서 두 트랜잭션이
+  // 모두 IN_PROGRESS를 읽고 노쇼·SYSTEM 프레임을 중복 생성하는 것을 막는다. 뒤 트랜잭션은 락 해제 후
+  // 재조회에서 COMPLETED를 보고 건너뛴다.
   @Transactional
   public void terminate(Long meetingId) {
-    Meeting meeting = meetingRepository.findById(meetingId).orElse(null);
+    Meeting meeting = meetingRepository.findByIdForUpdate(meetingId).orElse(null);
     // 재조회 사이 상태가 바뀌었으면(이미 종료·삭제) 건너뛴다 — 폴링 재실행에 대한 멱등 가드
     if (meeting == null || meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
       return;
