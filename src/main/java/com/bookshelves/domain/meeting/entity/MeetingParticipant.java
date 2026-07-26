@@ -52,4 +52,12 @@ public class MeetingParticipant extends BaseEntity {
     meetingParticipant.isLeader = false;
     return meetingParticipant;
   }
+
+  public static MeetingParticipant createLeader(Meeting meeting, Member member) {
+    MeetingParticipant meetingParticipant = new MeetingParticipant();
+    meetingParticipant.meeting = meeting;
+    meetingParticipant.member = member;
+    meetingParticipant.isLeader = true;
+    return meetingParticipant;
+  }
 }

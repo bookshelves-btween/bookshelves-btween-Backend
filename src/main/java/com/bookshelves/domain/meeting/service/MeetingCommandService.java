@@ -37,28 +37,33 @@ public class MeetingCommandService {
     Meeting meeting = MeetingConverter.toEntity(book, request);
     Meeting savedMeeting = meetingRepository.save(meeting);
 
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    Member leader = memberRepository.getReferenceById(memberId);
+    meetingParticipantRepository.save(MeetingParticipant.createLeader(savedMeeting, leader));
+    savedMeeting.addParticipant();
+
     return MeetingCreateResDTO.from(savedMeeting);
   }
 
   public MeetingParticipationResDTO participateMeeting(Long meetingId) {
     Meeting meeting =
-        meetingRepository
-            .findByIdForUpdate(meetingId)
-            .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
+      meetingRepository
+        .findByIdForUpdate(meetingId)
+        .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
     Long memberId = authenticationFacade.getCurrentMemberId();
 
     if (meetingParticipantRepository.existsByMeetingIdAndMemberId(meetingId, memberId)) {
       throw new MeetingException(MeetingErrorCode.DUPLICATE_MEETING);
     }
     if (meeting.getStatus() != MeetingStatus.RECRUITING
-        || meeting.getCurParticipants() >= meeting.getMaxParticipants()) {
+      || meeting.getCurParticipants() >= meeting.getMaxParticipants()) {
       throw new MeetingException(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
     }
 
     Member member = memberRepository.getReferenceById(memberId);
 
     MeetingParticipant meetingParticipant =
-        meetingParticipantRepository.save(MeetingParticipant.create(meeting, member));
+      meetingParticipantRepository.save(MeetingParticipant.create(meeting, member));
     meeting.addParticipant();
 
     return MeetingParticipationResDTO.from(meetingParticipant);
