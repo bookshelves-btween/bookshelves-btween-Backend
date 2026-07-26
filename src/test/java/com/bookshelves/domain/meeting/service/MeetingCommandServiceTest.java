@@ -56,14 +56,15 @@ class MeetingCommandServiceTest {
     Book book = Book.builder().isbn(isbn).title("아몬드").author("손원평").publisher("창비").build();
     Meeting savedMeeting = mock(Meeting.class);
     Member leader = mock(Member.class);
-    MeetingCreateReqDTO request = new MeetingCreateReqDTO(LocalDate.of(2026, 8, 1), "20:00", 4, 60);
+    MeetingCreateReqDTO request =
+        new MeetingCreateReqDTO(isbn, LocalDate.of(2026, 8, 1), "20:00", 4, 60);
     given(bookCommandService.getOrCreateByIsbn(isbn)).willReturn(book);
     given(meetingRepository.save(any(Meeting.class))).willReturn(savedMeeting);
     given(savedMeeting.getId()).willReturn(1L);
     given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(memberRepository.getReferenceById(10L)).willReturn(leader);
 
-    MeetingCreateResDTO response = meetingCommandService.createMeeting(isbn, request);
+    MeetingCreateResDTO response = meetingCommandService.createMeeting(request);
 
     ArgumentCaptor<MeetingParticipant> participantCaptor =
         ArgumentCaptor.forClass(MeetingParticipant.class);

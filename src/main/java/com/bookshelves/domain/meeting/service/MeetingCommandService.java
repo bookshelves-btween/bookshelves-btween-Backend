@@ -34,8 +34,8 @@ public class MeetingCommandService {
   private final MemberRepository memberRepository;
   private final AuthenticationFacade authenticationFacade;
 
-  public MeetingCreateResDTO createMeeting(String isbn, MeetingCreateReqDTO request) {
-    Book book = bookCommandService.getOrCreateByIsbn(isbn);
+  public MeetingCreateResDTO createMeeting(MeetingCreateReqDTO request) {
+    Book book = bookCommandService.getOrCreateByIsbn(request.isbn());
 
     Meeting meeting = MeetingConverter.toEntity(book, request);
     Meeting savedMeeting = meetingRepository.save(meeting);
