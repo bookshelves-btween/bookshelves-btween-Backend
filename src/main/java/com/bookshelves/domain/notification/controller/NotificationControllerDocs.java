@@ -2,6 +2,7 @@ package com.bookshelves.domain.notification.controller;
 
 import com.bookshelves.domain.notification.dto.request.FcmTokenRegisterRequest;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
+import com.bookshelves.domain.notification.dto.response.NotificationReadResponse;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +16,8 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -56,39 +59,39 @@ public interface NotificationControllerDocs {
                       name = "FCM 토큰 누락 또는 빈 값",
                       value =
                           """
-              {
-                "isSuccess": false,
-                "code": "COMMON400_1",
-                "message": "잘못된 요청입니다.",
-                "result": {
-                  "fcmToken": "공백일 수 없습니다"
+                {
+                  "isSuccess": false,
+                  "code": "COMMON400_1",
+                  "message": "잘못된 요청입니다.",
+                  "result": {
+                    "fcmToken": "공백일 수 없습니다"
+                  }
                 }
-              }
-              """),
+                """),
                   @ExampleObject(
                       name = "FCM 토큰 길이 초과",
                       value =
                           """
-              {
-                "isSuccess": false,
-                "code": "COMMON400_1",
-                "message": "잘못된 요청입니다.",
-                "result": {
-                  "fcmToken": "크기가 0에서 255 사이여야 합니다"
+                {
+                  "isSuccess": false,
+                  "code": "COMMON400_1",
+                  "message": "잘못된 요청입니다.",
+                  "result": {
+                    "fcmToken": "크기가 0에서 255 사이여야 합니다"
+                  }
                 }
-              }
-              """),
+                """),
                   @ExampleObject(
                       name = "잘못된 JSON",
                       value =
                           """
-              {
-                "isSuccess": false,
-                "code": "COMMON400_1",
-                "message": "잘못된 요청입니다.",
-                "result": {}
-              }
-              """)
+                {
+                  "isSuccess": false,
+                  "code": "COMMON400_1",
+                  "message": "잘못된 요청입니다.",
+                  "result": {}
+                }
+                """)
                 })),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
@@ -217,4 +220,85 @@ public interface NotificationControllerDocs {
           @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
           @Max(value = 50, message = "페이지 크기는 50 이하여야 합니다.")
           Integer size);
+
+  @Operation(summary = "알림 읽음 처리", description = "인증된 사용자의 알림을 읽음 처리합니다. 이미 읽은 알림도 동일하게 성공 응답합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "알림 읽음 처리 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": true,
+                "code": "NOTI200_3",
+                "message": "알림을 읽음 처리했습니다.",
+                "result": {
+                  "id": 101
+                }
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "잘못된/유효하지 않은 notificationId 값",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "COMMON400_1",
+                "message": "잘못된 요청입니다.",
+                "result": {}
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "access token이 없거나 만료·서명 불일치 등으로 유효하지 않음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "AUTH401_2",
+                "message": "유효하지 않은 Access Token입니다.",
+                "result": null
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "알림이 존재하지 않거나 현재 사용자의 알림이 아님",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "NOTI404_1",
+                "message": "존재하지 않는 알림입니다.",
+                "result": {}
+              }
+              """)))
+  })
+  @PatchMapping("/api/v1/notifications/{notificationId}/read")
+  ResponseEntity<ApiResponse<NotificationReadResponse>> readNotification(
+      @Parameter(description = "읽음 처리할 알림 ID", example = "101")
+          @Min(value = 1, message = "알림 ID는 1 이상이어야 합니다.")
+          @PathVariable(name = "notificationId")
+          Long notificationId);
 }
