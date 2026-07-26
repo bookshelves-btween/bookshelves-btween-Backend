@@ -28,4 +28,11 @@ public class MemberBookHistory extends BaseEntity {
 
   @Column(name = "progress", nullable = false)
   private Integer progress;
+
+  public static MemberBookHistory create(MemberBook memberBook, Integer progress) {
+    MemberBookHistory memberBookHistory = new MemberBookHistory();
+    memberBookHistory.memberBook = memberBook;
+    memberBookHistory.progress = progress;
+    return memberBookHistory;
+  }
 }
