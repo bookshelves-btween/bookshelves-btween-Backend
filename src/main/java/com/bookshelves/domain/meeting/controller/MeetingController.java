@@ -12,7 +12,6 @@ import com.bookshelves.global.apiPayload.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -77,12 +76,5 @@ public class MeetingController implements MeetingControllerDocs {
     MeetingParticipationResDTO response = meetingCommandService.participateMeeting(meetingId);
     return ResponseEntity.ok(
         ApiResponse.onSuccess(MeetingSuccessCode.MEETING_PARTICIPATION_CREATED, response));
-  }
-
-  @Override
-  @DeleteMapping("/api/v1/meetings/{meetingId}")
-  public ResponseEntity<Void> deleteMeeting(@PathVariable Long meetingId) {
-    meetingCommandService.deleteMeeting(meetingId);
-    return ResponseEntity.noContent().build();
   }
 }

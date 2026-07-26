@@ -17,6 +17,7 @@ import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,15 +72,19 @@ public class MeetingCommandService {
     return MeetingParticipationResDTO.from(meetingParticipant);
   }
 
-  public void deleteMeeting(Long meetingId) {
-    Meeting meeting =
-        meetingRepository
-            .findByIdForUpdate(meetingId)
-            .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
+  public boolean deleteUnderstaffedMeeting(Long meetingId, LocalDateTime now) {
+    Meeting meeting = meetingRepository.findByIdForUpdate(meetingId).orElse(null);
+    if (meeting == null
+        || meeting.getStatus() != MeetingStatus.RECRUITING
+        || meeting.getStartDate().isAfter(now)
+        || meeting.getCurParticipants() >= meeting.getMaxParticipants()) {
+      return false;
+    }
 
     chatRoomRepository.deleteAllByMeetingId(meetingId);
     meetingParticipantRepository.deleteAllByMeetingId(meetingId);
     meetingRepository.delete(meeting);
+    return true;
   }
 
   // 채팅방 최초 유효 구독 시 출석 처리("1회 이상 입장 = 출석"). 이미 true면 멱등하게 무시하며,
