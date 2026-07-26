@@ -59,39 +59,39 @@ public interface NotificationControllerDocs {
                       name = "FCM 토큰 누락 또는 빈 값",
                       value =
                           """
-              {
-                "isSuccess": false,
-                "code": "COMMON400_1",
-                "message": "잘못된 요청입니다.",
-                "result": {
-                  "fcmToken": "공백일 수 없습니다"
+                {
+                  "isSuccess": false,
+                  "code": "COMMON400_1",
+                  "message": "잘못된 요청입니다.",
+                  "result": {
+                    "fcmToken": "공백일 수 없습니다"
+                  }
                 }
-              }
-              """),
+                """),
                   @ExampleObject(
                       name = "FCM 토큰 길이 초과",
                       value =
                           """
-              {
-                "isSuccess": false,
-                "code": "COMMON400_1",
-                "message": "잘못된 요청입니다.",
-                "result": {
-                  "fcmToken": "크기가 0에서 255 사이여야 합니다"
+                {
+                  "isSuccess": false,
+                  "code": "COMMON400_1",
+                  "message": "잘못된 요청입니다.",
+                  "result": {
+                    "fcmToken": "크기가 0에서 255 사이여야 합니다"
+                  }
                 }
-              }
-              """),
+                """),
                   @ExampleObject(
                       name = "잘못된 JSON",
                       value =
                           """
-              {
-                "isSuccess": false,
-                "code": "COMMON400_1",
-                "message": "잘못된 요청입니다.",
-                "result": {}
-              }
-              """)
+                {
+                  "isSuccess": false,
+                  "code": "COMMON400_1",
+                  "message": "잘못된 요청입니다.",
+                  "result": {}
+                }
+                """)
                 })),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
@@ -245,7 +245,7 @@ public interface NotificationControllerDocs {
               """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "notificationId가 1보다 작음",
+        description = "잘못된/유효하지 않은 notificationId 값",
         content =
             @Content(
                 mediaType = "application/json",
