@@ -29,11 +29,17 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	// JPA + DB (User / Book / ReadingRecord / Meeting 엔티티)
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.flywaydb:flyway-core'
+	runtimeOnly 'org.flywaydb:flyway-mysql'
 	// Redis (검색 캐시 / 세션·토큰 / 모임 타이머 TTL / 채팅 Pub-Sub)
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	// Security + 소셜 로그인 (구글·카카오 OAuth2)
+	// Security (JWT 기반 인증 — 소셜 로그인은 클라이언트가 전달한 providerToken을 서버가 직접 검증)
 	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	// 구글·애플 ID Token(JWT) 서명/발급자/audience 검증 (JWKS 캐싱 포함)
+	implementation 'org.springframework.security:spring-security-oauth2-jose'
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	// 요청 검증 (닉네임·모임 설정값 등)
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	// 실시간 채팅 (토론방)
@@ -46,10 +52,18 @@ dependencies {
 	// MySQL 드라이버
 	runtimeOnly 'com.mysql:mysql-connector-j'
 
+	// .env 파일로 로컬 환경변수 관리
+	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
 	// 테스트
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// Swagger
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
+
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 }
 
 tasks.named('test') {
