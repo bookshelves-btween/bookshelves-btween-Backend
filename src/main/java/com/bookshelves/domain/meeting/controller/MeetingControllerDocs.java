@@ -482,6 +482,23 @@ public interface MeetingControllerDocs {
         responseCode = "204",
         description = "모임 삭제 성공"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 정보가 유효하지 않음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "AUTH401_2",
+                "message": "유효하지 않은 Access Token입니다.",
+                "result": null
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
         description = "모임을 찾을 수 없음",
         content =
