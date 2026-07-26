@@ -12,10 +12,19 @@ import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookItem;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookSearchResult;
+import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.entity.Book;
+import com.bookshelves.domain.book.entity.MemberBook;
+import com.bookshelves.domain.book.entity.MemberBookHistory;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
+import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
+import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.member.entity.Member;
+import com.bookshelves.domain.member.repository.MemberRepository;
+import com.bookshelves.global.security.AuthenticationFacade;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +43,10 @@ class BookCommandServiceTest {
   private static final String ISBN = "9788936434595";
 
   @Mock private BookRepository bookRepository;
+  @Mock private MemberBookRepository memberBookRepository;
+  @Mock private MemberBookHistoryRepository memberBookHistoryRepository;
+  @Mock private MemberRepository memberRepository;
+  @Mock private AuthenticationFacade authenticationFacade;
   @Mock private KakaoBookSearchClient kakaoBookSearchClient;
   @Mock private Data4LibraryBookDetailClient data4LibraryBookDetailClient;
   @InjectMocks private BookCommandService bookCommandService;
@@ -159,5 +172,82 @@ class BookCommandServiceTest {
     assertThat(first.get(3, TimeUnit.SECONDS)).isSameAs(winningBook);
     assertThat(second.get(3, TimeUnit.SECONDS)).isSameAs(winningBook);
     verify(bookRepository, times(2)).findByIsbnForUpdate(ISBN);
+  }
+
+  @Test
+  void createsMemberBookAndHistoryWhenProgressIsGreaterThanZero() {
+    Book book = Book.builder().isbn(ISBN).title("아몬드").build();
+    Member member = Member.createSocialMember(null, "provider-id");
+    MemberBookHistory savedHistory = org.mockito.Mockito.mock(MemberBookHistory.class);
+
+    given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.of(book));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberBookRepository.findByMemberIdAndBookId(1L, null)).willReturn(Optional.empty());
+    given(memberRepository.getReferenceById(1L)).willReturn(member);
+    given(memberBookRepository.save(org.mockito.ArgumentMatchers.any(MemberBook.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+    given(
+            memberBookHistoryRepository.save(
+                org.mockito.ArgumentMatchers.any(MemberBookHistory.class)))
+        .willReturn(savedHistory);
+    given(savedHistory.getId()).willReturn(10L);
+
+    BookCommandService.MemberBookUpsertResult result =
+        bookCommandService.upsertMemberBook(
+            ISBN, new MemberBookUpsertReqDTO(30, new BigDecimal("4.5"), "좋았다."));
+
+    assertThat(result.created()).isTrue();
+    assertThat(result.response().memberBookHistory().id()).isEqualTo(10L);
+    verify(memberBookHistoryRepository)
+        .save(org.mockito.ArgumentMatchers.any(MemberBookHistory.class));
+  }
+
+  @Test
+  void doesNotCreateHistoryWhenExistingProgressDoesNotIncrease() {
+    Book book = Book.builder().isbn(ISBN).title("아몬드").build();
+    MemberBook memberBook =
+        MemberBook.create(
+            book,
+            Member.createSocialMember(null, "provider-id"),
+            50,
+            new BigDecimal("4.0"),
+            "기존 한줄평");
+
+    given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.of(book));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberBookRepository.findByMemberIdAndBookId(1L, null))
+        .willReturn(Optional.of(memberBook));
+
+    BookCommandService.MemberBookUpsertResult result =
+        bookCommandService.upsertMemberBook(
+            ISBN, new MemberBookUpsertReqDTO(50, new BigDecimal("4.5"), "수정 한줄평"));
+
+    assertThat(result.created()).isFalse();
+    assertThat(result.response().memberBookHistory()).isNull();
+    assertThat(memberBook.getRating()).isEqualByComparingTo("4.5");
+    assertThat(memberBook.getMemo()).isEqualTo("수정 한줄평");
+    verify(memberBookHistoryRepository, never())
+        .save(org.mockito.ArgumentMatchers.any(MemberBookHistory.class));
+  }
+
+  @Test
+  void rejectsClearingExistingRating() {
+    Book book = Book.builder().isbn(ISBN).title("아몬드").build();
+    MemberBook memberBook =
+        MemberBook.create(
+            book, Member.createSocialMember(null, "provider-id"), 50, new BigDecimal("4.0"), "한줄평");
+
+    given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.of(book));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberBookRepository.findByMemberIdAndBookId(1L, null))
+        .willReturn(Optional.of(memberBook));
+
+    assertThatThrownBy(
+            () ->
+                bookCommandService.upsertMemberBook(
+                    ISBN, new MemberBookUpsertReqDTO(50, null, "한줄평")))
+        .isInstanceOf(BookException.class)
+        .extracting(exception -> ((BookException) exception).getErrorCode())
+        .isEqualTo(BookErrorCode.MEMBER_BOOK_RATING_CANNOT_BE_CLEARED);
   }
 }
