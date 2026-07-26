@@ -61,10 +61,10 @@ public class MeetingController implements MeetingControllerDocs {
   }
 
   @Override
-  @PostMapping("/api/v1/{isbn}/recruitment")
+  @PostMapping("/api/v1/meetings")
   public ResponseEntity<ApiResponse<MeetingCreateResDTO>> createMeeting(
-      @PathVariable String isbn, @RequestBody MeetingCreateReqDTO request) {
-    MeetingCreateResDTO response = meetingCommandService.createMeeting(isbn, request);
+      @RequestBody MeetingCreateReqDTO request) {
+    MeetingCreateResDTO response = meetingCommandService.createMeeting(request);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.onSuccess(MeetingSuccessCode.MEETING_CREATED, response));
   }
