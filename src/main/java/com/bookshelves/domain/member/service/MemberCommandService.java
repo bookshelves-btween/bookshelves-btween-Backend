@@ -103,6 +103,8 @@ public class MemberCommandService {
 
     validateNicknameLength(
         request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
+    validateNicknameWords(
+        request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
     validateRequiredTermsAgreed(request.getAgreedTermsIds());
 
     member.updateNickname(
@@ -219,6 +221,8 @@ public class MemberCommandService {
     if (providedCount == 3) {
       validateNicknameLength(
           request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
+      validateNicknameWords(
+          request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
     }
   }
 
@@ -231,6 +235,17 @@ public class MemberCommandService {
     int combinedLength = noun.length() + 1 + modifier.length() + 1 + animal.length();
 
     if (anyPartTooLong || combinedLength > NICKNAME_MAX_LENGTH) {
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    }
+  }
+
+  private void validateNicknameWords(String noun, String modifier, String animal) {
+    boolean allowed =
+        NicknameWords.NOUNS.contains(noun)
+            && NicknameWords.MODIFIERS.contains(modifier)
+            && NicknameWords.ANIMALS.contains(animal);
+
+    if (!allowed) {
       throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
   }
