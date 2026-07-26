@@ -28,7 +28,42 @@ public interface MeetingControllerDocs {
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",
-        description = "내 모임 목록 조회 성공"),
+        description = "내 모임 목록 조회 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        name = "내 모임 목록 조회 성공",
+                        value =
+                            """
+              {
+                "isSuccess": true,
+                "code": "MEETING200_4",
+                "message": "내 모임 목록 조회에 성공했습니다.",
+                "result": {
+                  "meetings": [
+                    {
+                      "id": 1,
+                      "chatroomId": 10,
+                      "status": "RECRUITING",
+                      "startDate": "2026-07-15T19:30:00",
+                      "currentParticipants": 7,
+                      "maxParticipants": 10,
+                      "duration": 90,
+                      "book": {
+                        "id": 101,
+                        "title": "아몬드",
+                        "coverImageUrl": "https://image.example.com/almond.jpg"
+                      }
+                    }
+                  ],
+                  "page": 1,
+                  "size": 20,
+                  "hasNext": false
+                }
+              }
+              """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
         description = "필수 파라미터 누락, 요청 값 검증 실패 또는 연도 없이 월만 요청",
