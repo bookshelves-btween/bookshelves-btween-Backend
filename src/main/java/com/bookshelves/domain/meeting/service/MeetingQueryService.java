@@ -70,6 +70,10 @@ public class MeetingQueryService {
 
   public MeetingSearchResDTO getMyMeetings(
       boolean isLeader, Integer year, Integer month, int page, int size) {
+    if (year == null && month != null) {
+      throw new MeetingException(MeetingErrorCode.MEETING_MONTH_REQUIRES_YEAR);
+    }
+
     Long memberId = authenticationFacade.getCurrentMemberId();
     PageRequest pageRequest = PageRequest.of(page - 1, size);
     Page<Meeting> meetingPage =

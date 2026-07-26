@@ -20,6 +20,7 @@ import com.bookshelves.domain.meeting.dto.response.MeetingSearchResDTO;
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import com.bookshelves.domain.meeting.exception.MeetingException;
+import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.time.LocalDateTime;
@@ -176,6 +177,30 @@ class MeetingQueryServiceTest {
 
     assertThat(result.page()).isEqualTo(2);
     assertThat(result.size()).isEqualTo(10);
+    assertThat(result.meetings()).isEmpty();
+    verifyNoInteractions(chatRoomRepository);
+  }
+
+  @Test
+  void getMyMeetingsRejectsMonthWhenYearIsNotProvided() {
+    assertThatThrownBy(() -> meetingQueryService.getMyMeetings(false, null, 7, 1, 20))
+        .isInstanceOf(MeetingException.class)
+        .extracting(exception -> ((MeetingException) exception).getErrorCode())
+        .isEqualTo(MeetingErrorCode.MEETING_MONTH_REQUIRES_YEAR);
+
+    verifyNoInteractions(meetingRepository, chatRoomRepository);
+  }
+
+  @Test
+  void getMyMeetingsAppliesYearWithoutMonth() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1001L);
+    given(
+            meetingRepository.findMyMeetings(
+                eq(1001L), eq(true), eq(2026), eq(null), any(Pageable.class)))
+        .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+    MeetingSearchResDTO result = meetingQueryService.getMyMeetings(true, 2026, null, 1, 20);
+
     assertThat(result.meetings()).isEmpty();
     verifyNoInteractions(chatRoomRepository);
   }
