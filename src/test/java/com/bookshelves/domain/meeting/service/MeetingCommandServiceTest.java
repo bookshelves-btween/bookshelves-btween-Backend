@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.service.BookCommandService;
+import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingCreateResDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingParticipationResDTO;
@@ -24,10 +26,15 @@ import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,6 +45,7 @@ class MeetingCommandServiceTest {
   @Mock private BookCommandService bookCommandService;
   @Mock private MeetingRepository meetingRepository;
   @Mock private MeetingParticipantRepository meetingParticipantRepository;
+  @Mock private ChatRoomRepository chatRoomRepository;
   @Mock private MemberRepository memberRepository;
   @Mock private AuthenticationFacade authenticationFacade;
   @InjectMocks private MeetingCommandService meetingCommandService;
@@ -143,5 +151,108 @@ class MeetingCommandServiceTest {
         .extracting("errorCode")
         .isEqualTo(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
     verify(meetingParticipantRepository, never()).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void deletesUnderstaffedMeetingAfterRecruitmentDeadline() {
+    Meeting meeting = mock(Meeting.class);
+    LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getStartDate()).willReturn(now.minusMinutes(1));
+    given(meeting.getCurParticipants()).willReturn(3);
+    given(meeting.getMaxParticipants()).willReturn(4);
+
+    boolean deleted = meetingCommandService.deleteUnderstaffedMeeting(1L, now);
+
+    assertThat(deleted).isTrue();
+    InOrder deletionOrder =
+        inOrder(chatRoomRepository, meetingParticipantRepository, meetingRepository);
+    deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
+    deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
+    deletionOrder.verify(meetingRepository).delete(meeting);
+  }
+
+  @Test
+  void skipsDeletingUnknownMeeting() {
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.empty());
+
+    boolean deleted =
+        meetingCommandService.deleteUnderstaffedMeeting(1L, LocalDateTime.of(2026, 8, 1, 20, 0));
+
+    assertThat(deleted).isFalse();
+    verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
+    verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
+    verify(meetingRepository, never()).delete(any());
+  }
+
+  @Test
+  void skipsDeletingMeetingThatReachedCapacity() {
+    Meeting meeting = mock(Meeting.class);
+    LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUIT_CLOSED);
+
+    boolean deleted = meetingCommandService.deleteUnderstaffedMeeting(1L, now);
+
+    assertThat(deleted).isFalse();
+    verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
+    verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
+    verify(meetingRepository, never()).delete(any());
+  }
+
+  @Test
+  void skipsDeletingMeetingBeforeRecruitmentDeadline() {
+    Meeting meeting = mock(Meeting.class);
+    LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getStartDate()).willReturn(now.plusMinutes(1));
+
+    boolean deleted = meetingCommandService.deleteUnderstaffedMeeting(1L, now);
+
+    assertThat(deleted).isFalse();
+    verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
+    verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
+    verify(meetingRepository, never()).delete(any());
+  }
+
+  @Test
+  void waitsForMeetingLockBeforeDeletingRelatedData() throws Exception {
+    Meeting meeting = mock(Meeting.class);
+    LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
+    CountDownLatch lockRequested = new CountDownLatch(1);
+    CountDownLatch lockAcquired = new CountDownLatch(1);
+    given(meetingRepository.findByIdForUpdate(1L))
+        .willAnswer(
+            invocation -> {
+              lockRequested.countDown();
+              if (!lockAcquired.await(1, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("모임 잠금 획득 대기 시간이 초과되었습니다.");
+              }
+              return Optional.of(meeting);
+            });
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getStartDate()).willReturn(now.minusMinutes(1));
+    given(meeting.getCurParticipants()).willReturn(3);
+    given(meeting.getMaxParticipants()).willReturn(4);
+
+    CompletableFuture<Boolean> deletion =
+        CompletableFuture.supplyAsync(
+            () -> meetingCommandService.deleteUnderstaffedMeeting(1L, now));
+
+    assertThat(lockRequested.await(1, TimeUnit.SECONDS)).isTrue();
+    verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
+    verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
+    verify(meetingRepository, never()).delete(any());
+
+    lockAcquired.countDown();
+    assertThat(deletion.get(1, TimeUnit.SECONDS)).isTrue();
+
+    InOrder deletionOrder =
+        inOrder(chatRoomRepository, meetingParticipantRepository, meetingRepository);
+    deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
+    deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
+    deletionOrder.verify(meetingRepository).delete(meeting);
   }
 }

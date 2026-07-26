@@ -5,10 +5,15 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
+
+  @Modifying
+  @Query("delete from ChatRoom chatRoom where chatRoom.meeting.id = :meetingId")
+  void deleteAllByMeetingId(@Param("meetingId") Long meetingId);
 
   @Query(
       "select cr from ChatRoom cr join fetch cr.meeting m join fetch m.book where cr.id = :chatroomId")
