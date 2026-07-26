@@ -2,6 +2,7 @@ package com.bookshelves.domain.meeting.service;
 
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.service.BookCommandService;
+import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.converter.MeetingConverter;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingCreateResDTO;
@@ -28,6 +29,7 @@ public class MeetingCommandService {
   private final BookCommandService bookCommandService;
   private final MeetingRepository meetingRepository;
   private final MeetingParticipantRepository meetingParticipantRepository;
+  private final ChatRoomRepository chatRoomRepository;
   private final MemberRepository memberRepository;
   private final AuthenticationFacade authenticationFacade;
 
@@ -75,6 +77,7 @@ public class MeetingCommandService {
             .findById(meetingId)
             .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
 
+    chatRoomRepository.deleteAllByMeetingId(meetingId);
     meetingParticipantRepository.deleteAllByMeetingId(meetingId);
     meetingRepository.delete(meeting);
   }
