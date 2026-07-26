@@ -1,0 +1,5 @@
+language: ko-KR
+
+reviews:
+  path_filters:
+    - "!src/main/resources/static/images/**"

@@ -41,10 +41,13 @@
 | `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` | MySQL 접속           |
 | `REDIS_HOST` / `REDIS_PORT`                                       | Redis 접속           |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                       | 구글 OAuth2          |
+| `APPLE_CLIENT_ID`                                                 | 애플 Sign in with Apple (ID Token audience 검증) |
 | `KAKAO_CLIENT_ID` / `KAKAO_CLIENT_SECRET`                         | 카카오 OAuth2 로그인 |
 | `KAKAO_REST_API_KEY`                                              | 카카오 책 검색 API   |
 | `DATA4LIBRARY_AUTH_KEY`                                           | 도서관 정보나루 API  |
 | `GEMINI_API_KEY`                                                  | Gemini API           |
+| `JWT_SECRET`                                                      | JWT 서명 키 (HS256, 최소 32바이트 이상 랜덤 문자열 필수) |
+| `CORS_ALLOWED_ORIGINS`                                            | 허용할 CORS Origin (콤마로 여러 개 지정, 환경별로 다르게 설정) |
 
 ## 코드 포맷
 
