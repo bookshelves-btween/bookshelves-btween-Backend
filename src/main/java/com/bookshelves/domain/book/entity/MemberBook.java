@@ -79,6 +79,10 @@ public class MemberBook extends BaseEntity {
     if (startedAt == null) {
       startedAt = LocalDateTime.now();
     }
-    finishedAt = progress == 100 ? LocalDateTime.now() : null;
+    if (progress == 100 && finishedAt == null) {
+      finishedAt = LocalDateTime.now();
+    } else if (progress < 100) {
+      finishedAt = null;
+    }
   }
 }
