@@ -29,7 +29,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	// JPA + DB (User / Book / ReadingRecord / Meeting 엔티티)
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	runtimeOnly 'org.flywaydb:flyway-mysql'
 	// Redis (검색 캐시 / 세션·토큰 / 모임 타이머 TTL / 채팅 Pub-Sub)
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
