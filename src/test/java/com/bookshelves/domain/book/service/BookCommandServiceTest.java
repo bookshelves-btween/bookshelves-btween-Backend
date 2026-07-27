@@ -26,6 +26,7 @@ import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -182,8 +183,8 @@ class BookCommandServiceTest {
 
     given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.of(book));
     given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberRepository.findByIdForUpdate(1L)).willReturn(Optional.of(member));
     given(memberBookRepository.findByMemberIdAndBookId(1L, null)).willReturn(Optional.empty());
-    given(memberRepository.getReferenceById(1L)).willReturn(member);
     given(memberBookRepository.save(org.mockito.ArgumentMatchers.any(MemberBook.class)))
         .willAnswer(invocation -> invocation.getArgument(0));
     given(
@@ -215,6 +216,7 @@ class BookCommandServiceTest {
 
     given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.of(book));
     given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberRepository.findByIdForUpdate(1L)).willReturn(Optional.of(memberBook.getMember()));
     given(memberBookRepository.findByMemberIdAndBookId(1L, null))
         .willReturn(Optional.of(memberBook));
 
@@ -239,6 +241,7 @@ class BookCommandServiceTest {
 
     given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.of(book));
     given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberRepository.findByIdForUpdate(1L)).willReturn(Optional.of(memberBook.getMember()));
     given(memberBookRepository.findByMemberIdAndBookId(1L, null))
         .willReturn(Optional.of(memberBook));
 
@@ -249,5 +252,21 @@ class BookCommandServiceTest {
         .isInstanceOf(BookException.class)
         .extracting(exception -> ((BookException) exception).getErrorCode())
         .isEqualTo(BookErrorCode.MEMBER_BOOK_RATING_CANNOT_BE_CLEARED);
+  }
+
+  @Test
+  void preservesCompletionTimeWhenUpdatingCompletedMemberBook() {
+    MemberBook memberBook =
+        MemberBook.create(
+            Book.builder().isbn(ISBN).title("아몬드").build(),
+            Member.createSocialMember(null, "provider-id"),
+            100,
+            new BigDecimal("4.0"),
+            "완독");
+    LocalDateTime completedAt = memberBook.getFinishedAt();
+
+    memberBook.update(100, new BigDecimal("4.5"), "평점 수정");
+
+    assertThat(memberBook.getFinishedAt()).isEqualTo(completedAt);
   }
 }

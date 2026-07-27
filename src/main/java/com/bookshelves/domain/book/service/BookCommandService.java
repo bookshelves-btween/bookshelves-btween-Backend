@@ -52,16 +52,22 @@ public class BookCommandService {
     Book book = getOrCreateByIsbn(rawIsbn);
     Long memberId = authenticationFacade.getCurrentMemberId();
 
+    return memberRepository
+        .findByIdForUpdate(memberId)
+        .map(lockedMember -> upsertLockedMemberBook(memberId, lockedMember, book, request))
+        .orElseThrow(() -> new IllegalStateException("인증된 회원을 찾을 수 없습니다."));
+  }
+
+  private MemberBookUpsertResult upsertLockedMemberBook(
+      Long memberId, Member member, Book book, MemberBookUpsertReqDTO request) {
     return memberBookRepository
         .findByMemberIdAndBookId(memberId, book.getId())
         .map(memberBook -> new MemberBookUpsertResult(false, updateMemberBook(memberBook, request)))
-        .orElseGet(
-            () -> new MemberBookUpsertResult(true, createMemberBook(memberId, book, request)));
+        .orElseGet(() -> new MemberBookUpsertResult(true, createMemberBook(member, book, request)));
   }
 
   private MemberBookUpsertResDTO createMemberBook(
-      Long memberId, Book book, MemberBookUpsertReqDTO request) {
-    Member member = memberRepository.getReferenceById(memberId);
+      Member member, Book book, MemberBookUpsertReqDTO request) {
     MemberBook memberBook =
         memberBookRepository.save(
             MemberBook.create(book, member, request.progress(), request.rating(), request.memo()));
