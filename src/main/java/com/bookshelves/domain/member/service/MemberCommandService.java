@@ -12,6 +12,7 @@ import com.bookshelves.domain.member.entity.MemberCategory;
 import com.bookshelves.domain.member.entity.MemberTerms;
 import com.bookshelves.domain.member.entity.Terms;
 import com.bookshelves.domain.member.enums.MemberStatus;
+import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.exception.MemberErrorCode;
 import com.bookshelves.domain.member.exception.MemberException;
@@ -105,6 +106,7 @@ public class MemberCommandService {
         request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
     validateNicknameWords(
         request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
+    validateAnimalColorMapping(request.getNicknameAnimal(), request.getProfileBackgroundColor());
     validateRequiredTermsAgreed(request.getAgreedTermsIds());
 
     member.updateNickname(
@@ -246,6 +248,12 @@ public class MemberCommandService {
             && NicknameWords.ANIMALS.contains(animal);
 
     if (!allowed) {
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    }
+  }
+
+  private void validateAnimalColorMapping(String animal, ProfileBackgroundColor color) {
+    if (NicknameAnimalColors.DEFAULT_COLORS.get(animal) != color) {
       throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
   }
