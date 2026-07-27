@@ -261,13 +261,13 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("토끼")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .build();
 
     MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
 
     assertThat(response.getNickname()).isEqualTo("책 먹는 토끼");
-    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.RED);
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
@@ -288,7 +288,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("토끼")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .categoryIds(List.of(1L))
             .build();
 
@@ -368,7 +368,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("토끼")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .categoryIds(List.of(999L))
             .build();
 
@@ -396,7 +396,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("토끼")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .agreedTermsIds(List.of(1L))
             .build();
 
@@ -425,7 +425,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("토끼")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
@@ -446,7 +446,7 @@ class MemberCommandServiceTest {
             .nicknameNoun("책")
             .nicknameModifier("먹는")
             .nicknameAnimal("토끼")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .agreedTermsIds(List.of(999L))
             .build();
 
@@ -611,5 +611,44 @@ class MemberCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenAnimalColorMismatch() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+  }
+
+  @Test
+  void updateMyInfoAllowsAnimalColorMismatch() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
+
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    MemberInfoResponse response = memberCommandService.updateMyInfo(1L, request);
+
+    assertThat(response.getNicknameAnimal()).isEqualTo("토끼");
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
   }
 }
