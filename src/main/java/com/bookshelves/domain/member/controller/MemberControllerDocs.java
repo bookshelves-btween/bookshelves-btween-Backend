@@ -45,13 +45,13 @@ public interface MemberControllerDocs {
                   "nicknameNoun": "책",
                   "nicknameModifier": "먹는",
                   "nicknameAnimal": "토끼",
-                  "profileBackgroundColor": "GREEN",
+                  "profileBackgroundColor": "RED",
                   "provider": "KAKAO",
                   "memberStatus": "ACTIVE",
                   "createdAt": "2026-07-01T10:00:00",
                   "categories": [
-                    { "id": 1, "name": "소설" },
-                    { "id": 2, "name": "에세이" }
+                    { "id": 9, "name": "문학" },
+                    { "id": 10, "name": "역사" }
                   ]
                 }
               }
@@ -122,12 +122,12 @@ public interface MemberControllerDocs {
                   "nicknameNoun": "책",
                   "nicknameModifier": "먹는",
                   "nicknameAnimal": "토끼",
-                  "profileBackgroundColor": "GREEN",
+                  "profileBackgroundColor": "RED",
                   "provider": "KAKAO",
                   "memberStatus": "ACTIVE",
                   "createdAt": "2026-07-01T10:00:00",
                   "categories": [
-                    { "id": 3, "name": "자기계발" }
+                    { "id": 9, "name": "문학" }
                   ]
                 }
               }
@@ -294,12 +294,12 @@ public interface MemberControllerDocs {
                   "nicknameNoun": "책",
                   "nicknameModifier": "먹는",
                   "nicknameAnimal": "토끼",
-                  "profileBackgroundColor": "GREEN",
+                  "profileBackgroundColor": "RED",
                   "provider": "KAKAO",
                   "memberStatus": "ACTIVE",
                   "createdAt": "2026-07-01T10:00:00",
                   "categories": [
-                    { "id": 1, "name": "소설" }
+                    { "id": 9, "name": "문학" }
                   ]
                 }
               }
