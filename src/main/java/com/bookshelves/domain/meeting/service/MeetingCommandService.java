@@ -2,6 +2,7 @@ package com.bookshelves.domain.meeting.service;
 
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.service.BookCommandService;
+import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.converter.MeetingConverter;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
@@ -16,8 +17,11 @@ import com.bookshelves.domain.meeting.repository.MeetingParticipantRepository;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
+import com.bookshelves.domain.notification.entity.Notification;
+import com.bookshelves.domain.notification.repository.NotificationRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +35,7 @@ public class MeetingCommandService {
   private final MeetingRepository meetingRepository;
   private final MeetingParticipantRepository meetingParticipantRepository;
   private final ChatRoomRepository chatRoomRepository;
+  private final NotificationRepository notificationRepository;
   private final MemberRepository memberRepository;
   private final AuthenticationFacade authenticationFacade;
 
@@ -39,6 +44,8 @@ public class MeetingCommandService {
 
     Meeting meeting = MeetingConverter.toEntity(book, request);
     Meeting savedMeeting = meetingRepository.save(meeting);
+    // 모임 생성과 채팅방 생성을 같은 트랜잭션으로 처리한다.
+    chatRoomRepository.save(ChatRoom.create(savedMeeting));
 
     Long memberId = authenticationFacade.getCurrentMemberId();
     Member leader = memberRepository.getReferenceById(memberId);
@@ -72,14 +79,44 @@ public class MeetingCommandService {
     return MeetingParticipationResDTO.from(meetingParticipant);
   }
 
+  public boolean startMeeting(Long meetingId, LocalDateTime now) {
+    // 스케줄러 중복 실행에도 한 번만 상태가 변경되도록 잠금 후 다시 확인한다.
+    Meeting meeting = meetingRepository.findByIdForUpdate(meetingId).orElse(null);
+    if (meeting == null
+        || (meeting.getStatus() != MeetingStatus.RECRUITING
+            && meeting.getStatus() != MeetingStatus.RECRUIT_CLOSED)
+        || !meeting.canStart()
+        || meeting.getStartDate().isAfter(now)) {
+      return false;
+    }
+
+    meeting.start();
+    List<MeetingParticipant> participants =
+        meetingParticipantRepository.findAllWithMemberByMeetingId(meetingId);
+    notificationRepository.saveAllAndFlush(
+        participants.stream()
+            .map(participant -> Notification.meetingStarted(participant.getMember(), meeting))
+            .toList());
+    return true;
+  }
+
   public boolean deleteUnderstaffedMeeting(Long meetingId, LocalDateTime now) {
     Meeting meeting = meetingRepository.findByIdForUpdate(meetingId).orElse(null);
     if (meeting == null
-        || meeting.getStatus() != MeetingStatus.RECRUITING
+        || (meeting.getStatus() != MeetingStatus.RECRUITING
+            && meeting.getStatus() != MeetingStatus.RECRUIT_CLOSED)
         || meeting.getStartDate().isAfter(now)
-        || meeting.getCurParticipants() >= meeting.getMaxParticipants()) {
+        || meeting.canStart()) {
       return false;
     }
+
+    // 모임을 삭제하기 전에 모든 참여자의 취소 알림을 영속화한다.
+    List<MeetingParticipant> participants =
+        meetingParticipantRepository.findAllWithMemberByMeetingId(meetingId);
+    notificationRepository.saveAllAndFlush(
+        participants.stream()
+            .map(participant -> Notification.meetingCanceled(participant.getMember(), meeting))
+            .toList());
 
     chatRoomRepository.deleteAllByMeetingId(meetingId);
     meetingParticipantRepository.deleteAllByMeetingId(meetingId);
