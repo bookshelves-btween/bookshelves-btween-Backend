@@ -24,6 +24,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Meeting extends BaseEntity {
 
+  public static final int MIN_PARTICIPANTS = 3;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -71,6 +73,14 @@ public class Meeting extends BaseEntity {
 
   public void complete() {
     this.status = MeetingStatus.COMPLETED;
+  }
+
+  public void start() {
+    this.status = MeetingStatus.IN_PROGRESS;
+  }
+
+  public boolean canStart() {
+    return this.curParticipants >= MIN_PARTICIPANTS;
   }
 
   // 종료 시각 = 시작 시각 + 진행 시간(분)

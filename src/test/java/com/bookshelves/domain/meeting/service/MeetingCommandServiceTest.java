@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.service.BookCommandService;
+import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
 import com.bookshelves.domain.meeting.dto.response.MeetingCreateResDTO;
@@ -24,9 +25,13 @@ import com.bookshelves.domain.meeting.repository.MeetingParticipantRepository;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
+import com.bookshelves.domain.notification.entity.Notification;
+import com.bookshelves.domain.notification.enums.NotificationType;
+import com.bookshelves.domain.notification.repository.NotificationRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -46,6 +51,7 @@ class MeetingCommandServiceTest {
   @Mock private MeetingRepository meetingRepository;
   @Mock private MeetingParticipantRepository meetingParticipantRepository;
   @Mock private ChatRoomRepository chatRoomRepository;
+  @Mock private NotificationRepository notificationRepository;
   @Mock private MemberRepository memberRepository;
   @Mock private AuthenticationFacade authenticationFacade;
   @InjectMocks private MeetingCommandService meetingCommandService;
@@ -68,14 +74,66 @@ class MeetingCommandServiceTest {
 
     ArgumentCaptor<MeetingParticipant> participantCaptor =
         ArgumentCaptor.forClass(MeetingParticipant.class);
+    ArgumentCaptor<ChatRoom> chatRoomCaptor = ArgumentCaptor.forClass(ChatRoom.class);
     assertThat(response.id()).isEqualTo(1L);
     verify(bookCommandService).getOrCreateByIsbn(isbn);
     verify(meetingRepository).save(any(Meeting.class));
     verify(meetingParticipantRepository).save(participantCaptor.capture());
+    verify(chatRoomRepository).save(chatRoomCaptor.capture());
+    assertThat(chatRoomCaptor.getValue().getMeeting()).isSameAs(savedMeeting);
     assertThat(participantCaptor.getValue().getMeeting()).isSameAs(savedMeeting);
     assertThat(participantCaptor.getValue().getMember()).isSameAs(leader);
     assertThat(participantCaptor.getValue().getIsLeader()).isTrue();
     verify(savedMeeting).addParticipant();
+  }
+
+  @Test
+  void startsClosedMeetingAfterStartDate() {
+    Meeting meeting = mock(Meeting.class);
+    Book book = mock(Book.class);
+    Member member = mock(Member.class);
+    MeetingParticipant participant = mock(MeetingParticipant.class);
+    LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUIT_CLOSED);
+    given(meeting.canStart()).willReturn(true);
+    given(meeting.getStartDate()).willReturn(now);
+    given(meeting.getId()).willReturn(1L);
+    given(meeting.getBook()).willReturn(book);
+    given(book.getTitle()).willReturn("아몬드");
+    given(meetingParticipantRepository.findAllWithMemberByMeetingId(1L))
+        .willReturn(List.of(participant));
+    given(participant.getMember()).willReturn(member);
+
+    boolean started = meetingCommandService.startMeeting(1L, now);
+
+    assertThat(started).isTrue();
+    verify(meeting).start();
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<Notification>> notificationCaptor = ArgumentCaptor.forClass(List.class);
+    verify(notificationRepository).saveAllAndFlush(notificationCaptor.capture());
+    assertThat(notificationCaptor.getValue()).hasSize(1);
+    Notification notification = notificationCaptor.getValue().get(0);
+    assertThat(notification.getMember()).isSameAs(member);
+    assertThat(notification.getTitle()).isEqualTo("아몬드 독서 모임이 시작되었어요");
+    assertThat(notification.getContent()).isEqualTo("지금 모임에 참여해보세요");
+    assertThat(notification.getType()).isEqualTo(NotificationType.MEETING_STARTED);
+    assertThat(notification.getRelatedId()).isEqualTo(1L);
+  }
+
+  @Test
+  void skipsStartingMeetingBeforeStartDate() {
+    Meeting meeting = mock(Meeting.class);
+    LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUIT_CLOSED);
+    given(meeting.canStart()).willReturn(true);
+    given(meeting.getStartDate()).willReturn(now.plusMinutes(1));
+
+    boolean started = meetingCommandService.startMeeting(1L, now);
+
+    assertThat(started).isFalse();
+    verify(meeting, never()).start();
   }
 
   @Test
@@ -157,18 +215,42 @@ class MeetingCommandServiceTest {
   @Test
   void deletesUnderstaffedMeetingAfterRecruitmentDeadline() {
     Meeting meeting = mock(Meeting.class);
+    Book book = mock(Book.class);
+    Member member = mock(Member.class);
+    MeetingParticipant participant = mock(MeetingParticipant.class);
     LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
     given(meeting.getStartDate()).willReturn(now.minusMinutes(1));
-    given(meeting.getCurParticipants()).willReturn(3);
-    given(meeting.getMaxParticipants()).willReturn(4);
+    given(meeting.canStart()).willReturn(false);
+    given(meeting.getId()).willReturn(1L);
+    given(meeting.getBook()).willReturn(book);
+    given(book.getTitle()).willReturn("혼모노");
+    given(meeting.getCurParticipants()).willReturn(2);
+    given(meeting.getMaxParticipants()).willReturn(6);
+    given(meetingParticipantRepository.findAllWithMemberByMeetingId(1L))
+        .willReturn(List.of(participant));
+    given(participant.getMember()).willReturn(member);
 
     boolean deleted = meetingCommandService.deleteUnderstaffedMeeting(1L, now);
 
     assertThat(deleted).isTrue();
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<Notification>> notificationCaptor = ArgumentCaptor.forClass(List.class);
+    verify(notificationRepository).saveAllAndFlush(notificationCaptor.capture());
+    assertThat(notificationCaptor.getValue()).hasSize(1);
+    Notification notification = notificationCaptor.getValue().get(0);
+    assertThat(notification.getMember()).isSameAs(member);
+    assertThat(notification.getType()).isEqualTo(NotificationType.MEETING_CANCELED);
+    assertThat(notification.getRelatedId()).isEqualTo(1L);
+    assertThat(notification.getContent()).isEqualTo("혼모노 | 8/1 (토) · 19:59 | 2/6");
     InOrder deletionOrder =
-        inOrder(chatRoomRepository, meetingParticipantRepository, meetingRepository);
+        inOrder(
+            notificationRepository,
+            chatRoomRepository,
+            meetingParticipantRepository,
+            meetingRepository);
+    deletionOrder.verify(notificationRepository).saveAllAndFlush(any());
     deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingRepository).delete(meeting);
@@ -188,11 +270,13 @@ class MeetingCommandServiceTest {
   }
 
   @Test
-  void skipsDeletingMeetingThatReachedCapacity() {
+  void skipsDeletingMeetingThatReachedMinimumParticipants() {
     Meeting meeting = mock(Meeting.class);
     LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
-    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUIT_CLOSED);
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getStartDate()).willReturn(now);
+    given(meeting.canStart()).willReturn(true);
 
     boolean deleted = meetingCommandService.deleteUnderstaffedMeeting(1L, now);
 
@@ -235,8 +319,8 @@ class MeetingCommandServiceTest {
             });
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
     given(meeting.getStartDate()).willReturn(now.minusMinutes(1));
-    given(meeting.getCurParticipants()).willReturn(3);
-    given(meeting.getMaxParticipants()).willReturn(4);
+    given(meeting.canStart()).willReturn(false);
+    given(meetingParticipantRepository.findAllWithMemberByMeetingId(1L)).willReturn(List.of());
 
     CompletableFuture<Boolean> deletion =
         CompletableFuture.supplyAsync(
@@ -251,7 +335,12 @@ class MeetingCommandServiceTest {
     assertThat(deletion.get(1, TimeUnit.SECONDS)).isTrue();
 
     InOrder deletionOrder =
-        inOrder(chatRoomRepository, meetingParticipantRepository, meetingRepository);
+        inOrder(
+            notificationRepository,
+            chatRoomRepository,
+            meetingParticipantRepository,
+            meetingRepository);
+    deletionOrder.verify(notificationRepository).saveAllAndFlush(List.of());
     deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingRepository).delete(meeting);
