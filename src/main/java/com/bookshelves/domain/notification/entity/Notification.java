@@ -1,5 +1,6 @@
 package com.bookshelves.domain.notification.entity;
 
+import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.notification.enums.NotificationType;
 import com.bookshelves.global.entity.BaseEntity;
@@ -13,6 +14,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -45,6 +48,25 @@ public class Notification extends BaseEntity {
 
   @Column(name = "related_id")
   private Long relatedId;
+
+  private static final DateTimeFormatter MEETING_DATE_FORMATTER =
+      DateTimeFormatter.ofPattern("M/d (E) · HH:mm", Locale.KOREAN);
+
+  public static Notification meetingCanceled(Member member, Meeting meeting) {
+    Notification notification = new Notification();
+    notification.member = member;
+    notification.title = "최소 인원 미달로 모임이 취소되었어요";
+    notification.content =
+        "%s | %s | %d/%d"
+            .formatted(
+                meeting.getBook().getTitle(),
+                meeting.getStartDate().format(MEETING_DATE_FORMATTER),
+                meeting.getCurParticipants(),
+                meeting.getMaxParticipants());
+    notification.type = NotificationType.MEETING_CANCELED;
+    notification.relatedId = meeting.getId();
+    return notification;
+  }
 
   public void markAsRead() {
     this.isRead = true;

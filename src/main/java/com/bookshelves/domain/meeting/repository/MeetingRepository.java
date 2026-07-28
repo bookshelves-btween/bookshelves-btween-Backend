@@ -3,6 +3,7 @@ package com.bookshelves.domain.meeting.repository;
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,9 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
   // 종료 배치 대상 후보 — 종료 시각(startDate+duration분)은 DB 종속 함수를 피해 Java에서 필터한다.
   // 진행 중 모임은 "현재 열려 있는 것"뿐이라 수가 적어 전량 로딩해도 부담이 없다.
   List<Meeting> findAllByStatus(MeetingStatus status);
+
+  List<Meeting> findAllByStatusInAndStartDateLessThanEqual(
+      List<MeetingStatus> statuses, LocalDateTime startDate);
 
   @EntityGraph(attributePaths = "book")
   @Query(
