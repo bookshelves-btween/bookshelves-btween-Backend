@@ -157,7 +157,7 @@ public interface NotificationControllerDocs {
                       "title": "서비스 점검 안내",
                       "content": "7월 20일 02:00 ~ 03:00 시스템 점검이 진행됩니다.",
                       "isRead": false,
-                      "targetId": null,
+                      "relatedId": null,
                       "createdAt": "2026-07-14T21:00:00"
                     },
                     {
@@ -166,7 +166,7 @@ public interface NotificationControllerDocs {
                       "title": "모임이 곧 시작됩니다.",
                       "content": "10분 후 모임이 시작됩니다.",
                       "isRead": false,
-                      "targetId": 12,
+                      "relatedId": 12,
                       "createdAt": "2026-07-14T20:00:00"
                     }
                   ],

@@ -90,16 +90,35 @@ class MeetingCommandServiceTest {
   @Test
   void startsClosedMeetingAfterStartDate() {
     Meeting meeting = mock(Meeting.class);
+    Book book = mock(Book.class);
+    Member member = mock(Member.class);
+    MeetingParticipant participant = mock(MeetingParticipant.class);
     LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUIT_CLOSED);
     given(meeting.canStart()).willReturn(true);
     given(meeting.getStartDate()).willReturn(now);
+    given(meeting.getId()).willReturn(1L);
+    given(meeting.getBook()).willReturn(book);
+    given(book.getTitle()).willReturn("아몬드");
+    given(meetingParticipantRepository.findAllWithMemberByMeetingId(1L))
+        .willReturn(List.of(participant));
+    given(participant.getMember()).willReturn(member);
 
     boolean started = meetingCommandService.startMeeting(1L, now);
 
     assertThat(started).isTrue();
     verify(meeting).start();
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<Notification>> notificationCaptor = ArgumentCaptor.forClass(List.class);
+    verify(notificationRepository).saveAllAndFlush(notificationCaptor.capture());
+    assertThat(notificationCaptor.getValue()).hasSize(1);
+    Notification notification = notificationCaptor.getValue().get(0);
+    assertThat(notification.getMember()).isSameAs(member);
+    assertThat(notification.getTitle()).isEqualTo("아몬드 독서 모임이 생성되었어요");
+    assertThat(notification.getContent()).isEqualTo("지금 모임에 참여해보세요");
+    assertThat(notification.getType()).isEqualTo(NotificationType.MEETING_STARTED);
+    assertThat(notification.getRelatedId()).isEqualTo(1L);
   }
 
   @Test
