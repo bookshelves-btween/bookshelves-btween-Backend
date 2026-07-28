@@ -190,7 +190,12 @@ public interface BookControllerDocs {
               description = "페이지 크기(1~50)",
               example = "15",
               schema = @Schema(type = "integer", minimum = "1", maximum = "50"))
-          String size);
+          String size,
+      @Parameter(
+              description = "최근 도서 검색어 저장 여부입니다. 기본값은 true이며, 모임 검색에서는 false를 전달합니다.",
+              example = "true",
+              schema = @Schema(type = "boolean", defaultValue = "true"))
+          boolean saveRecent);
 
   @Operation(summary = "최근 검색어 조회", description = "회원의 최근 도서 검색어를 검색 시각 내림차순으로 최대 5개 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
