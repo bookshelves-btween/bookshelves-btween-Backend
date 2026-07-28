@@ -7,12 +7,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.bookshelves.domain.meeting.entity.Meeting;
+import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.domain.meeting.service.MeetingCommandService;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -34,12 +36,20 @@ class MeetingStartSchedulerTest {
     given(understaffedMeeting.canStart()).willReturn(false);
     given(
             meetingRepository.findAllByStatusInAndStartDateLessThanEqual(
-                any(), any(LocalDateTime.class)))
+                eq(List.of(MeetingStatus.RECRUITING, MeetingStatus.RECRUIT_CLOSED)),
+                any(LocalDateTime.class)))
         .willReturn(List.of(closedMeeting, understaffedMeeting));
 
     meetingStartScheduler.startScheduledMeetings();
 
-    verify(meetingCommandService).startMeeting(eq(1L), any());
-    verify(meetingCommandService).deleteUnderstaffedMeeting(eq(2L), any());
+    ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+    verify(meetingRepository)
+        .findAllByStatusInAndStartDateLessThanEqual(
+            eq(List.of(MeetingStatus.RECRUITING, MeetingStatus.RECRUIT_CLOSED)),
+            nowCaptor.capture());
+    LocalDateTime now = nowCaptor.getValue();
+
+    verify(meetingCommandService).startMeeting(1L, now);
+    verify(meetingCommandService).deleteUnderstaffedMeeting(2L, now);
   }
 }
