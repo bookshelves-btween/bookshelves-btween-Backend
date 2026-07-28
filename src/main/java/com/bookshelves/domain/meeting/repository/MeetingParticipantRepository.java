@@ -15,6 +15,10 @@ public interface MeetingParticipantRepository extends JpaRepository<MeetingParti
 
   void deleteAllByMeetingId(Long meetingId);
 
+  @Query(
+      "select mp from MeetingParticipant mp join fetch mp.member where mp.meeting.id = :meetingId")
+  List<MeetingParticipant> findAllWithMemberByMeetingId(@Param("meetingId") Long meetingId);
+
   // 노쇼 확정 대상 — 출석하지 않은(attended가 true가 아닌) 참여자. member를 함께 로딩한다.
   @Query(
       "select mp from MeetingParticipant mp join fetch mp.member "
