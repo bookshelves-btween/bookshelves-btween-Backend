@@ -10,6 +10,15 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @Configuration
 public class WebSocketSchedulerConfig {
 
+  @Bean(name = "taskScheduler")
+  public ThreadPoolTaskScheduler taskScheduler() {
+    ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+    scheduler.setPoolSize(2);
+    scheduler.setThreadNamePrefix("app-scheduler-");
+    scheduler.initialize();
+    return scheduler;
+  }
+
   @Bean
   public ThreadPoolTaskScheduler webSocketTaskScheduler() {
     ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
