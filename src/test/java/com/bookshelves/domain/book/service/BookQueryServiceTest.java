@@ -115,7 +115,7 @@ class BookQueryServiceTest {
     given(kakaoBookSearchClient.search("미움받을 용기", 1, 15))
         .willReturn(new KakaoBookSearchResult(List.of(first, duplicate, noIsbn), false));
 
-    BookSearchResDTO result = bookQueryService.searchExternalBooks("  미움받을 용기  ", "1", "15");
+    BookSearchResDTO result = bookQueryService.searchExternalBooks("  미움받을 용기  ", "1", "15", true);
 
     assertThat(result.books()).hasSize(2);
     assertThat(result.books().getFirst().isbn()).isEqualTo("9788996991342");
@@ -131,7 +131,7 @@ class BookQueryServiceTest {
 
   @Test
   void searchExternalBooksRejectsInvalidRequestBeforeAuthenticationAndExternalCall() {
-    assertThatThrownBy(() -> bookQueryService.searchExternalBooks(" ", "1", "15"))
+    assertThatThrownBy(() -> bookQueryService.searchExternalBooks(" ", "1", "15", true))
         .isInstanceOf(BookException.class)
         .satisfies(
             exception ->
@@ -143,11 +143,11 @@ class BookQueryServiceTest {
 
   @Test
   void searchExternalBooksRejectsPageAndSizeOutsideSupportedRange() {
-    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "0", "15"))
+    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "0", "15", true))
         .isInstanceOf(BookException.class);
-    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "1", "51"))
+    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "1", "51", true))
         .isInstanceOf(BookException.class);
-    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "abc", "15"))
+    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "abc", "15", true))
         .isInstanceOf(BookException.class);
 
     verifyNoInteractions(authenticationFacade, kakaoBookSearchClient, recentBookSearchRepository);
@@ -162,10 +162,22 @@ class BookQueryServiceTest {
         .when(recentBookSearchRepository)
         .save(7L, "책");
 
-    BookSearchResDTO result = bookQueryService.searchExternalBooks("책", "1", "15");
+    BookSearchResDTO result = bookQueryService.searchExternalBooks("책", "1", "15", true);
 
     assertThat(result.books()).isEmpty();
     assertThat(result.hasNext()).isFalse();
+  }
+
+  @Test
+  void searchExternalBooksDoesNotSaveRecentQueryWhenSaveRecentIsFalse() {
+    given(kakaoBookSearchClient.search("혼모노", 1, 15))
+        .willReturn(new KakaoBookSearchResult(List.of(), true));
+
+    BookSearchResDTO result = bookQueryService.searchExternalBooks("혼모노", "1", "15", false);
+
+    assertThat(result.books()).isEmpty();
+    assertThat(result.hasNext()).isFalse();
+    verifyNoInteractions(authenticationFacade, recentBookSearchRepository);
   }
 
   @Test
