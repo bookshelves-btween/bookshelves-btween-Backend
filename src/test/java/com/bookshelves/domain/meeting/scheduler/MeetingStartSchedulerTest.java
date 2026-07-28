@@ -1,7 +1,9 @@
 package com.bookshelves.domain.meeting.scheduler;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.bookshelves.domain.meeting.entity.Meeting;
@@ -24,8 +26,8 @@ class MeetingStartSchedulerTest {
 
   @Test
   void startsClosedMeetingAndDeletesUnderstaffedMeeting() {
-    Meeting closedMeeting = org.mockito.Mockito.mock(Meeting.class);
-    Meeting understaffedMeeting = org.mockito.Mockito.mock(Meeting.class);
+    Meeting closedMeeting = mock(Meeting.class);
+    Meeting understaffedMeeting = mock(Meeting.class);
     given(closedMeeting.getId()).willReturn(1L);
     given(closedMeeting.canStart()).willReturn(true);
     given(understaffedMeeting.getId()).willReturn(2L);
@@ -37,8 +39,7 @@ class MeetingStartSchedulerTest {
 
     meetingStartScheduler.startScheduledMeetings();
 
-    verify(meetingCommandService).startMeeting(org.mockito.ArgumentMatchers.eq(1L), any());
-    verify(meetingCommandService)
-        .deleteUnderstaffedMeeting(org.mockito.ArgumentMatchers.eq(2L), any());
+    verify(meetingCommandService).startMeeting(eq(1L), any());
+    verify(meetingCommandService).deleteUnderstaffedMeeting(eq(2L), any());
   }
 }
