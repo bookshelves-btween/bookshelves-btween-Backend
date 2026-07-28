@@ -7,11 +7,9 @@ import com.bookshelves.domain.meeting.service.MeetingCommandService;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class MeetingStartScheduler {
@@ -29,15 +27,11 @@ public class MeetingStartScheduler {
     List<Meeting> candidates =
         meetingRepository.findAllByStatusInAndStartDateLessThanEqual(BEFORE_START_STATUSES, now);
     for (Meeting meeting : candidates) {
-      try {
-        // 최소 인원(3명)을 충족한 모임은 시작하고, 미달 모임은 알림 저장 후 삭제한다.
-        if (meeting.canStart()) {
-          boolean started = meetingCommandService.startMeeting(meeting.getId(), now);
-        } else {
-          boolean deleted = meetingCommandService.deleteUnderstaffedMeeting(meeting.getId(), now);
-        }
-      } catch (Exception e) {
-        log.error("모임 시작 처리 실패: meetingId={}", meeting.getId(), e);
+      // 최소 인원(3명)을 충족한 모임은 시작하고, 미달 모임은 알림 저장 후 삭제한다.
+      if (meeting.canStart()) {
+        meetingCommandService.startMeeting(meeting.getId(), now);
+      } else {
+        meetingCommandService.deleteUnderstaffedMeeting(meeting.getId(), now);
       }
     }
   }
