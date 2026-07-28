@@ -91,6 +91,12 @@ public class MeetingCommandService {
     }
 
     meeting.start();
+    List<MeetingParticipant> participants =
+        meetingParticipantRepository.findAllWithMemberByMeetingId(meetingId);
+    notificationRepository.saveAllAndFlush(
+        participants.stream()
+            .map(participant -> Notification.meetingStarted(participant.getMember(), meeting))
+            .toList());
     return true;
   }
 
