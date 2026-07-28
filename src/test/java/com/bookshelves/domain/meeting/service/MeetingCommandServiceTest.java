@@ -115,7 +115,7 @@ class MeetingCommandServiceTest {
     assertThat(notificationCaptor.getValue()).hasSize(1);
     Notification notification = notificationCaptor.getValue().get(0);
     assertThat(notification.getMember()).isSameAs(member);
-    assertThat(notification.getTitle()).isEqualTo("아몬드 독서 모임이 생성되었어요");
+    assertThat(notification.getTitle()).isEqualTo("아몬드 독서 모임이 시작되었어요");
     assertThat(notification.getContent()).isEqualTo("지금 모임에 참여해보세요");
     assertThat(notification.getType()).isEqualTo(NotificationType.MEETING_STARTED);
     assertThat(notification.getRelatedId()).isEqualTo(1L);
