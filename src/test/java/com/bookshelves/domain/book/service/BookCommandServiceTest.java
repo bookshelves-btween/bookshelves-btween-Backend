@@ -247,7 +247,8 @@ class BookCommandServiceTest {
     given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.of(book));
     given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
     given(memberRepository.findByIdForUpdate(1L)).willReturn(Optional.of(memberBook.getMember()));
-    given(memberBookRepository.findByMemberIdAndBookId(1L, null))
+    org.springframework.test.util.ReflectionTestUtils.setField(book, "id", 100L);
+    given(memberBookRepository.findByMemberIdAndBookId(1L, 100L))
         .willReturn(Optional.of(memberBook));
     given(
             memberBookHistoryRepository.save(
