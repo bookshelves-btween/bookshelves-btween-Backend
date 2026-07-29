@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class NotificationQueryService {
 
+  private static final int POLLING_REPLAY_WINDOW = 20;
+
   private final NotificationRepository notificationRepository;
 
   public NotificationListResponse getNotifications(Long memberId, int page, int size) {
@@ -33,13 +35,20 @@ public class NotificationQueryService {
   }
 
   public NewNotificationResponse getNewNotifications(Long memberId, Long afterId, int size) {
-    PageRequest pageRequest = PageRequest.of(0, size);
+    long replayAfterId = Math.max(0L, afterId - POLLING_REPLAY_WINDOW);
+    int replayAllowance = (int) Math.min(afterId, POLLING_REPLAY_WINDOW);
+    PageRequest pageRequest = PageRequest.of(0, size + replayAllowance);
     Slice<Notification> notificationSlice =
         notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
-            memberId, afterId, pageRequest);
+            memberId, replayAfterId, pageRequest);
     List<NotificationInfo> notifications =
         notificationSlice.stream().map(NotificationConverter::toNotificationInfo).toList();
-    Long nextCursor = notifications.isEmpty() ? afterId : notifications.getLast().id();
+    Long nextCursor =
+        notifications.stream()
+            .map(NotificationInfo::id)
+            .filter(id -> id > afterId)
+            .reduce((first, second) -> second)
+            .orElse(afterId);
 
     return new NewNotificationResponse(notifications, nextCursor, notificationSlice.hasNext());
   }
