@@ -1,6 +1,6 @@
 package com.bookshelves.domain.chat.service;
 
-import com.bookshelves.domain.ai.service.AIQuestionGenerationService;
+import com.bookshelves.domain.ai.service.QuestionRevealService;
 import com.bookshelves.domain.ai.service.QuestionVoteStore;
 import com.bookshelves.domain.chat.dto.ChatFrame;
 import com.bookshelves.domain.chat.dto.ChatParticipantPayload;
@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Service;
 // LEFT는 즉시 내보내지 않고 유예(grace)를 둔다 — 마지막 구독이 끊겨도 유예 시간 안에
 // 재접속하면 LEFT 없이 presence를 유지한다. iOS 백그라운드 전환처럼 짧게 끊겼다 돌아오는
 // 경우에 connected 숫자가 깜빡이는 것을 막는다. 유예 동안에도 회원을 접속자로 계속 센다.
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatPresenceService {
@@ -37,7 +39,7 @@ public class ChatPresenceService {
   private final MemberRepository memberRepository;
   private final SimpMessagingTemplate messagingTemplate;
   private final QuestionVoteStore questionVoteStore;
-  private final AIQuestionGenerationService aiQuestionGenerationService;
+  private final QuestionRevealService questionRevealService;
   // 필드명이 빈 이름(webSocketTaskScheduler)과 일치 → 브로커 자체 스케줄러와 구분해 주입
   private final ThreadPoolTaskScheduler webSocketTaskScheduler;
 
@@ -188,18 +190,25 @@ public class ChatPresenceService {
   }
 
   // 명세 "정족수 즉시 재판정" — LEFT로 connected가 줄어 requiredVotes가 내려갔을 때,
-  // 이미 모인 표가 새 정족수를 충족하면 그 자리에서 질문 생성을 시작한다.
+  // 이미 모인 표가 새 정족수를 충족하면 그 자리에서 다음 질문을 공개한다.
   private void reevaluateQuorum(Long chatroomId) {
     if (countConnected(chatroomId) == 0) {
-      // 방이 비면 라운드 자체가 무의미 — 남은 표를 정리하고 재판정하지 않는다
-      questionVoteStore.clearVotes(chatroomId);
+      // 방이 비면 라운드 자체가 무의미 — 표를 버리고 라운드도 무효화한다.
+      // 표만 지우면, 지우기 전에 정족수를 판정해 둔 요청이 재접속 이후의 새 표를 같은 라운드로 보고 소비한다.
+      questionVoteStore.invalidateRound(chatroomId);
       return;
     }
 
     int requiredVotes = requiredVotes(chatroomId);
-    int currentVotes = questionVoteStore.countVotes(chatroomId);
-    if (currentVotes >= 1 && currentVotes >= requiredVotes) {
-      aiQuestionGenerationService.requestGeneration(chatroomId, requiredVotes);
+    // 표 수와 라운드를 같은 스냅샷에서 읽는다 — 투표 경로가 먼저 공개했다면 이 판정은 무효가 되어야 한다
+    QuestionVoteStore.VoteRound voteRound = questionVoteStore.snapshot(chatroomId);
+    if (voteRound.votes() >= 1 && voteRound.votes() >= requiredVotes) {
+      // 이 메서드는 LEFT 유예 타이머 스레드에서 실행된다 — DB 실패가 presence 정리를 되돌리면 안 된다
+      try {
+        questionRevealService.revealNext(chatroomId, voteRound.round());
+      } catch (Exception e) {
+        log.error("정족수 재판정 중 질문 공개 실패: chatroomId={}", chatroomId, e);
+      }
     }
   }
 
