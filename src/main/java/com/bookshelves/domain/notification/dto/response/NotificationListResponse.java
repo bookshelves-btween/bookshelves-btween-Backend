@@ -16,6 +16,6 @@ public record NotificationListResponse(
       String title,
       String content,
       Boolean isRead,
-      Long targetId,
+      Long relatedId,
       LocalDateTime createdAt) {}
 }

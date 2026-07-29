@@ -41,17 +41,17 @@ public interface MemberControllerDocs {
                 "message": "내 정보 조회에 성공하였습니다.",
                 "result": {
                   "id": 1,
-                  "nickname": "책 먹는 여우",
+                  "nickname": "책 먹는 토끼",
                   "nicknameNoun": "책",
                   "nicknameModifier": "먹는",
-                  "nicknameAnimal": "여우",
-                  "profileBackgroundColor": "GREEN",
+                  "nicknameAnimal": "토끼",
+                  "profileBackgroundColor": "RED",
                   "provider": "KAKAO",
                   "memberStatus": "ACTIVE",
                   "createdAt": "2026-07-01T10:00:00",
                   "categories": [
-                    { "id": 1, "name": "소설" },
-                    { "id": 2, "name": "에세이" }
+                    { "id": 9, "name": "문학" },
+                    { "id": 10, "name": "역사" }
                   ]
                 }
               }
@@ -118,23 +118,24 @@ public interface MemberControllerDocs {
                 "message": "회원 정보 수정에 성공하였습니다.",
                 "result": {
                   "id": 1,
-                  "nickname": "책 먹는 여우",
+                  "nickname": "책 먹는 토끼",
                   "nicknameNoun": "책",
                   "nicknameModifier": "먹는",
-                  "nicknameAnimal": "여우",
-                  "profileBackgroundColor": "GREEN",
+                  "nicknameAnimal": "토끼",
+                  "profileBackgroundColor": "RED",
                   "provider": "KAKAO",
                   "memberStatus": "ACTIVE",
                   "createdAt": "2026-07-01T10:00:00",
                   "categories": [
-                    { "id": 3, "name": "자기계발" }
+                    { "id": 9, "name": "문학" }
                   ]
                 }
               }
               """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "수정할 필드가 없거나, 닉네임 3조각이 일부만 오거나, 존재하지 않는 카테고리 ID를 포함함",
+        description =
+            "수정할 필드가 없거나, 닉네임 3조각이 일부만 오거나, 닉네임 길이 초과, 허용되지 않은 닉네임 구성 요소 또는 존재하지 않는 카테고리 ID를 포함함",
         content =
             @Content(
                 mediaType = "application/json",
@@ -151,7 +152,7 @@ public interface MemberControllerDocs {
               }
               """),
                   @ExampleObject(
-                      name = "잘못된 요청(닉네임 일부만 전달/존재하지 않는 카테고리 등)",
+                      name = "잘못된 요청(닉네임 일부만 전달/닉네임 길이 초과/허용되지 않은 닉네임 구성 요소/존재하지 않는 카테고리 등)",
                       value =
                           """
               {
@@ -289,23 +290,24 @@ public interface MemberControllerDocs {
                 "message": "온보딩이 완료되었습니다.",
                 "result": {
                   "id": 1,
-                  "nickname": "책 먹는 여우",
+                  "nickname": "책 먹는 토끼",
                   "nicknameNoun": "책",
                   "nicknameModifier": "먹는",
-                  "nicknameAnimal": "여우",
-                  "profileBackgroundColor": "GREEN",
+                  "nicknameAnimal": "토끼",
+                  "profileBackgroundColor": "RED",
                   "provider": "KAKAO",
                   "memberStatus": "ACTIVE",
                   "createdAt": "2026-07-01T10:00:00",
                   "categories": [
-                    { "id": 1, "name": "소설" }
+                    { "id": 9, "name": "문학" }
                   ]
                 }
               }
               """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "요청 값 검증 실패(닉네임 누락/길이 초과 등), 존재하지 않는 카테고리/약관 ID를 포함, 또는 필수 약관 미동의",
+        description =
+            "요청 값 검증 실패(닉네임 누락/길이 초과 등), 허용되지 않은 닉네임 구성 요소 또는 존재하지 않는 카테고리/약관 ID를 포함, 또는 필수 약관 미동의",
         content =
             @Content(
                 mediaType = "application/json",
@@ -324,7 +326,7 @@ public interface MemberControllerDocs {
               }
               """),
                   @ExampleObject(
-                      name = "잘못된 요청(닉네임 길이 초과/존재하지 않는 카테고리·약관 ID 등)",
+                      name = "잘못된 요청(닉네임 길이 초과/허용되지 않은 닉네임 구성 요소/존재하지 않는 카테고리·약관 ID 등)",
                       value =
                           """
               {

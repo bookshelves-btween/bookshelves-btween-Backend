@@ -55,4 +55,34 @@ public class MemberBook extends BaseEntity {
 
   @Column(name = "finished_at")
   private LocalDateTime finishedAt;
+
+  public static MemberBook create(
+      Book book, Member member, Integer progress, BigDecimal rating, String memo) {
+    MemberBook memberBook = new MemberBook();
+    memberBook.book = book;
+    memberBook.member = member;
+    memberBook.update(progress, rating, memo);
+    return memberBook;
+  }
+
+  public void update(Integer progress, BigDecimal rating, String memo) {
+    this.progress = progress;
+    this.rating = rating;
+    this.memo = memo;
+
+    if (progress == 0) {
+      startedAt = null;
+      finishedAt = null;
+      return;
+    }
+
+    if (startedAt == null) {
+      startedAt = LocalDateTime.now();
+    }
+    if (progress == 100 && finishedAt == null) {
+      finishedAt = LocalDateTime.now();
+    } else if (progress < 100) {
+      finishedAt = null;
+    }
+  }
 }

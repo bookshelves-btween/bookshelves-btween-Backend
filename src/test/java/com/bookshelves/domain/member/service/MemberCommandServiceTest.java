@@ -28,6 +28,7 @@ import com.bookshelves.domain.member.repository.MemberTermsRepository;
 import com.bookshelves.domain.member.repository.TermsRepository;
 import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.RedisTokenRepository;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -66,16 +67,16 @@ class MemberCommandServiceTest {
         MemberUpdateRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
     MemberInfoResponse response = memberCommandService.updateMyInfo(1L, request);
 
-    assertThat(response.getNickname()).isEqualTo("책 먹는 여우");
+    assertThat(response.getNickname()).isEqualTo("책 먹는 토끼");
     assertThat(response.getNicknameNoun()).isEqualTo("책");
     assertThat(response.getNicknameModifier()).isEqualTo("먹는");
-    assertThat(response.getNicknameAnimal()).isEqualTo("여우");
+    assertThat(response.getNicknameAnimal()).isEqualTo("토끼");
     assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
@@ -260,14 +261,14 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .build();
 
     MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
 
-    assertThat(response.getNickname()).isEqualTo("책 먹는 여우");
-    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
+    assertThat(response.getNickname()).isEqualTo("책 먹는 토끼");
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.RED);
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
@@ -287,8 +288,8 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .categoryIds(List.of(1L))
             .build();
 
@@ -309,7 +310,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
@@ -328,7 +329,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("토끼")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
@@ -367,8 +368,8 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .categoryIds(List.of(999L))
             .build();
 
@@ -395,8 +396,8 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .agreedTermsIds(List.of(1L))
             .build();
 
@@ -424,8 +425,8 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
@@ -445,8 +446,8 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
-            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
             .agreedTermsIds(List.of(999L))
             .build();
 
@@ -506,5 +507,207 @@ class MemberCommandServiceTest {
         .isEqualTo(MemberErrorCode.MEMBER_NOT_ACTIVE);
     verify(member, never()).withdraw();
     verify(redisTokenRepository, never()).deleteAllTokens(any());
+  }
+
+  @Test
+  void anonymizeMemberAnonymizesExpiredWithdrawnMember() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    ReflectionTestUtils.setField(member, "id", 1L);
+    ReflectionTestUtils.setField(member, "status", MemberStatus.WITHDRAWN);
+    ReflectionTestUtils.setField(
+        member, "deletedAt", LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(31));
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    memberCommandService.anonymizeMember(1L);
+
+    assertThat(member.getStatus()).isEqualTo(MemberStatus.ANONYMIZED);
+    assertThat(member.getNickname()).isEqualTo("탈퇴한 사용자1");
+    assertThat(member.getProvider()).isNull();
+    assertThat(member.getProviderId()).isNull();
+  }
+
+  @Test
+  void anonymizeMemberThrowsMemberNotFoundWhenMemberDoesNotExist() {
+    when(memberRepository.findById(1L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> memberCommandService.anonymizeMember(1L))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+  }
+
+  @Test
+  void anonymizeMemberSkipsWhenMemberWasRestoredBeforeProcessing() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    ReflectionTestUtils.setField(member, "id", 1L);
+    ReflectionTestUtils.setField(member, "status", MemberStatus.ACTIVE);
+    ReflectionTestUtils.setField(member, "deletedAt", null);
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    memberCommandService.anonymizeMember(1L);
+
+    assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
+    assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
+    assertThat(member.getProviderId()).isEqualTo("kakao-id");
+  }
+
+  @Test
+  void anonymizeMemberSkipsWhenNotYetPastRestorePeriod() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    ReflectionTestUtils.setField(member, "id", 1L);
+    ReflectionTestUtils.setField(member, "status", MemberStatus.WITHDRAWN);
+    ReflectionTestUtils.setField(
+        member, "deletedAt", LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(1));
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    memberCommandService.anonymizeMember(1L);
+
+    assertThat(member.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
+    assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
+    assertThat(member.getProviderId()).isEqualTo("kakao-id");
+  }
+
+  @Test
+  void updateMyInfoThrowsInvalidRequestWhenNicknameNounNotInAllowedList() {
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("허용안된명사")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("토끼")
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
+  void updateMyInfoThrowsInvalidRequestWhenNicknameModifierNotInAllowedList() {
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("허용안된수식어")
+            .nicknameAnimal("토끼")
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
+  void updateMyInfoThrowsInvalidRequestWhenNicknameAnimalNotInAllowedList() {
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenNicknameNounNotInAllowedList() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("허용안된명사")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenNicknameModifierNotInAllowedList() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("허용안된수식어")
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenNicknameAnimalNotInAllowedList() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+  }
+
+  @Test
+  void completeOnboardingThrowsInvalidRequestWhenAnimalColorMismatch() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+  }
+
+  @Test
+  void updateMyInfoAllowsAnimalColorMismatch() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
+
+    MemberUpdateRequest request =
+        MemberUpdateRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.GREEN)
+            .build();
+
+    MemberInfoResponse response = memberCommandService.updateMyInfo(1L, request);
+
+    assertThat(response.getNicknameAnimal()).isEqualTo("토끼");
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
   }
 }

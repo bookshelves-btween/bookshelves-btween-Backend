@@ -73,17 +73,20 @@ public class BookQueryService {
     return new CategoryInfo(category.getId(), category.getKdcCode(), category.getName());
   }
 
-  public BookSearchResDTO searchExternalBooks(String query, String pageValue, String sizeValue) {
+  public BookSearchResDTO searchExternalBooks(
+      String query, String pageValue, String sizeValue, boolean saveRecent) {
     int page = parsePageParameter(pageValue);
     int size = parsePageParameter(sizeValue);
     validateSearchRequest(query, page, size);
 
     String normalizedQuery = query.trim();
-    Long memberId = authenticationFacade.getCurrentMemberId();
     KakaoBookSearchResult searchResult = kakaoBookSearchClient.search(normalizedQuery, page, size);
 
     List<BookInfo> books = normalizeAndDeduplicate(searchResult.books());
-    saveRecentSearchWithoutInterruptingResponse(memberId, normalizedQuery);
+    if (saveRecent) {
+      Long memberId = authenticationFacade.getCurrentMemberId();
+      saveRecentSearchWithoutInterruptingResponse(memberId, normalizedQuery);
+    }
 
     return new BookSearchResDTO(books, page, size, !searchResult.isEnd());
   }
