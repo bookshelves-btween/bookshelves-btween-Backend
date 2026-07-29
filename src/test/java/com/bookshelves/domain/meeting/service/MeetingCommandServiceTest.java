@@ -221,9 +221,9 @@ class MeetingCommandServiceTest {
     LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
-    given(meeting.getStartDate()).willReturn(now.minusMinutes(1));
+    given(meeting.getRecruitmentCloseDate()).willReturn(now.minusMinutes(1));
+    given(meeting.getStartDate()).willReturn(now.plusHours(6).minusMinutes(1));
     given(meeting.canStart()).willReturn(false);
-    given(meeting.getId()).willReturn(1L);
     given(meeting.getBook()).willReturn(book);
     given(book.getTitle()).willReturn("혼모노");
     given(meeting.getCurParticipants()).willReturn(2);
@@ -232,7 +232,7 @@ class MeetingCommandServiceTest {
         .willReturn(List.of(participant));
     given(participant.getMember()).willReturn(member);
 
-    boolean deleted = meetingCommandService.deleteUnderstaffedMeeting(1L, now);
+    boolean deleted = meetingCommandService.processRecruitmentDeadline(1L, now);
 
     assertThat(deleted).isTrue();
     @SuppressWarnings("unchecked")
@@ -242,8 +242,8 @@ class MeetingCommandServiceTest {
     Notification notification = notificationCaptor.getValue().get(0);
     assertThat(notification.getMember()).isSameAs(member);
     assertThat(notification.getType()).isEqualTo(NotificationType.MEETING_CANCELED);
-    assertThat(notification.getRelatedId()).isEqualTo(1L);
-    assertThat(notification.getContent()).isEqualTo("혼모노 | 8/1 (토) · 19:59 | 2/6");
+    assertThat(notification.getRelatedId()).isNull();
+    assertThat(notification.getContent()).isEqualTo("혼모노 | 8/2 (일) · 01:59 | 2/6");
     InOrder deletionOrder =
         inOrder(
             notificationRepository,
@@ -261,7 +261,7 @@ class MeetingCommandServiceTest {
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.empty());
 
     boolean deleted =
-        meetingCommandService.deleteUnderstaffedMeeting(1L, LocalDateTime.of(2026, 8, 1, 20, 0));
+        meetingCommandService.processRecruitmentDeadline(1L, LocalDateTime.of(2026, 8, 1, 20, 0));
 
     assertThat(deleted).isFalse();
     verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
@@ -270,17 +270,18 @@ class MeetingCommandServiceTest {
   }
 
   @Test
-  void skipsDeletingMeetingThatReachedMinimumParticipants() {
+  void closesRecruitmentWhenMeetingReachedMinimumParticipants() {
     Meeting meeting = mock(Meeting.class);
     LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
-    given(meeting.getStartDate()).willReturn(now);
+    given(meeting.getRecruitmentCloseDate()).willReturn(now);
     given(meeting.canStart()).willReturn(true);
 
-    boolean deleted = meetingCommandService.deleteUnderstaffedMeeting(1L, now);
+    boolean processed = meetingCommandService.processRecruitmentDeadline(1L, now);
 
-    assertThat(deleted).isFalse();
+    assertThat(processed).isTrue();
+    verify(meeting).closeRecruitment();
     verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
     verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
     verify(meetingRepository, never()).delete(any());
@@ -292,9 +293,9 @@ class MeetingCommandServiceTest {
     LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
-    given(meeting.getStartDate()).willReturn(now.plusMinutes(1));
+    given(meeting.getRecruitmentCloseDate()).willReturn(now.plusMinutes(1));
 
-    boolean deleted = meetingCommandService.deleteUnderstaffedMeeting(1L, now);
+    boolean deleted = meetingCommandService.processRecruitmentDeadline(1L, now);
 
     assertThat(deleted).isFalse();
     verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
@@ -318,13 +319,13 @@ class MeetingCommandServiceTest {
               return Optional.of(meeting);
             });
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
-    given(meeting.getStartDate()).willReturn(now.minusMinutes(1));
+    given(meeting.getRecruitmentCloseDate()).willReturn(now.minusMinutes(1));
     given(meeting.canStart()).willReturn(false);
     given(meetingParticipantRepository.findAllWithMemberByMeetingId(1L)).willReturn(List.of());
 
     CompletableFuture<Boolean> deletion =
         CompletableFuture.supplyAsync(
-            () -> meetingCommandService.deleteUnderstaffedMeeting(1L, now));
+            () -> meetingCommandService.processRecruitmentDeadline(1L, now));
 
     assertThat(lockRequested.await(1, TimeUnit.SECONDS)).isTrue();
     verify(chatRoomRepository, never()).deleteAllByMeetingId(any());

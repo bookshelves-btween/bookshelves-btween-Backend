@@ -100,14 +100,17 @@ public class MeetingCommandService {
     return true;
   }
 
-  public boolean deleteUnderstaffedMeeting(Long meetingId, LocalDateTime now) {
+  public boolean processRecruitmentDeadline(Long meetingId, LocalDateTime now) {
     Meeting meeting = meetingRepository.findByIdForUpdate(meetingId).orElse(null);
     if (meeting == null
-        || (meeting.getStatus() != MeetingStatus.RECRUITING
-            && meeting.getStatus() != MeetingStatus.RECRUIT_CLOSED)
-        || meeting.getStartDate().isAfter(now)
-        || meeting.canStart()) {
+        || meeting.getStatus() != MeetingStatus.RECRUITING
+        || meeting.getRecruitmentCloseDate().isAfter(now)) {
       return false;
+    }
+
+    if (meeting.canStart()) {
+      meeting.closeRecruitment();
+      return true;
     }
 
     // 모임을 삭제하기 전에 모든 참여자의 취소 알림을 영속화한다.

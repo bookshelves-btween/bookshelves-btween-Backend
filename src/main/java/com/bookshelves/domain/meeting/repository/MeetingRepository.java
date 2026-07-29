@@ -40,6 +40,9 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
   // 진행 중 모임은 "현재 열려 있는 것"뿐이라 수가 적어 전량 로딩해도 부담이 없다.
   List<Meeting> findAllByStatus(MeetingStatus status);
 
+  List<Meeting> findAllByStatusAndStartDateLessThanEqual(
+      MeetingStatus status, LocalDateTime startDate);
+
   List<Meeting> findAllByStatusInAndStartDateLessThanEqual(
       List<MeetingStatus> statuses, LocalDateTime startDate);
 
