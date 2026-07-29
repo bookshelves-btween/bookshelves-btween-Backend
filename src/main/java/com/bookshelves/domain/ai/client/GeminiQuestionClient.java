@@ -29,8 +29,13 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class GeminiQuestionClient {
 
-  static final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
-  private static final String MODEL = "gemini-2.0-flash";
+  static final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+
+  // 모델명은 반드시 경로 변수로 넘긴다. "gemini-2.0-flash:generateContent"를 uri()에 문자열로 그대로 주면
+  // 콜론 앞이 URI 스킴으로 파싱돼 baseUrl이 통째로 무시된다(unknown protocol). 템플릿을 "/"로 시작시키고
+  // 확장 후에 콜론이 들어가게 해야 상대 경로로 결합된다.
+  static final String GENERATE_CONTENT_PATH = "/models/{model}:generateContent";
+  static final String MODEL = "gemini-2.0-flash";
   private static final String API_KEY_HEADER = "x-goog-api-key";
 
   // 책 소개가 이보다 짧으면 각색 근거가 없다고 보고 호출 자체를 생략한다(비용·지연 절약).
@@ -85,7 +90,7 @@ public class GeminiQuestionClient {
     GeminiResponse response =
         restClient
             .post()
-            .uri(MODEL + ":generateContent")
+            .uri(GENERATE_CONTENT_PATH, MODEL)
             .header(API_KEY_HEADER, apiKey)
             .body(GeminiRequest.of(buildPrompt(book)))
             .retrieve()

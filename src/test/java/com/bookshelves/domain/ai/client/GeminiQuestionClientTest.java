@@ -49,9 +49,15 @@ class GeminiQuestionClientTest {
   }
 
   private void respondWith(String modelText) {
-    // MockRestServiceServer는 baseUrl이 붙기 전 단계에서 가로채므로 상대 경로로 매칭한다
+    // baseUrl이 실제로 결합됐는지까지 검증한다 — 모델명을 문자열로 이어붙이면 콜론이 스킴으로 파싱돼
+    // baseUrl이 무시되는데, 상대 경로로 매칭하면 그 상태도 통과해버린다
     mockServer
-        .expect(requestTo("gemini-2.0-flash:generateContent"))
+        .expect(
+            requestTo(
+                GeminiQuestionClient.BASE_URL
+                    + "/models/"
+                    + GeminiQuestionClient.MODEL
+                    + ":generateContent"))
         .andExpect(method(HttpMethod.POST))
         .andExpect(header("x-goog-api-key", "test-api-key"))
         .andRespond(
