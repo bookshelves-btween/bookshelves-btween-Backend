@@ -1,5 +1,6 @@
 package com.bookshelves.domain.meeting.scheduler;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -27,21 +28,27 @@ class MeetingStartSchedulerTest {
   @InjectMocks private MeetingStartScheduler meetingStartScheduler;
 
   @Test
-  void startsClosedMeetingAndDeletesUnderstaffedMeeting() {
+  void closesRecruitmentBeforeStartingScheduledMeetings() {
     Meeting closedMeeting = mock(Meeting.class);
-    Meeting understaffedMeeting = mock(Meeting.class);
+    Meeting recruitmentDeadlineMeeting = mock(Meeting.class);
     given(closedMeeting.getId()).willReturn(1L);
-    given(closedMeeting.canStart()).willReturn(true);
-    given(understaffedMeeting.getId()).willReturn(2L);
-    given(understaffedMeeting.canStart()).willReturn(false);
+    given(recruitmentDeadlineMeeting.getId()).willReturn(2L);
+    given(
+            meetingRepository.findAllByStatusAndStartDateLessThanEqual(
+                eq(MeetingStatus.RECRUITING), any(LocalDateTime.class)))
+        .willReturn(List.of(recruitmentDeadlineMeeting));
     given(
             meetingRepository.findAllByStatusInAndStartDateLessThanEqual(
                 eq(List.of(MeetingStatus.RECRUITING, MeetingStatus.RECRUIT_CLOSED)),
                 any(LocalDateTime.class)))
-        .willReturn(List.of(closedMeeting, understaffedMeeting));
+        .willReturn(List.of(closedMeeting));
 
     meetingStartScheduler.startScheduledMeetings();
 
+    ArgumentCaptor<LocalDateTime> deadlineCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+    verify(meetingRepository)
+        .findAllByStatusAndStartDateLessThanEqual(
+            eq(MeetingStatus.RECRUITING), deadlineCaptor.capture());
     ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
     verify(meetingRepository)
         .findAllByStatusInAndStartDateLessThanEqual(
@@ -49,7 +56,8 @@ class MeetingStartSchedulerTest {
             nowCaptor.capture());
     LocalDateTime now = nowCaptor.getValue();
 
+    assertThat(deadlineCaptor.getValue()).isEqualTo(now.plusHours(6));
+    verify(meetingCommandService).processRecruitmentDeadline(2L, now);
     verify(meetingCommandService).startMeeting(1L, now);
-    verify(meetingCommandService).deleteUnderstaffedMeeting(2L, now);
   }
 }

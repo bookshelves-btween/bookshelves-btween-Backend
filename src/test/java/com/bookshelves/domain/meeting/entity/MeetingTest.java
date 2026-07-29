@@ -61,4 +61,18 @@ class MeetingTest {
     meeting.addParticipant();
     assertThat(meeting.canStart()).isTrue();
   }
+
+  @Test
+  void calculatesRecruitmentCloseDateSixHoursBeforeStart() {
+    LocalDateTime startDate = LocalDateTime.of(2026, 8, 1, 20, 0);
+    Meeting meeting =
+        Meeting.builder()
+            .book(org.mockito.Mockito.mock(Book.class))
+            .startDate(startDate)
+            .duration(60)
+            .maxParticipants(4)
+            .build();
+
+    assertThat(meeting.getRecruitmentCloseDate()).isEqualTo(startDate.minusHours(6));
+  }
 }
