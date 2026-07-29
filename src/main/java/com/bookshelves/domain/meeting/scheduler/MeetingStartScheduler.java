@@ -24,15 +24,25 @@ public class MeetingStartScheduler {
   @Scheduled(fixedRate = 60_000)
   public void startScheduledMeetings() {
     LocalDateTime now = LocalDateTime.now();
+    closeRecruitment(now);
+    startMeetings(now);
+  }
+
+  private void closeRecruitment(LocalDateTime now) {
+    LocalDateTime recruitmentDeadline = now.plusHours(Meeting.RECRUITMENT_CLOSE_HOURS_BEFORE_START);
+    List<Meeting> candidates =
+        meetingRepository.findAllByStatusAndStartDateLessThanEqual(
+            MeetingStatus.RECRUITING, recruitmentDeadline);
+    for (Meeting meeting : candidates) {
+      meetingCommandService.processRecruitmentDeadline(meeting.getId(), now);
+    }
+  }
+
+  private void startMeetings(LocalDateTime now) {
     List<Meeting> candidates =
         meetingRepository.findAllByStatusInAndStartDateLessThanEqual(BEFORE_START_STATUSES, now);
     for (Meeting meeting : candidates) {
-      // 최소 인원(3명)을 충족한 모임은 시작하고, 미달 모임은 알림 저장 후 삭제한다.
-      if (meeting.canStart()) {
-        meetingCommandService.startMeeting(meeting.getId(), now);
-      } else {
-        meetingCommandService.deleteUnderstaffedMeeting(meeting.getId(), now);
-      }
+      meetingCommandService.startMeeting(meeting.getId(), now);
     }
   }
 }

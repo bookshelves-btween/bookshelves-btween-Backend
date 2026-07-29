@@ -64,7 +64,8 @@ public class Notification extends BaseEntity {
                 meeting.getCurParticipants(),
                 meeting.getMaxParticipants());
     notification.type = NotificationType.MEETING_CANCELED;
-    notification.relatedId = meeting.getId();
+    // 취소된 모임은 즉시 삭제되므로 이동 대상 ID를 남기지 않는다.
+    notification.relatedId = null;
     return notification;
   }
 
