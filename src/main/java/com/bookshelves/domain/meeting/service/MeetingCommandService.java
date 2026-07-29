@@ -1,5 +1,7 @@
 package com.bookshelves.domain.meeting.service;
 
+import com.bookshelves.domain.ai.repository.AIQuestionRepository;
+import com.bookshelves.domain.ai.service.AIQuestionPreparationService;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.service.BookCommandService;
 import com.bookshelves.domain.chat.entity.ChatRoom;
@@ -11,6 +13,7 @@ import com.bookshelves.domain.meeting.dto.response.MeetingParticipationResDTO;
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.entity.MeetingParticipant;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
+import com.bookshelves.domain.meeting.event.MeetingRecruitClosedEvent;
 import com.bookshelves.domain.meeting.exception.MeetingException;
 import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
 import com.bookshelves.domain.meeting.repository.MeetingParticipantRepository;
@@ -23,6 +26,7 @@ import com.bookshelves.global.security.AuthenticationFacade;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +42,9 @@ public class MeetingCommandService {
   private final NotificationCommandService notificationCommandService;
   private final MemberRepository memberRepository;
   private final AuthenticationFacade authenticationFacade;
+  private final AIQuestionRepository aiQuestionRepository;
+  private final AIQuestionPreparationService aiQuestionPreparationService;
+  private final ApplicationEventPublisher eventPublisher;
 
   public MeetingCreateResDTO createMeeting(MeetingCreateReqDTO request) {
     Book book = bookCommandService.getOrCreateByIsbn(request.isbn());
@@ -83,6 +90,12 @@ public class MeetingCommandService {
         meetingParticipantRepository.save(MeetingParticipant.create(meeting, member));
     meeting.addParticipant();
 
+    // 정원 충족으로 모집이 마감되면 모임 성립이 확정된다 — AI 질문 준비를 이 시점에 시작한다.
+    // 또 하나의 마감 경로인 `starts_at - 6h`는 completeRecruitmentDeadline에서 같은 이벤트를 발행한다.
+    if (meeting.getStatus() == MeetingStatus.RECRUIT_CLOSED) {
+      eventPublisher.publishEvent(new MeetingRecruitClosedEvent(meetingId));
+    }
+
     return MeetingParticipationResDTO.from(meetingParticipant);
   }
 
@@ -98,6 +111,10 @@ public class MeetingCommandService {
     }
 
     meeting.start();
+    // 모집 마감 경로를 타지 않고 시작된 모임(정원 미충족 등)을 위한 안전망 —
+    // 시작과 동시에 1번 질문이 공개되므로 질문 5개가 반드시 있어야 한다. LLM은 호출하지 않는다.
+    aiQuestionPreparationService.ensureSeeded(meetingId);
+
     List<MeetingParticipant> participants =
         meetingParticipantRepository.findAllWithMemberByMeetingId(meetingId);
     notificationCommandService.saveAll(
@@ -122,6 +139,8 @@ public class MeetingCommandService {
   private void completeRecruitmentDeadline(Long meetingId, Meeting meeting) {
     if (meeting.canStart()) {
       meeting.closeRecruitment();
+      // 마감 시각 도달로 모임 성립이 확정된 경로 — 정원 충족 경로와 같은 이벤트로 합류시킨다
+      eventPublisher.publishEvent(new MeetingRecruitClosedEvent(meetingId));
       return;
     }
 
@@ -133,6 +152,8 @@ public class MeetingCommandService {
             .map(participant -> Notification.meetingCanceled(participant.getMember(), meeting))
             .toList());
 
+    // 모집 마감 시점에 AI 질문이 준비됐을 수 있다 — meeting_id FK가 걸려 있어 모임보다 먼저 지운다
+    aiQuestionRepository.deleteAllByMeetingId(meetingId);
     chatRoomRepository.deleteAllByMeetingId(meetingId);
     meetingParticipantRepository.deleteAllByMeetingId(meetingId);
     meetingRepository.delete(meeting);
