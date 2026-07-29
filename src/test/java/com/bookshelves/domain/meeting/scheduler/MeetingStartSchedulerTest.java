@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
@@ -16,6 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,19 +46,26 @@ class MeetingStartSchedulerTest {
 
     meetingStartScheduler.startScheduledMeetings();
 
+    InOrder processingOrder = inOrder(meetingRepository, meetingCommandService);
     ArgumentCaptor<LocalDateTime> deadlineCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(meetingRepository)
+    processingOrder
+        .verify(meetingRepository)
         .findAllByStatusAndStartDateLessThanEqual(
             eq(MeetingStatus.RECRUITING), deadlineCaptor.capture());
+    ArgumentCaptor<LocalDateTime> deadlineNowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+    processingOrder
+        .verify(meetingCommandService)
+        .processRecruitmentDeadline(eq(2L), deadlineNowCaptor.capture());
     ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(meetingRepository)
+    processingOrder
+        .verify(meetingRepository)
         .findAllByStatusInAndStartDateLessThanEqual(
             eq(List.of(MeetingStatus.RECRUITING, MeetingStatus.RECRUIT_CLOSED)),
             nowCaptor.capture());
     LocalDateTime now = nowCaptor.getValue();
+    processingOrder.verify(meetingCommandService).startMeeting(1L, now);
 
     assertThat(deadlineCaptor.getValue()).isEqualTo(now.plusHours(6));
-    verify(meetingCommandService).processRecruitmentDeadline(2L, now);
-    verify(meetingCommandService).startMeeting(1L, now);
+    assertThat(deadlineNowCaptor.getValue()).isEqualTo(now);
   }
 }
