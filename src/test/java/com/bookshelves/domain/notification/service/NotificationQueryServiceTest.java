@@ -51,7 +51,7 @@ class NotificationQueryServiceTest {
     assertThat(response.notifications().getFirst().id()).isEqualTo(101L);
     assertThat(response.notifications().getFirst().type())
         .isEqualTo(NotificationType.MEETING_STARTED);
-    assertThat(response.notifications().getFirst().relatedId()).isEqualTo(12L);
+    assertThat(response.notifications().getFirst().targetId()).isEqualTo(12L);
     assertThat(response.notifications().getFirst().createdAt()).isEqualTo(createdAt);
     verify(notificationRepository).findAllByMember_Id(1L, pageRequest);
   }
