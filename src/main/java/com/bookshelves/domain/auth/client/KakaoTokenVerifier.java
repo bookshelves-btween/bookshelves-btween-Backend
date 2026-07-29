@@ -35,7 +35,8 @@ public class KakaoTokenVerifier implements ProviderTokenVerifier {
     requestFactory.setConnectTimeout(Duration.ofSeconds(5));
     requestFactory.setReadTimeout(Duration.ofSeconds(5));
 
-    return restClientBuilder.baseUrl(userInfoUri).requestFactory(requestFactory).build();
+    // restClientBuilder는 싱글톤 빈이라 clone() 없이 바로 설정하면 다른 클라이언트와 상태가 섞인다.
+    return restClientBuilder.clone().baseUrl(userInfoUri).requestFactory(requestFactory).build();
   }
 
   @Override
