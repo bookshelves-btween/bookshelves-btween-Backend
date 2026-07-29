@@ -173,18 +173,25 @@ public class ChatPresenceService {
   }
 
   // 유예 시간이 지나도 재접속이 없으면 실제 LEFT를 확정한다.
-  private synchronized void finalizeLeave(
-      Long chatroomId, Long memberId, ScheduledFuture<?> expected) {
-    Map<Long, ScheduledFuture<?>> pending = pendingLeaveByChatroom.get(chatroomId);
-    if (pending == null || pending.get(memberId) != expected) {
-      // 재접속으로 취소됐거나, 해제→재접속→재해제로 새 타이머가 등록된 경우 — 이 태스크는 무시
-      return;
+  //
+  // presence 맵을 정리하는 구간만 잠그고, broadcast와 정족수 재판정은 락 밖에서 한다.
+  // 이 클래스의 락은 인스턴스 전체(모든 채팅방 공용)라, 락을 쥔 채 DB 트랜잭션을 타는
+  // 질문 공개까지 기다리면 무관한 채팅방의 입장·퇴장·접속자 조회가 전부 그 시간만큼 멈춘다.
+  // 공개의 정합성은 이 락이 아니라 모임 행 비관적 락과 라운드 세대가 보장하므로 밖으로 빼도 안전하다.
+  private void finalizeLeave(Long chatroomId, Long memberId, ScheduledFuture<?> expected) {
+    synchronized (this) {
+      Map<Long, ScheduledFuture<?>> pending = pendingLeaveByChatroom.get(chatroomId);
+      if (pending == null || pending.get(memberId) != expected) {
+        // 재접속으로 취소됐거나, 해제→재접속→재해제로 새 타이머가 등록된 경우 — 이 태스크는 무시
+        return;
+      }
+
+      pending.remove(memberId);
+      if (pending.isEmpty()) {
+        pendingLeaveByChatroom.remove(chatroomId);
+      }
     }
 
-    pending.remove(memberId);
-    if (pending.isEmpty()) {
-      pendingLeaveByChatroom.remove(chatroomId);
-    }
     broadcastParticipant(chatroomId, memberId, EVENT_LEFT);
     reevaluateQuorum(chatroomId);
   }
