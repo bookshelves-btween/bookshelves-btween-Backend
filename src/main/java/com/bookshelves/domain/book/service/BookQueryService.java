@@ -11,6 +11,8 @@ import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO.BookInfo;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO.CategoryInfo;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO.MemberBookRecord;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO.RecentSearchInfo;
 import com.bookshelves.domain.book.entity.Book;
@@ -36,6 +38,10 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -103,6 +109,98 @@ public class BookQueryService {
     } catch (DataAccessException exception) {
       throw new BookException(BookErrorCode.RECENT_BOOK_SEARCHES_FAILED);
     }
+  }
+
+  @Transactional(readOnly = true)
+  public MemberBookListResDTO getMemberBooks(
+      String statusValue, String pageValue, String sizeValue) {
+    MemberBookStatus status = parseMemberBookStatus(statusValue);
+    int page = parseMemberBookListPageParameter(pageValue);
+    int size = parseMemberBookListPageParameter(sizeValue);
+    validateMemberBookListRequest(page, size);
+
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+
+    try {
+      Page<MemberBook> memberBooks = findMemberBooks(memberId, status, pageable);
+      return new MemberBookListResDTO(
+          memberBooks.getContent().stream().map(this::toMemberBookListInfo).toList(),
+          page,
+          size,
+          memberBooks.hasNext());
+    } catch (DataAccessException exception) {
+      throw new BookException(BookErrorCode.MEMBER_BOOK_LIST_FAILED);
+    }
+  }
+
+  private Page<MemberBook> findMemberBooks(
+      Long memberId, MemberBookStatus status, Pageable pageable) {
+    return switch (status) {
+      case ALL -> memberBookRepository.findByMemberId(memberId, pageable);
+      case BEFORE_READING -> memberBookRepository.findByMemberIdAndProgress(memberId, 0, pageable);
+      case READING ->
+          memberBookRepository.findByMemberIdAndProgressBetween(memberId, 1, 99, pageable);
+      case FINISHED -> memberBookRepository.findByMemberIdAndProgress(memberId, 100, pageable);
+    };
+  }
+
+  private MemberBookListResDTO.MemberBookInfo toMemberBookListInfo(MemberBook memberBook) {
+    Book book = memberBook.getBook();
+    String kdcName = book.getKdcName();
+    if (kdcName == null || kdcName.isBlank()) {
+      kdcName = "미분류";
+    }
+
+    return new MemberBookListResDTO.MemberBookInfo(
+        new MemberBookRecord(
+            memberBook.getId(),
+            memberBook.getProgress(),
+            toMemberBookStatus(memberBook.getProgress()).name(),
+            memberBook.getRating(),
+            memberBook.getMemo(),
+            memberBook.getUpdatedAt()),
+        new MemberBookListResDTO.BookInfo(
+            book.getId(),
+            book.getIsbn(),
+            book.getTitle(),
+            book.getAuthor(),
+            book.getPublisher(),
+            book.getCoverImageUrl(),
+            book.getKdcCode(),
+            kdcName));
+  }
+
+  private MemberBookStatus parseMemberBookStatus(String value) {
+    try {
+      return MemberBookStatus.valueOf(value);
+    } catch (IllegalArgumentException | NullPointerException exception) {
+      throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST);
+    }
+  }
+
+  private int parseMemberBookListPageParameter(String value) {
+    try {
+      return Integer.parseInt(value);
+    } catch (NumberFormatException | NullPointerException exception) {
+      throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST);
+    }
+  }
+
+  private void validateMemberBookListRequest(int page, int size) {
+    if (page < 1 || size < 1 || size > 50) {
+      throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST);
+    }
+  }
+
+  private MemberBookStatus toMemberBookStatus(int progress) {
+    if (progress == 0) {
+      return MemberBookStatus.BEFORE_READING;
+    }
+    if (progress == 100) {
+      return MemberBookStatus.FINISHED;
+    }
+    return MemberBookStatus.READING;
   }
 
   public BookDetailResDTO getBookDetail(String rawIsbn) {
@@ -259,5 +357,12 @@ public class BookQueryService {
     } catch (RuntimeException exception) {
       log.warn("최근 도서 검색어 저장에 실패했습니다. memberId={}", memberId, exception);
     }
+  }
+
+  private enum MemberBookStatus {
+    ALL,
+    BEFORE_READING,
+    READING,
+    FINISHED
   }
 }

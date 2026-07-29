@@ -16,6 +16,7 @@ import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookSearchR
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.Category;
@@ -30,6 +31,7 @@ import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentS
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +41,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class BookQueryServiceTest {
@@ -364,6 +370,74 @@ class BookQueryServiceTest {
             exception ->
                 assertThat(((BookException) exception).getErrorCode())
                     .isEqualTo(BookErrorCode.BOOK_NOT_FOUND));
+  }
+
+  @Test
+  void getMemberBooksReturnsOwnReadingRecordsWithDerivedStatusAndUnclassifiedKdc() {
+    Book book = mock(Book.class);
+    MemberBook memberBook = mock(MemberBook.class);
+    Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "updatedAt"));
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberId(7L, pageable))
+        .willReturn(new PageImpl<>(List.of(memberBook), pageable, 1));
+    given(memberBook.getBook()).willReturn(book);
+    given(memberBook.getId()).willReturn(10L);
+    given(memberBook.getProgress()).willReturn(70);
+    given(memberBook.getRating()).willReturn(BigDecimal.valueOf(4.5));
+    given(memberBook.getMemo()).willReturn("memo");
+    given(memberBook.getUpdatedAt()).willReturn(LocalDateTime.of(2026, 7, 14, 4, 30));
+    given(book.getId()).willReturn(1L);
+    given(book.getIsbn()).willReturn("9788936434595");
+    given(book.getTitle()).willReturn("Almond");
+    given(book.getAuthor()).willReturn("Sohn Won-pyung");
+    given(book.getPublisher()).willReturn("Changbi");
+    given(book.getCoverImageUrl()).willReturn("https://example.com/book.jpg");
+    given(book.getKdcCode()).willReturn(null);
+    given(book.getKdcName()).willReturn(null);
+
+    MemberBookListResDTO result = bookQueryService.getMemberBooks("ALL", "1", "20");
+
+    assertThat(result.memberBooks()).hasSize(1);
+    assertThat(result.memberBooks().getFirst().memberBook().status()).isEqualTo("READING");
+    assertThat(result.memberBooks().getFirst().memberBook().updatedAt())
+        .isEqualTo(LocalDateTime.of(2026, 7, 14, 4, 30));
+    assertThat(result.memberBooks().getFirst().book().kdcCode()).isNull();
+    assertThat(result.memberBooks().getFirst().book().kdcName()).isEqualTo("미분류");
+    assertThat(result.page()).isEqualTo(1);
+    assertThat(result.size()).isEqualTo(20);
+    assertThat(result.hasNext()).isFalse();
+  }
+
+  @Test
+  void getMemberBooksUsesProgressRangeForReadingStatus() {
+    Pageable pageable = PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "updatedAt"));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgressBetween(7L, 1, 99, pageable))
+        .willReturn(new PageImpl<>(List.of(), pageable, 21));
+
+    MemberBookListResDTO result = bookQueryService.getMemberBooks("READING", "2", "10");
+
+    assertThat(result.memberBooks()).isEmpty();
+    assertThat(result.hasNext()).isTrue();
+  }
+
+  @Test
+  void getMemberBooksRejectsInvalidStatusAndPaginationBeforeAuthentication() {
+    assertThatThrownBy(() -> bookQueryService.getMemberBooks("UNKNOWN", "1", "20"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST));
+    assertThatThrownBy(() -> bookQueryService.getMemberBooks("ALL", "0", "20"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST));
+
+    verifyNoInteractions(authenticationFacade, memberBookRepository);
   }
 
   private Category category(Long id, String kdcCode, String name) {

@@ -4,6 +4,7 @@ import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.global.apiPayload.ApiResponse;
@@ -90,6 +91,65 @@ public interface BookControllerDocs {
                             """)))
   })
   ResponseEntity<ApiResponse<CategoryListResDTO>> getCategories();
+
+  @Operation(
+      summary = "Member book list",
+      description = "Returns the authenticated member's reading records by most recently updated.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Member book list found",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_6",
+                              "message": "Member book list was found.",
+                              "result": {
+                                "memberBooks": [{
+                                  "memberBook": {
+                                    "id": 10,
+                                    "progress": 70,
+                                    "status": "READING",
+                                    "rating": 4.5,
+                                    "memo": "A memorable book",
+                                    "updatedAt": "2026-07-14T04:30:00"
+                                  },
+                                  "book": {
+                                    "id": 1,
+                                    "isbn": "9788936434595",
+                                    "title": "Almond",
+                                    "author": "Sohn Won-pyung",
+                                    "publisher": "Changbi",
+                                    "coverImageUrl": "https://image.example.com/book.jpg",
+                                    "kdcCode": "813",
+                                    "kdcName": "Literature"
+                                  }
+                                }],
+                                "page": 1,
+                                "size": 20,
+                                "hasNext": false
+                              }
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Invalid status, page, or size"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Authentication required")
+  })
+  ResponseEntity<ApiResponse<MemberBookListResDTO>> getMemberBooks(
+      @Parameter(description = "ALL, BEFORE_READING, READING, or FINISHED", example = "ALL")
+          String status,
+      @Parameter(description = "Page number, starting at 1", example = "1") String page,
+      @Parameter(description = "Page size, from 1 to 50", example = "20") String size);
 
   @Operation(
       summary = "외부 도서 검색",
