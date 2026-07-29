@@ -9,6 +9,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.bookshelves.domain.ai.repository.AIQuestionRepository;
+import com.bookshelves.domain.ai.service.AIQuestionPreparationService;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.service.BookCommandService;
 import com.bookshelves.domain.chat.entity.ChatRoom;
@@ -43,6 +45,7 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class MeetingCommandServiceTest {
@@ -54,6 +57,9 @@ class MeetingCommandServiceTest {
   @Mock private NotificationRepository notificationRepository;
   @Mock private MemberRepository memberRepository;
   @Mock private AuthenticationFacade authenticationFacade;
+  @Mock private AIQuestionRepository aiQuestionRepository;
+  @Mock private AIQuestionPreparationService aiQuestionPreparationService;
+  @Mock private ApplicationEventPublisher eventPublisher;
   @InjectMocks private MeetingCommandService meetingCommandService;
 
   @Test
