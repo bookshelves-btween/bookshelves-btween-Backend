@@ -2,8 +2,10 @@ package com.bookshelves.domain.notification.service;
 
 import com.bookshelves.domain.notification.converter.NotificationConverter;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
+import com.bookshelves.domain.notification.dto.response.NotificationListResponse.NotificationInfo;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.repository.NotificationRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,5 +28,13 @@ public class NotificationQueryService {
         notificationRepository.findAllByMember_Id(memberId, pageRequest);
 
     return NotificationConverter.toNotificationListResponse(notificationPage);
+  }
+
+  public List<NotificationInfo> getNewNotifications(Long memberId, Long afterId) {
+    return notificationRepository
+        .findAllByMember_IdAndIdGreaterThanOrderByIdAsc(memberId, afterId)
+        .stream()
+        .map(NotificationConverter::toNotificationInfo)
+        .toList();
   }
 }

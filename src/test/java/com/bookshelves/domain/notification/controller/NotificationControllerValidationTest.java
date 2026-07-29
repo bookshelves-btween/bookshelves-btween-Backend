@@ -77,6 +77,19 @@ class NotificationControllerValidationTest {
   }
 
   @Test
+  void getNewNotificationsReturnsBadRequestWhenAfterIdIsNegative() throws Exception {
+    mockMvc
+        .perform(get("/api/v1/notifications/new").param("afterId", "-1"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.isSuccess").value(false))
+        .andExpect(jsonPath("$.code").value("COMMON400_1"))
+        .andExpect(jsonPath("$.message").value("잘못된 요청입니다."))
+        .andExpect(jsonPath("$.result").isMap());
+
+    verifyNoInteractions(notificationQueryService);
+  }
+
+  @Test
   void readNotificationReturnsBadRequestWhenNotificationIdIsLessThanOne() throws Exception {
     mockMvc
         .perform(patch("/api/v1/notifications/0/read"))

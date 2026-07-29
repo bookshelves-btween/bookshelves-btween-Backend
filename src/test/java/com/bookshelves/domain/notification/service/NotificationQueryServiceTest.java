@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
+import com.bookshelves.domain.notification.dto.response.NotificationListResponse.NotificationInfo;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.enums.NotificationType;
 import com.bookshelves.domain.notification.repository.NotificationRepository;
@@ -64,5 +65,35 @@ class NotificationQueryServiceTest {
 
     assertThat(response.notifications()).isEmpty();
     assertThat(response.hasNext()).isFalse();
+  }
+
+  @Test
+  void getNewNotificationsReturnsNotificationsAfterIdInAscendingOrder() {
+    Notification first = mock(Notification.class);
+    Notification second = mock(Notification.class);
+    when(first.getId()).thenReturn(101L);
+    when(first.getType()).thenReturn(NotificationType.MEETING_STARTED);
+    when(second.getId()).thenReturn(102L);
+    when(second.getType()).thenReturn(NotificationType.SYSTEM);
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L))
+        .thenReturn(List.of(first, second));
+
+    List<NotificationInfo> response = notificationQueryService.getNewNotifications(1L, 100L);
+
+    assertThat(response).extracting(NotificationInfo::id).containsExactly(101L, 102L);
+    assertThat(response)
+        .extracting(NotificationInfo::type)
+        .containsExactly(NotificationType.MEETING_STARTED, NotificationType.SYSTEM);
+    verify(notificationRepository).findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L);
+  }
+
+  @Test
+  void getNewNotificationsReturnsEmptyListWhenNoNotificationWasCreatedAfterId() {
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L))
+        .thenReturn(List.of());
+
+    List<NotificationInfo> response = notificationQueryService.getNewNotifications(1L, 100L);
+
+    assertThat(response).isEmpty();
   }
 }
