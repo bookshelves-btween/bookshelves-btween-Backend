@@ -13,7 +13,6 @@ public enum AuthErrorCode implements BaseErrorCode {
   AUTH_INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401_2", "유효하지 않은 Access Token입니다."),
   AUTH_INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401_3", "유효하지 않은 Refresh Token입니다."),
   AUTH_INVALID_RESTORE_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401_4", "유효하지 않은 계정 복구 토큰입니다."),
-  AUTH_EXPIRED_RESTORE_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH401_5", "계정 복구 토큰이 만료되었습니다."),
   AUTH_ACCESS_DENIED(HttpStatus.FORBIDDEN, "AUTH403_1", "접근 권한이 없습니다."),
   AUTH_UNREISSUABLE_MEMBER_STATUS(HttpStatus.FORBIDDEN, "AUTH403_2", "토큰을 재발급할 수 없는 회원 상태입니다."),
   AUTH_UNRESTORABLE_MEMBER_STATUS(HttpStatus.CONFLICT, "AUTH409_1", "복구할 수 있는 상태의 계정이 아닙니다."),

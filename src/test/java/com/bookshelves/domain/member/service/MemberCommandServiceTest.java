@@ -28,6 +28,7 @@ import com.bookshelves.domain.member.repository.MemberTermsRepository;
 import com.bookshelves.domain.member.repository.TermsRepository;
 import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.RedisTokenRepository;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -506,6 +507,64 @@ class MemberCommandServiceTest {
         .isEqualTo(MemberErrorCode.MEMBER_NOT_ACTIVE);
     verify(member, never()).withdraw();
     verify(redisTokenRepository, never()).deleteAllTokens(any());
+  }
+
+  @Test
+  void anonymizeMemberAnonymizesExpiredWithdrawnMember() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    ReflectionTestUtils.setField(member, "id", 1L);
+    ReflectionTestUtils.setField(member, "status", MemberStatus.WITHDRAWN);
+    ReflectionTestUtils.setField(
+        member, "deletedAt", LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(31));
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    memberCommandService.anonymizeMember(1L);
+
+    assertThat(member.getStatus()).isEqualTo(MemberStatus.ANONYMIZED);
+    assertThat(member.getNickname()).isEqualTo("탈퇴한 사용자1");
+    assertThat(member.getProvider()).isNull();
+    assertThat(member.getProviderId()).isNull();
+  }
+
+  @Test
+  void anonymizeMemberThrowsMemberNotFoundWhenMemberDoesNotExist() {
+    when(memberRepository.findById(1L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> memberCommandService.anonymizeMember(1L))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+  }
+
+  @Test
+  void anonymizeMemberSkipsWhenMemberWasRestoredBeforeProcessing() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    ReflectionTestUtils.setField(member, "id", 1L);
+    ReflectionTestUtils.setField(member, "status", MemberStatus.ACTIVE);
+    ReflectionTestUtils.setField(member, "deletedAt", null);
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    memberCommandService.anonymizeMember(1L);
+
+    assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
+    assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
+    assertThat(member.getProviderId()).isEqualTo("kakao-id");
+  }
+
+  @Test
+  void anonymizeMemberSkipsWhenNotYetPastRestorePeriod() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    ReflectionTestUtils.setField(member, "id", 1L);
+    ReflectionTestUtils.setField(member, "status", MemberStatus.WITHDRAWN);
+    ReflectionTestUtils.setField(
+        member, "deletedAt", LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(1));
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    memberCommandService.anonymizeMember(1L);
+
+    assertThat(member.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
+    assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
+    assertThat(member.getProviderId()).isEqualTo("kakao-id");
   }
 
   @Test
