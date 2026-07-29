@@ -93,7 +93,8 @@ public interface BookControllerDocs {
 
   @Operation(
       summary = "외부 도서 검색",
-      description = "카카오 도서 검색 API를 정확도순으로 한 번 호출합니다. ISBN13을 우선해 정규화하고 회원의 최근 검색어를 저장합니다.")
+      description =
+          "카카오 도서 검색 API를 정확도순으로 한 번 호출합니다. ISBN13을 우선해 정규화하고 saveRecent가 true일 때 회원의 최근 검색어를 저장합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
