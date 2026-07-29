@@ -21,6 +21,7 @@ import com.bookshelves.domain.meeting.dto.response.MeetingParticipationResDTO;
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.entity.MeetingParticipant;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
+import com.bookshelves.domain.meeting.event.MeetingRecruitClosedEvent;
 import com.bookshelves.domain.meeting.exception.MeetingException;
 import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
 import com.bookshelves.domain.meeting.repository.MeetingParticipantRepository;
@@ -352,9 +353,38 @@ class MeetingCommandServiceTest {
 
     assertThat(processed).isTrue();
     verify(meeting).closeRecruitment();
+    // 마감 시각 도달 경로도 정원 충족 경로와 같은 이벤트로 AI 질문 준비를 시작해야 한다
+    verify(eventPublisher).publishEvent(new MeetingRecruitClosedEvent(1L));
     verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
     verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
     verify(meetingRepository, never()).delete(any());
+  }
+
+  @Test
+  void doesNotPublishRecruitClosedEventWhenUnderstaffedMeetingIsDeleted() {
+    Meeting meeting = mock(Meeting.class);
+    Book book = mock(Book.class);
+    Member member = mock(Member.class);
+    MeetingParticipant participant = mock(MeetingParticipant.class);
+    LocalDateTime now = LocalDateTime.of(2026, 8, 1, 20, 0);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getRecruitmentCloseDate()).willReturn(now);
+    given(meeting.canStart()).willReturn(false);
+    given(meeting.getBook()).willReturn(book);
+    given(book.getTitle()).willReturn("아몬드");
+    given(meeting.getStartDate()).willReturn(now.plusHours(6));
+    given(meeting.getCurParticipants()).willReturn(2);
+    given(meeting.getMaxParticipants()).willReturn(6);
+    given(meetingParticipantRepository.findAllWithMemberByMeetingId(1L))
+        .willReturn(List.of(participant));
+    given(participant.getMember()).willReturn(member);
+
+    meetingCommandService.processRecruitmentDeadline(1L, now);
+
+    // 삭제되는 모임에 질문을 준비하면 낭비이자 고아 데이터가 된다
+    verify(eventPublisher, never()).publishEvent(any(MeetingRecruitClosedEvent.class));
+    verify(aiQuestionRepository).deleteAllByMeetingId(1L);
   }
 
   @Test

@@ -91,7 +91,7 @@ public class MeetingCommandService {
     meeting.addParticipant();
 
     // 정원 충족으로 모집이 마감되면 모임 성립이 확정된다 — AI 질문 준비를 이 시점에 시작한다.
-    // (명세상 또 하나의 마감 경로인 `starts_at - 6h` 스케줄러에서도 같은 이벤트를 발행하면 된다)
+    // 또 하나의 마감 경로인 `starts_at - 6h`는 completeRecruitmentDeadline에서 같은 이벤트를 발행한다.
     if (meeting.getStatus() == MeetingStatus.RECRUIT_CLOSED) {
       eventPublisher.publishEvent(new MeetingRecruitClosedEvent(meetingId));
     }
@@ -139,6 +139,8 @@ public class MeetingCommandService {
   private void completeRecruitmentDeadline(Long meetingId, Meeting meeting) {
     if (meeting.canStart()) {
       meeting.closeRecruitment();
+      // 마감 시각 도달로 모임 성립이 확정된 경로 — 정원 충족 경로와 같은 이벤트로 합류시킨다
+      eventPublisher.publishEvent(new MeetingRecruitClosedEvent(meetingId));
       return;
     }
 
