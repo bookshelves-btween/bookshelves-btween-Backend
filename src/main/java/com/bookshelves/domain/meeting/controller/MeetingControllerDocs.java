@@ -379,8 +379,6 @@ public interface MeetingControllerDocs {
               """)))
   })
   ResponseEntity<ApiResponse<MeetingCreateResDTO>> createMeeting(
-      @Parameter(description = "하이픈을 제거한 ISBN13", example = "9788966262281", required = true)
-          String isbn,
       @io.swagger.v3.oas.annotations.parameters.RequestBody(
               required = true,
               description = "생성할 독서 모임 정보입니다.",
@@ -393,6 +391,7 @@ public interface MeetingControllerDocs {
                               value =
                                   """
               {
+                "isbn": "9788966262281",
                 "startDate": "2026-08-01",
                 "startTime": "20:00",
                 "maxParticipants": 4,
