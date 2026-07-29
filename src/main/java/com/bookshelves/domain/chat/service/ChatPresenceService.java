@@ -174,11 +174,18 @@ public class ChatPresenceService {
 
   // 유예 시간이 지나도 재접속이 없으면 실제 LEFT를 확정한다.
   //
-  // presence 맵을 정리하는 구간만 잠그고, broadcast와 정족수 재판정은 락 밖에서 한다.
-  // 이 클래스의 락은 인스턴스 전체(모든 채팅방 공용)라, 락을 쥔 채 DB 트랜잭션을 타는
-  // 질문 공개까지 기다리면 무관한 채팅방의 입장·퇴장·접속자 조회가 전부 그 시간만큼 멈춘다.
-  // 공개의 정합성은 이 락이 아니라 모임 행 비관적 락과 라운드 세대가 보장하므로 밖으로 빼도 안전하다.
+  // presence 판정·정리·LEFT 전파·정족수 재판정은 전부 락 안에서 한 덩어리로 끝내고,
+  // 질문 공개(revealNext)만 락 밖으로 뺀다. 그 하나만 모임 행 비관적 락을 거는 DB 트랜잭션이라,
+  // 락을 쥔 채 기다리면 무관한 채팅방의 입장·퇴장·접속자 조회까지 그 시간만큼 멈춘다.
+  //
+  // 나머지를 락 밖으로 빼면 안 된다. pending에서 지운 뒤 락을 풀면 그 사이 같은 회원이 재접속해
+  // JOINED가 먼저 나가고 낡은 LEFT가 뒤따르고, 빈 방 판정과 라운드 무효화 사이에 끼어든 표가
+  // 함께 지워진다. expected 비교는 이미 지운 뒤의 재접속을 잡지 못한다.
+  //
+  // 판정 시점 이후 방이 비더라도 안전하다. 방을 비우는 쪽이 라운드를 무효화하므로,
+  // 뒤늦게 도착한 revealNext는 세대 불일치로 아무것도 공개하지 않는다.
   private void finalizeLeave(Long chatroomId, Long memberId, ScheduledFuture<?> expected) {
+    Integer roundToReveal;
     synchronized (this) {
       Map<Long, ScheduledFuture<?>> pending = pendingLeaveByChatroom.get(chatroomId);
       if (pending == null || pending.get(memberId) != expected) {
@@ -190,33 +197,40 @@ public class ChatPresenceService {
       if (pending.isEmpty()) {
         pendingLeaveByChatroom.remove(chatroomId);
       }
+
+      broadcastParticipant(chatroomId, memberId, EVENT_LEFT);
+      roundToReveal = quorumRoundToReveal(chatroomId);
     }
 
-    broadcastParticipant(chatroomId, memberId, EVENT_LEFT);
-    reevaluateQuorum(chatroomId);
+    if (roundToReveal == null) {
+      return;
+    }
+    // 이 메서드는 LEFT 유예 타이머 스레드에서 실행된다 — DB 실패가 presence 정리를 되돌리면 안 된다
+    try {
+      questionRevealService.revealNext(chatroomId, roundToReveal);
+    } catch (Exception e) {
+      log.error("정족수 재판정 중 질문 공개 실패: chatroomId={}", chatroomId, e);
+    }
   }
 
   // 명세 "정족수 즉시 재판정" — LEFT로 connected가 줄어 requiredVotes가 내려갔을 때,
-  // 이미 모인 표가 새 정족수를 충족하면 그 자리에서 다음 질문을 공개한다.
-  private void reevaluateQuorum(Long chatroomId) {
+  // 이미 모인 표가 새 정족수를 충족하면 다음 질문을 공개해야 한다.
+  // 공개할 라운드 번호를 돌려주고, 공개할 필요가 없으면 null. 호출자가 락을 쥔 채로 부른다.
+  private Integer quorumRoundToReveal(Long chatroomId) {
     if (countConnected(chatroomId) == 0) {
       // 방이 비면 라운드 자체가 무의미 — 표를 버리고 라운드도 무효화한다.
       // 표만 지우면, 지우기 전에 정족수를 판정해 둔 요청이 재접속 이후의 새 표를 같은 라운드로 보고 소비한다.
       questionVoteStore.invalidateRound(chatroomId);
-      return;
+      return null;
     }
 
     int requiredVotes = requiredVotes(chatroomId);
     // 표 수와 라운드를 같은 스냅샷에서 읽는다 — 투표 경로가 먼저 공개했다면 이 판정은 무효가 되어야 한다
     QuestionVoteStore.VoteRound voteRound = questionVoteStore.snapshot(chatroomId);
     if (voteRound.votes() >= 1 && voteRound.votes() >= requiredVotes) {
-      // 이 메서드는 LEFT 유예 타이머 스레드에서 실행된다 — DB 실패가 presence 정리를 되돌리면 안 된다
-      try {
-        questionRevealService.revealNext(chatroomId, voteRound.round());
-      } catch (Exception e) {
-        log.error("정족수 재판정 중 질문 공개 실패: chatroomId={}", chatroomId, e);
-      }
+      return voteRound.round();
     }
+    return null;
   }
 
   private void broadcastParticipant(Long chatroomId, Long memberId, String event) {
