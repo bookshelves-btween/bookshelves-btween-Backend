@@ -27,7 +27,7 @@ import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.enums.NotificationType;
-import com.bookshelves.domain.notification.repository.NotificationRepository;
+import com.bookshelves.domain.notification.service.NotificationCommandService;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
@@ -53,7 +53,7 @@ class MeetingCommandServiceTest {
   @Mock private MeetingRepository meetingRepository;
   @Mock private MeetingParticipantRepository meetingParticipantRepository;
   @Mock private ChatRoomRepository chatRoomRepository;
-  @Mock private NotificationRepository notificationRepository;
+  @Mock private NotificationCommandService notificationCommandService;
   @Mock private MemberRepository memberRepository;
   @Mock private AuthenticationFacade authenticationFacade;
   @InjectMocks private MeetingCommandService meetingCommandService;
@@ -113,7 +113,7 @@ class MeetingCommandServiceTest {
     verify(meeting).start();
     @SuppressWarnings("unchecked")
     ArgumentCaptor<List<Notification>> notificationCaptor = ArgumentCaptor.forClass(List.class);
-    verify(notificationRepository).saveAllAndFlush(notificationCaptor.capture());
+    verify(notificationCommandService).saveAll(notificationCaptor.capture());
     assertThat(notificationCaptor.getValue()).hasSize(1);
     Notification notification = notificationCaptor.getValue().get(0);
     assertThat(notification.getMember()).isSameAs(member);
@@ -259,7 +259,7 @@ class MeetingCommandServiceTest {
         .extracting("errorCode")
         .isEqualTo(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
 
-    verify(notificationRepository).saveAllAndFlush(any());
+    verify(notificationCommandService).saveAll(any());
     verify(chatRoomRepository).deleteAllByMeetingId(1L);
     verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
     verify(meetingRepository).delete(meeting);
@@ -301,7 +301,7 @@ class MeetingCommandServiceTest {
     assertThat(deleted).isTrue();
     @SuppressWarnings("unchecked")
     ArgumentCaptor<List<Notification>> notificationCaptor = ArgumentCaptor.forClass(List.class);
-    verify(notificationRepository).saveAllAndFlush(notificationCaptor.capture());
+    verify(notificationCommandService).saveAll(notificationCaptor.capture());
     assertThat(notificationCaptor.getValue()).hasSize(1);
     Notification notification = notificationCaptor.getValue().get(0);
     assertThat(notification.getMember()).isSameAs(member);
@@ -310,11 +310,11 @@ class MeetingCommandServiceTest {
     assertThat(notification.getContent()).isEqualTo("혼모노 | 8/2 (일) · 01:59 | 2/6");
     InOrder deletionOrder =
         inOrder(
-            notificationRepository,
+            notificationCommandService,
             chatRoomRepository,
             meetingParticipantRepository,
             meetingRepository);
-    deletionOrder.verify(notificationRepository).saveAllAndFlush(any());
+    deletionOrder.verify(notificationCommandService).saveAll(any());
     deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingRepository).delete(meeting);
@@ -401,11 +401,11 @@ class MeetingCommandServiceTest {
 
     InOrder deletionOrder =
         inOrder(
-            notificationRepository,
+            notificationCommandService,
             chatRoomRepository,
             meetingParticipantRepository,
             meetingRepository);
-    deletionOrder.verify(notificationRepository).saveAllAndFlush(List.of());
+    deletionOrder.verify(notificationCommandService).saveAll(List.of());
     deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingRepository).delete(meeting);

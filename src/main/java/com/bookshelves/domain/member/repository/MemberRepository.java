@@ -15,7 +15,7 @@ import org.springframework.data.repository.query.Param;
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
-  @Query("SELECT m FROM Member m WHERE m.id = :id")
+  @Query("select member from Member member where member.id = :id")
   Optional<Member> findByIdForUpdate(@Param("id") Long id);
 
   Optional<Member> findByProviderAndProviderId(Provider provider, String providerId);

@@ -6,12 +6,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bookshelves.domain.notification.dto.request.FcmTokenRegisterRequest;
+import com.bookshelves.domain.notification.dto.response.NewNotificationResponse;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
+import com.bookshelves.domain.notification.dto.response.NotificationListResponse.NotificationInfo;
 import com.bookshelves.domain.notification.dto.response.NotificationReadResponse;
+import com.bookshelves.domain.notification.enums.NotificationType;
 import com.bookshelves.domain.notification.service.NotificationCommandService;
 import com.bookshelves.domain.notification.service.NotificationQueryService;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import com.bookshelves.global.security.AuthenticationFacade;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,6 +65,36 @@ class NotificationControllerTest {
     assertThat(response.getBody().getMessage()).isEqualTo("알림 목록 조회에 성공했습니다.");
     assertThat(response.getBody().getResult()).isSameAs(result);
     verify(notificationQueryService).getNotifications(1L, 1, 20);
+  }
+
+  @Test
+  void getNewNotificationsReturnsSpecifiedSuccessResponse() {
+    NewNotificationResponse result =
+        new NewNotificationResponse(
+            List.of(
+                new NotificationInfo(
+                    101L,
+                    NotificationType.MEETING_STARTED,
+                    "아몬드 독서 모임이 시작되었어요",
+                    "지금 모임에 참여해보세요",
+                    false,
+                    12L,
+                    LocalDateTime.of(2026, 7, 29, 20, 0))),
+            101L,
+            false);
+    when(authenticationFacade.getCurrentMemberId()).thenReturn(1L);
+    when(notificationQueryService.getNewNotifications(1L, 100L, 20)).thenReturn(result);
+
+    ResponseEntity<ApiResponse<NewNotificationResponse>> response =
+        notificationController.getNewNotifications(100L, 20);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().isSuccess()).isTrue();
+    assertThat(response.getBody().getCode()).isEqualTo("NOTI200_4");
+    assertThat(response.getBody().getMessage()).isEqualTo("새 알림 조회에 성공했습니다.");
+    assertThat(response.getBody().getResult()).isSameAs(result);
+    verify(notificationQueryService).getNewNotifications(1L, 100L, 20);
   }
 
   @Test
