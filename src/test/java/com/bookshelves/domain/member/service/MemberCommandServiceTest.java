@@ -547,7 +547,8 @@ class MemberCommandServiceTest {
     memberCommandService.anonymizeMember(1L);
 
     assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
-    assertThat(member.getProvider()).isNotNull();
+    assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
+    assertThat(member.getProviderId()).isEqualTo("kakao-id");
   }
 
   @Test
@@ -562,7 +563,8 @@ class MemberCommandServiceTest {
     memberCommandService.anonymizeMember(1L);
 
     assertThat(member.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
-    assertThat(member.getProvider()).isNotNull();
+    assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
+    assertThat(member.getProviderId()).isEqualTo("kakao-id");
   }
 
   @Test
