@@ -5,7 +5,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bookshelves.domain.notification.dto.response.NewNotificationResponse;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
+import com.bookshelves.domain.notification.dto.response.NotificationListResponse.NotificationInfo;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.enums.NotificationType;
 import com.bookshelves.domain.notification.repository.NotificationRepository;
@@ -14,6 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Sort;
 
 class NotificationQueryServiceTest {
@@ -48,7 +51,7 @@ class NotificationQueryServiceTest {
     assertThat(response.notifications().getFirst().id()).isEqualTo(101L);
     assertThat(response.notifications().getFirst().type())
         .isEqualTo(NotificationType.MEETING_STARTED);
-    assertThat(response.notifications().getFirst().relatedId()).isEqualTo(12L);
+    assertThat(response.notifications().getFirst().targetId()).isEqualTo(12L);
     assertThat(response.notifications().getFirst().createdAt()).isEqualTo(createdAt);
     verify(notificationRepository).findAllByMember_Id(1L, pageRequest);
   }
@@ -63,6 +66,47 @@ class NotificationQueryServiceTest {
     NotificationListResponse response = notificationQueryService.getNotifications(1L, 1, 20);
 
     assertThat(response.notifications()).isEmpty();
+    assertThat(response.hasNext()).isFalse();
+  }
+
+  @Test
+  void getNewNotificationsReturnsNotificationsAfterIdInAscendingOrder() {
+    Notification first = mock(Notification.class);
+    Notification second = mock(Notification.class);
+    when(first.getId()).thenReturn(101L);
+    when(first.getType()).thenReturn(NotificationType.MEETING_STARTED);
+    when(second.getId()).thenReturn(102L);
+    when(second.getType()).thenReturn(NotificationType.SYSTEM);
+    PageRequest pageRequest = PageRequest.of(0, 2);
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+            1L, 100L, pageRequest))
+        .thenReturn(new SliceImpl<>(List.of(first, second), pageRequest, true));
+
+    NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 100L, 2);
+
+    assertThat(response.notifications())
+        .extracting(NotificationInfo::id)
+        .containsExactly(101L, 102L);
+    assertThat(response.notifications())
+        .extracting(NotificationInfo::type)
+        .containsExactly(NotificationType.MEETING_STARTED, NotificationType.SYSTEM);
+    assertThat(response.nextCursor()).isEqualTo(102L);
+    assertThat(response.hasNext()).isTrue();
+    verify(notificationRepository)
+        .findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L, pageRequest);
+  }
+
+  @Test
+  void getNewNotificationsKeepsCursorWhenNoNotificationWasCreatedAfterId() {
+    PageRequest pageRequest = PageRequest.of(0, 20);
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+            1L, 100L, pageRequest))
+        .thenReturn(new SliceImpl<>(List.of(), pageRequest, false));
+
+    NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 100L, 20);
+
+    assertThat(response.notifications()).isEmpty();
+    assertThat(response.nextCursor()).isEqualTo(100L);
     assertThat(response.hasNext()).isFalse();
   }
 }
