@@ -39,8 +39,9 @@ public class BookController implements BookControllerDocs {
   public ResponseEntity<ApiResponse<BookSearchResDTO>> searchExternalBooks(
       @RequestParam(required = false) String query,
       @RequestParam(defaultValue = "1") String page,
-      @RequestParam(defaultValue = "15") String size) {
-    BookSearchResDTO response = bookQueryService.searchExternalBooks(query, page, size);
+      @RequestParam(defaultValue = "15") String size,
+      @RequestParam(defaultValue = "true") boolean saveRecent) {
+    BookSearchResDTO response = bookQueryService.searchExternalBooks(query, page, size, saveRecent);
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.EXTERNAL_BOOK_SEARCHED, response));
   }
