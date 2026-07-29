@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bookshelves.domain.notification.dto.response.NewNotificationResponse;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse.NotificationInfo;
 import com.bookshelves.domain.notification.entity.Notification;
@@ -15,6 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Sort;
 
 class NotificationQueryServiceTest {
@@ -75,25 +77,36 @@ class NotificationQueryServiceTest {
     when(first.getType()).thenReturn(NotificationType.MEETING_STARTED);
     when(second.getId()).thenReturn(102L);
     when(second.getType()).thenReturn(NotificationType.SYSTEM);
-    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L))
-        .thenReturn(List.of(first, second));
+    PageRequest pageRequest = PageRequest.of(0, 2);
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+            1L, 100L, pageRequest))
+        .thenReturn(new SliceImpl<>(List.of(first, second), pageRequest, true));
 
-    List<NotificationInfo> response = notificationQueryService.getNewNotifications(1L, 100L);
+    NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 100L, 2);
 
-    assertThat(response).extracting(NotificationInfo::id).containsExactly(101L, 102L);
-    assertThat(response)
+    assertThat(response.notifications())
+        .extracting(NotificationInfo::id)
+        .containsExactly(101L, 102L);
+    assertThat(response.notifications())
         .extracting(NotificationInfo::type)
         .containsExactly(NotificationType.MEETING_STARTED, NotificationType.SYSTEM);
-    verify(notificationRepository).findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L);
+    assertThat(response.nextCursor()).isEqualTo(102L);
+    assertThat(response.hasNext()).isTrue();
+    verify(notificationRepository)
+        .findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L, pageRequest);
   }
 
   @Test
-  void getNewNotificationsReturnsEmptyListWhenNoNotificationWasCreatedAfterId() {
-    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L))
-        .thenReturn(List.of());
+  void getNewNotificationsKeepsCursorWhenNoNotificationWasCreatedAfterId() {
+    PageRequest pageRequest = PageRequest.of(0, 20);
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+            1L, 100L, pageRequest))
+        .thenReturn(new SliceImpl<>(List.of(), pageRequest, false));
 
-    List<NotificationInfo> response = notificationQueryService.getNewNotifications(1L, 100L);
+    NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 100L, 20);
 
-    assertThat(response).isEmpty();
+    assertThat(response.notifications()).isEmpty();
+    assertThat(response.nextCursor()).isEqualTo(100L);
+    assertThat(response.hasNext()).isFalse();
   }
 }

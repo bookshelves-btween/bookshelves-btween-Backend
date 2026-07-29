@@ -2,15 +2,14 @@ package com.bookshelves.domain.notification.controller;
 
 import com.bookshelves.domain.notification.code.NotificationSuccessCode;
 import com.bookshelves.domain.notification.dto.request.FcmTokenRegisterRequest;
+import com.bookshelves.domain.notification.dto.response.NewNotificationResponse;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
-import com.bookshelves.domain.notification.dto.response.NotificationListResponse.NotificationInfo;
 import com.bookshelves.domain.notification.dto.response.NotificationReadResponse;
 import com.bookshelves.domain.notification.service.NotificationCommandService;
 import com.bookshelves.domain.notification.service.NotificationQueryService;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import com.bookshelves.global.security.AuthenticationFacade;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -51,11 +50,12 @@ public class NotificationController implements NotificationControllerDocs {
   }
 
   @Override
-  public ResponseEntity<ApiResponse<List<NotificationInfo>>> getNewNotifications(
-      @RequestParam(name = "afterId") Long afterId) {
-    List<NotificationInfo> response =
+  public ResponseEntity<ApiResponse<NewNotificationResponse>> getNewNotifications(
+      @RequestParam(name = "afterId") Long afterId,
+      @RequestParam(name = "size", defaultValue = "20") Integer size) {
+    NewNotificationResponse response =
         notificationQueryService.getNewNotifications(
-            authenticationFacade.getCurrentMemberId(), afterId);
+            authenticationFacade.getCurrentMemberId(), afterId, size);
 
     return ResponseEntity.ok(
         ApiResponse.onSuccess(NotificationSuccessCode.NEW_NOTIFICATIONS_FOUND, response));
