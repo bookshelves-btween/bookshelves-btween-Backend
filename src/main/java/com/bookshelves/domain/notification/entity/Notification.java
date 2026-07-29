@@ -43,12 +43,6 @@ public class Notification extends BaseEntity {
   @Column(name = "is_read", nullable = false)
   private Boolean isRead = false;
 
-  @Column(name = "is_delivered", nullable = false)
-  private Boolean isDelivered = false;
-
-  @Column(name = "is_offered", nullable = false)
-  private Boolean isOffered = false;
-
   @Column(name = "related_id")
   private Long relatedId;
 

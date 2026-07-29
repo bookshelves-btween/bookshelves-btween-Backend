@@ -32,26 +32,15 @@ public class NotificationQueryService {
     return NotificationConverter.toNotificationListResponse(notificationPage);
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
   public NewNotificationResponse getNewNotifications(Long memberId, Long afterId, int size) {
-    notificationRepository.markDeliveredThrough(memberId, afterId);
-
     PageRequest pageRequest = PageRequest.of(0, size);
     Slice<Notification> notificationSlice =
-        notificationRepository.findAllByMember_IdAndIsDeliveredFalseOrderByIdAsc(
-            memberId, pageRequest);
+        notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+            memberId, afterId, pageRequest);
     List<NotificationInfo> notifications =
         notificationSlice.stream().map(NotificationConverter::toNotificationInfo).toList();
-    if (!notifications.isEmpty()) {
-      notificationRepository.markOffered(
-          memberId, notifications.stream().map(NotificationInfo::id).toList());
-    }
-    Long nextCursor =
-        notifications.stream()
-            .map(NotificationInfo::id)
-            .filter(id -> id > afterId)
-            .reduce((first, second) -> second)
-            .orElse(afterId);
+    Long nextCursor = notifications.isEmpty() ? afterId : notifications.getLast().id();
 
     return new NewNotificationResponse(notifications, nextCursor, notificationSlice.hasNext());
   }

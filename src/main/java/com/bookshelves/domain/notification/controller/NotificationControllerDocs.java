@@ -225,9 +225,7 @@ public interface NotificationControllerDocs {
 
   @Operation(
       summary = "새 알림 조회",
-      description =
-          "이전 응답으로 제공된 알림 중 afterId까지를 전달 완료 처리한 뒤, 아직 전달 완료되지 않은 알림을 ID 오름차순으로 조회합니다. "
-              + "클라이언트는 응답을 정상 처리한 후에만 nextCursor를 다음 요청의 afterId로 전달해야 합니다.")
+      description = "인증된 사용자의 알림 중 afterId보다 ID가 큰 알림을 ID 오름차순으로 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
