@@ -22,6 +22,7 @@ import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.repository.MemberTermsRepository;
 import com.bookshelves.domain.member.repository.TermsRepository;
 import com.bookshelves.global.security.RedisTokenRepository;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -123,6 +124,24 @@ public class MemberCommandService {
 
     List<Category> categories = memberCategoryRepository.findCategoriesByMemberId(memberId);
     return MemberConverter.toMemberInfoResponse(member, categories);
+  }
+
+  public void anonymizeMember(Long memberId) {
+    Member member =
+        memberRepository
+            .findById(memberId)
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+    // 스케줄러의 대상 조회 이후 복구되었거나 상태가 바뀌었을 수 있으므로 여기서 다시 검증한다.
+    LocalDateTime threshold =
+        LocalDateTime.now(Member.SERVICE_ZONE).minusDays(Member.RESTORE_PERIOD_DAYS);
+    if (member.getStatus() != MemberStatus.WITHDRAWN
+        || member.getDeletedAt() == null
+        || member.getDeletedAt().isAfter(threshold)) {
+      return;
+    }
+
+    member.anonymize();
   }
 
   public MemberWithdrawResponse withdraw(Long memberId) {
