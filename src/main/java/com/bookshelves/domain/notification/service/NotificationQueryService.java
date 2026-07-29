@@ -16,14 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class NotificationQueryService {
 
-  private static final int POLLING_REPLAY_WINDOW = 20;
-
   private final NotificationRepository notificationRepository;
 
+  @Transactional(readOnly = true)
   public NotificationListResponse getNotifications(Long memberId, int page, int size) {
     PageRequest pageRequest =
         PageRequest.of(
@@ -34,15 +32,20 @@ public class NotificationQueryService {
     return NotificationConverter.toNotificationListResponse(notificationPage);
   }
 
+  @Transactional
   public NewNotificationResponse getNewNotifications(Long memberId, Long afterId, int size) {
-    long replayAfterId = Math.max(0L, afterId - POLLING_REPLAY_WINDOW);
-    int replayAllowance = (int) Math.min(afterId, POLLING_REPLAY_WINDOW);
-    PageRequest pageRequest = PageRequest.of(0, size + replayAllowance);
+    notificationRepository.markDeliveredThrough(memberId, afterId);
+
+    PageRequest pageRequest = PageRequest.of(0, size);
     Slice<Notification> notificationSlice =
-        notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
-            memberId, replayAfterId, pageRequest);
+        notificationRepository.findAllByMember_IdAndIsDeliveredFalseOrderByIdAsc(
+            memberId, pageRequest);
     List<NotificationInfo> notifications =
         notificationSlice.stream().map(NotificationConverter::toNotificationInfo).toList();
+    if (!notifications.isEmpty()) {
+      notificationRepository.markOffered(
+          memberId, notifications.stream().map(NotificationInfo::id).toList());
+    }
     Long nextCursor =
         notifications.stream()
             .map(NotificationInfo::id)
