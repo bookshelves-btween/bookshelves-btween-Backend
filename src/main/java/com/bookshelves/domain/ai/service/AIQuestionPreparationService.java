@@ -22,11 +22,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 // 모임의 AI 질문 5개를 모임 시작 전에 미리 저장한다.
 //
-// 모집 마감(모임 성립 확정) 시점에 LLM을 1회 호출해 시드 질문을 그 책에 맞게 각색하고,
+// 모집 마감(모임 성립 확정) 시점에 LLM을 1회 호출해 그 책에 맞는 질문을 만들고,
 // question_order 1~5로 저장한다. 모임 시작 시점에는 커서만 1로 올리면 되므로 채팅 중 LLM 대기가 없다.
 //
 // 실패는 전부 "시드 원문 사용"으로 수렴한다 — 키 미설정·타임아웃·파싱 실패·검증 탈락 어느 쪽이든
-// 질문은 반드시 5개 저장된다. 각색은 품질 향상이지 기능의 전제가 아니다.
+// 질문은 반드시 5개 저장된다. LLM 생성은 품질 향상이지 기능의 전제가 아니다.
 @Slf4j
 @Service
 public class AIQuestionPreparationService {
@@ -63,7 +63,7 @@ public class AIQuestionPreparationService {
     }
   }
 
-  /** 각색을 시도해 질문 5개를 저장한다. 이미 다 저장돼 있으면 아무것도 하지 않는다. */
+  /** 생성을 시도해 질문 5개를 저장한다. 이미 다 저장돼 있으면 아무것도 하지 않는다. */
   public void prepare(Long meetingId) {
     try {
       if (isFullyPrepared(meetingId)) {
@@ -74,16 +74,16 @@ public class AIQuestionPreparationService {
         return; // 마감 직후 삭제된 모임
       }
 
-      Map<Integer, String> adapted = adapt(meeting);
-      saveQuestions(meetingId, adapted);
-      log.info("AI 질문 준비 완료: meetingId={}, 각색={}건", meetingId, adapted.size());
+      Map<Integer, String> generated = generate(meeting);
+      saveQuestions(meetingId, generated);
+      log.info("AI 질문 준비 완료: meetingId={}, 생성={}건", meetingId, generated.size());
     } catch (Exception e) {
       log.error("AI 질문 준비 실패: meetingId={}", meetingId, e);
     }
   }
 
   /**
-   * 각색 없이 시드 원문으로 빠진 질문을 채운다. 호출한 트랜잭션 안에서 실행된다.
+   * LLM 생성 없이 시드 원문으로 빠진 질문을 채운다. 호출한 트랜잭션 안에서 실행된다.
    *
    * <p>모집 마감 경로를 타지 않고 모임이 시작된 경우(정원 미충족 모임 등)의 안전망이다. 커서는 시작과 동시에 1로 올라가고 최대 5까지 오르므로, 1~5가 모두 있어야
    * 공개할 질문이 비지 않는다.
@@ -108,7 +108,7 @@ public class AIQuestionPreparationService {
   }
 
   // 개수가 아니라 순서 1~5가 모두 있는지로 판정한다 — 개수만 보면 순서가 어긋난 데이터에서
-  // "준비 완료"로 오판해 각색도 보충도 하지 않고 넘어간다
+  // "준비 완료"로 오판해 생성도 보충도 하지 않고 넘어간다
   private boolean isFullyPrepared(Long meetingId) {
     return existingOrders(meetingId).containsAll(SeedQuestion.allOrders());
   }
@@ -119,21 +119,21 @@ public class AIQuestionPreparationService {
         .collect(Collectors.toSet());
   }
 
-  private Map<Integer, String> adapt(Meeting meeting) {
+  private Map<Integer, String> generate(Meeting meeting) {
     try {
-      return geminiQuestionClient.adaptSeedQuestions(meeting.getBook());
+      return geminiQuestionClient.generateQuestions(meeting.getBook());
     } catch (Exception e) {
-      log.warn("Gemini 시드 질문 각색 실패 — 원문을 사용한다: meetingId={}", meeting.getId(), e);
+      log.warn("Gemini 질문 생성 실패 — 시드 원문을 사용한다: meetingId={}", meeting.getId(), e);
       return Map.of();
     }
   }
 
-  // 각색이 끝난 뒤 저장 시점에 모임 행 락을 잡고, 그 안에서 빠진 순서를 다시 계산한다.
+  // 생성이 끝난 뒤 저장 시점에 모임 행 락을 잡고, 그 안에서 빠진 순서를 다시 계산한다.
   //
-  // 안전망(ensureSeeded)도 같은 행 락 아래에서 돈다. 락 없이 저장하면 각색이 도는 20초 사이에
+  // 안전망(ensureSeeded)도 같은 행 락 아래에서 돈다. 락 없이 저장하면 생성이 도는 사이에
   // 시작 스케줄러가 끼어들어 양쪽이 "없음"을 읽고 둘 다 INSERT할 수 있고, 이때 unique 제약에
   // 걸리는 쪽이 안전망이면 모임 시작 트랜잭션이 통째로 롤백된다.
-  private void saveQuestions(Long meetingId, Map<Integer, String> adapted) {
+  private void saveQuestions(Long meetingId, Map<Integer, String> generated) {
     try {
       transactionTemplate.executeWithoutResult(
           status ->
@@ -141,7 +141,7 @@ public class AIQuestionPreparationService {
                   .findByIdForUpdate(meetingId)
                   .ifPresent(
                       meeting -> {
-                        List<AIQuestion> missing = buildMissingQuestions(meeting, adapted);
+                        List<AIQuestion> missing = buildMissingQuestions(meeting, generated);
                         if (!missing.isEmpty()) {
                           aiQuestionRepository.saveAll(missing);
                         }
@@ -156,8 +156,8 @@ public class AIQuestionPreparationService {
   //
   // "한 행이라도 있으면 준비 완료"로 보면 1~4개만 남은 모임(구버전 데이터, 부분 정리 등)이 그대로 시작되고,
   // 커서는 5까지 오르므로 존재하지 않는 순서를 가리켜 질문이 표시되지 않는다.
-  // 각색본이 있는 순서만 교체하고 나머지는 시드 원문을 쓴다 — 항목별로 독립 폴백된다.
-  private List<AIQuestion> buildMissingQuestions(Meeting meeting, Map<Integer, String> adapted) {
+  // 생성본이 있는 순서만 교체하고 나머지는 시드 원문을 쓴다 — 항목별로 독립 폴백된다.
+  private List<AIQuestion> buildMissingQuestions(Meeting meeting, Map<Integer, String> generated) {
     Set<Integer> existingOrders = existingOrders(meeting.getId());
 
     return SeedQuestion.ordered().stream()
@@ -166,7 +166,7 @@ public class AIQuestionPreparationService {
             seed ->
                 AIQuestion.builder()
                     .meeting(meeting)
-                    .content(adapted.getOrDefault(seed.getQuestionOrder(), seed.getContent()))
+                    .content(generated.getOrDefault(seed.getQuestionOrder(), seed.getContent()))
                     .questionOrder(seed.getQuestionOrder())
                     .build())
         .toList();
