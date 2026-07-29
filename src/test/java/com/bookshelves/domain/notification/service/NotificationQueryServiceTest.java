@@ -70,7 +70,7 @@ class NotificationQueryServiceTest {
   }
 
   @Test
-  void getNewNotificationsAcknowledgesCursorAndReturnsUndeliveredNotifications() {
+  void getNewNotificationsReturnsNotificationsAfterIdInAscendingOrder() {
     Notification first = mock(Notification.class);
     Notification second = mock(Notification.class);
     when(first.getId()).thenReturn(101L);
@@ -78,7 +78,8 @@ class NotificationQueryServiceTest {
     when(second.getId()).thenReturn(102L);
     when(second.getType()).thenReturn(NotificationType.SYSTEM);
     PageRequest pageRequest = PageRequest.of(0, 2);
-    when(notificationRepository.findAllByMember_IdAndIsDeliveredFalseOrderByIdAsc(1L, pageRequest))
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+            1L, 100L, pageRequest))
         .thenReturn(new SliceImpl<>(List.of(first, second), pageRequest, true));
 
     NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 100L, 2);
@@ -91,16 +92,15 @@ class NotificationQueryServiceTest {
         .containsExactly(NotificationType.MEETING_STARTED, NotificationType.SYSTEM);
     assertThat(response.nextCursor()).isEqualTo(102L);
     assertThat(response.hasNext()).isTrue();
-    verify(notificationRepository).markDeliveredThrough(1L, 100L);
-    verify(notificationRepository).markOffered(1L, List.of(101L, 102L));
     verify(notificationRepository)
-        .findAllByMember_IdAndIsDeliveredFalseOrderByIdAsc(1L, pageRequest);
+        .findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L, pageRequest);
   }
 
   @Test
-  void getNewNotificationsKeepsCursorWhenNoUndeliveredNotificationExists() {
+  void getNewNotificationsKeepsCursorWhenNoNotificationWasCreatedAfterId() {
     PageRequest pageRequest = PageRequest.of(0, 20);
-    when(notificationRepository.findAllByMember_IdAndIsDeliveredFalseOrderByIdAsc(1L, pageRequest))
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+            1L, 100L, pageRequest))
         .thenReturn(new SliceImpl<>(List.of(), pageRequest, false));
 
     NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 100L, 20);
@@ -108,37 +108,5 @@ class NotificationQueryServiceTest {
     assertThat(response.notifications()).isEmpty();
     assertThat(response.nextCursor()).isEqualTo(100L);
     assertThat(response.hasNext()).isFalse();
-    verify(notificationRepository).markDeliveredThrough(1L, 100L);
-  }
-
-  @Test
-  void getNewNotificationsReturnsDelayedLowerIdBecauseItIsStillUndelivered() {
-    Notification lateCommittedNotification = mock(Notification.class);
-    when(lateCommittedNotification.getId()).thenReturn(101L);
-    when(lateCommittedNotification.getType()).thenReturn(NotificationType.MEETING_STARTED);
-    PageRequest pageRequest = PageRequest.of(0, 20);
-    when(notificationRepository.findAllByMember_IdAndIsDeliveredFalseOrderByIdAsc(1L, pageRequest))
-        .thenReturn(new SliceImpl<>(List.of(lateCommittedNotification), pageRequest, false));
-
-    NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 102L, 20);
-
-    assertThat(response.notifications()).extracting(NotificationInfo::id).containsExactly(101L);
-    assertThat(response.nextCursor()).isEqualTo(102L);
-    assertThat(response.hasNext()).isFalse();
-    verify(notificationRepository).markDeliveredThrough(1L, 102L);
-    verify(notificationRepository).markOffered(1L, List.of(101L));
-  }
-
-  @Test
-  void getNewNotificationsAcknowledgesNothingForInitialCursor() {
-    PageRequest pageRequest = PageRequest.of(0, 20);
-    when(notificationRepository.findAllByMember_IdAndIsDeliveredFalseOrderByIdAsc(1L, pageRequest))
-        .thenReturn(new SliceImpl<>(List.of(), pageRequest, false));
-
-    NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 0L, 20);
-
-    assertThat(response.notifications()).isEmpty();
-    assertThat(response.nextCursor()).isZero();
-    verify(notificationRepository).markDeliveredThrough(1L, 0L);
   }
 }

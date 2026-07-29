@@ -2,31 +2,62 @@ package com.bookshelves.domain.notification.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bookshelves.domain.member.entity.Member;
+import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.notification.code.NotificationErrorCode;
 import com.bookshelves.domain.notification.dto.response.NotificationReadResponse;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.exception.NotificationException;
 import com.bookshelves.domain.notification.repository.DeviceTokenRepository;
 import com.bookshelves.domain.notification.repository.NotificationRepository;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 class NotificationCommandServiceTest {
 
   private final DeviceTokenRepository deviceTokenRepository = mock(DeviceTokenRepository.class);
   private final NotificationRepository notificationRepository = mock(NotificationRepository.class);
+  private final MemberRepository memberRepository = mock(MemberRepository.class);
   private final NotificationCommandService notificationCommandService =
-      new NotificationCommandService(deviceTokenRepository, notificationRepository);
+      new NotificationCommandService(
+          deviceTokenRepository, notificationRepository, memberRepository);
 
   @Test
   void registerFcmTokenUpsertsTokenAtomically() {
     notificationCommandService.registerFcmToken(1L, "fcm-token");
 
     verify(deviceTokenRepository).upsertFcmToken(1L, "fcm-token");
+  }
+
+  @Test
+  void saveAllLocksRecipientMembersInIdOrderBeforeAllocatingNotificationIds() {
+    Notification forSecondMember = mock(Notification.class);
+    Notification forFirstMember = mock(Notification.class);
+    Member firstMember = mock(Member.class);
+    Member secondMember = mock(Member.class);
+    when(firstMember.getId()).thenReturn(1L);
+    when(secondMember.getId()).thenReturn(2L);
+    when(forSecondMember.getMember()).thenReturn(secondMember);
+    when(forFirstMember.getMember()).thenReturn(firstMember);
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(firstMember));
+    when(memberRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(secondMember));
+    List<Notification> notifications = List.of(forSecondMember, forFirstMember);
+    when(notificationRepository.saveAllAndFlush(notifications)).thenReturn(notifications);
+
+    List<Notification> saved = notificationCommandService.saveAll(notifications);
+
+    assertThat(saved).isSameAs(notifications);
+    InOrder order = inOrder(memberRepository, notificationRepository);
+    order.verify(memberRepository).findByIdForUpdate(1L);
+    order.verify(memberRepository).findByIdForUpdate(2L);
+    order.verify(notificationRepository).saveAllAndFlush(notifications);
   }
 
   @Test
