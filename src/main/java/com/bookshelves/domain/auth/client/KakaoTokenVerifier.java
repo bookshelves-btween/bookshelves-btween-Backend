@@ -3,8 +3,11 @@ package com.bookshelves.domain.auth.client;
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.auth.exception.AuthException;
 import com.bookshelves.domain.member.enums.Provider;
+import java.time.Duration;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
@@ -14,10 +17,25 @@ public class KakaoTokenVerifier implements ProviderTokenVerifier {
 
   private final RestClient restClient;
 
+  @Autowired
   public KakaoTokenVerifier(
       RestClient.Builder restClientBuilder,
       @Value("${external.kakao.user-info-uri}") String userInfoUri) {
-    this.restClient = restClientBuilder.baseUrl(userInfoUri).build();
+    this(buildRestClient(restClientBuilder, userInfoUri));
+  }
+
+  KakaoTokenVerifier(RestClient restClient) {
+    this.restClient = restClient;
+  }
+
+  private static RestClient buildRestClient(
+      RestClient.Builder restClientBuilder, String userInfoUri) {
+    // 로그인 흐름을 직접 막는 동기 호출이라, 응답 지연 시 빠르게 실패하도록 짧게 잡는다.
+    SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+    requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+    requestFactory.setReadTimeout(Duration.ofSeconds(5));
+
+    return restClientBuilder.baseUrl(userInfoUri).requestFactory(requestFactory).build();
   }
 
   @Override
