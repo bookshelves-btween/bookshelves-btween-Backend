@@ -25,6 +25,7 @@ import lombok.NoArgsConstructor;
 public class Meeting extends BaseEntity {
 
   public static final int MIN_PARTICIPANTS = 3;
+  public static final int RECRUITMENT_CLOSE_HOURS_BEFORE_START = 6;
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -96,8 +97,20 @@ public class Meeting extends BaseEntity {
     this.currentQuestionOrder++;
   }
 
+  public void closeRecruitment() {
+    this.status = MeetingStatus.RECRUIT_CLOSED;
+  }
+
   public boolean canStart() {
     return this.curParticipants >= MIN_PARTICIPANTS;
+  }
+
+  public LocalDateTime getRecruitmentCloseDate() {
+    return this.startDate.minusHours(RECRUITMENT_CLOSE_HOURS_BEFORE_START);
+  }
+
+  public boolean isRecruitmentClosedAt(LocalDateTime now) {
+    return !getRecruitmentCloseDate().isAfter(now);
   }
 
   // 종료 시각 = 시작 시각 + 진행 시간(분)
