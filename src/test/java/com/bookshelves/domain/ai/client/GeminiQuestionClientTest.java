@@ -3,6 +3,7 @@ package com.bookshelves.domain.ai.client;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.test.web.client.RequestMatcher;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
@@ -56,7 +58,7 @@ class GeminiQuestionClientTest {
             requestTo(
                 GeminiQuestionClient.BASE_URL
                     + "/models/"
-                    + GeminiQuestionClient.MODEL
+                    + GeminiQuestionClient.DEFAULT_MODEL
                     + ":generateContent"))
         .andExpect(method(HttpMethod.POST))
         .andExpect(header("x-goog-api-key", "test-api-key"))
@@ -142,6 +144,50 @@ class GeminiQuestionClientTest {
     assertThatThrownBy(
             () -> geminiQuestionClient.adaptSeedQuestions(bookWithDescription(DESCRIPTION)))
         .isInstanceOf(IllegalStateException.class);
+  }
+
+  // Gemini 3.x는 temperature를 기본값(1.0)에서 낮추면 추론이 흐트러진다고 구글이 명시한다.
+  // 세대별로 다른 필드를 보내는 것이 이 클라이언트의 조용한 분기점이라 요청 본문까지 검증한다.
+  private void expectGenerationConfig(String model, RequestMatcher configMatcher) {
+    mockServer
+        .expect(requestTo(GeminiQuestionClient.BASE_URL + "/models/" + model + ":generateContent"))
+        .andExpect(configMatcher)
+        .andRespond(
+            withSuccess(
+                """
+                {"candidates":[{"content":{"parts":[{"text":"[{\\"order\\":1,\\"adapted\\":true,\\"question\\":\\"충분히 긴 질문 문장입니다.\\"}]"}]}}]}
+                """,
+                MediaType.APPLICATION_JSON));
+  }
+
+  private GeminiQuestionClient clientForModel(String model, RestClient.Builder builder) {
+    return new GeminiQuestionClient(
+        builder.baseUrl(GeminiQuestionClient.BASE_URL).build(),
+        new ObjectMapper(),
+        "test-api-key",
+        model);
+  }
+
+  @Test
+  void sendsThinkingLevelInsteadOfTemperatureOnGemini3() {
+    expectGenerationConfig(
+        GeminiQuestionClient.DEFAULT_MODEL,
+        jsonPath("$.generationConfig.thinkingConfig.thinkingLevel").value("high"));
+
+    geminiQuestionClient.adaptSeedQuestions(bookWithDescription(DESCRIPTION));
+    mockServer.verify();
+  }
+
+  @Test
+  void sendsTemperatureWithoutThinkingLevelOnGemini2() {
+    RestClient.Builder builder = RestClient.builder();
+    mockServer = MockRestServiceServer.bindTo(builder).build();
+    expectGenerationConfig(
+        "gemini-2.0-flash", jsonPath("$.generationConfig.temperature").value(0.2));
+
+    clientForModel("gemini-2.0-flash", builder)
+        .adaptSeedQuestions(bookWithDescription(DESCRIPTION));
+    mockServer.verify();
   }
 
   @Test

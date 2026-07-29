@@ -3,6 +3,7 @@ package com.bookshelves.domain.ai.client;
 import com.bookshelves.domain.ai.enums.SeedQuestion;
 import com.bookshelves.domain.book.entity.Book;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,8 +36,16 @@ public class GeminiQuestionClient {
   // 콜론 앞이 URI 스킴으로 파싱돼 baseUrl이 통째로 무시된다(unknown protocol). 템플릿을 "/"로 시작시키고
   // 확장 후에 콜론이 들어가게 해야 상대 경로로 결합된다.
   static final String GENERATE_CONTENT_PATH = "/models/{model}:generateContent";
-  static final String MODEL = "gemini-2.0-flash";
+  static final String DEFAULT_MODEL = "gemini-3.6-flash";
   private static final String API_KEY_HEADER = "x-goog-api-key";
+
+  // 2.x 이하는 thinking이 없어 낮은 temperature로 변형 폭을 좁힌다.
+  //
+  // 3.x부터는 반대다 — 추론이 기본 temperature(1.0)에 맞춰 조정돼 있어 낮추면 논리가 오히려 흐트러지고
+  // 사고 루프에 빠질 수 있다고 구글이 명시한다. 그래서 3.x에서는 temperature를 아예 보내지 않고
+  // thinkingLevel로 사고량을 올린다. 이 호출은 준비 단계(비동기)라 지연보다 규칙 준수가 중요하다.
+  private static final double LEGACY_TEMPERATURE = 0.2;
+  private static final String THINKING_LEVEL = "high";
 
   // 책 소개가 이보다 짧으면 각색 근거가 없다고 보고 호출 자체를 생략한다(비용·지연 절약).
   private static final int MIN_DESCRIPTION_LENGTH = 30;
@@ -48,19 +57,27 @@ public class GeminiQuestionClient {
   private final RestClient restClient;
   private final ObjectMapper objectMapper;
   private final String apiKey;
+  private final String model;
 
   @Autowired
   public GeminiQuestionClient(
       RestClient.Builder restClientBuilder,
       ObjectMapper objectMapper,
-      @Value("${external.gemini.api-key}") String apiKey) {
-    this(buildRestClient(restClientBuilder), objectMapper, apiKey);
+      @Value("${external.gemini.api-key}") String apiKey,
+      @Value("${external.gemini.model:" + DEFAULT_MODEL + "}") String model) {
+    this(buildRestClient(restClientBuilder), objectMapper, apiKey, model);
   }
 
   GeminiQuestionClient(RestClient restClient, ObjectMapper objectMapper, String apiKey) {
+    this(restClient, objectMapper, apiKey, DEFAULT_MODEL);
+  }
+
+  GeminiQuestionClient(
+      RestClient restClient, ObjectMapper objectMapper, String apiKey, String model) {
     this.restClient = restClient;
     this.objectMapper = objectMapper;
     this.apiKey = apiKey;
+    this.model = model;
   }
 
   private static RestClient buildRestClient(RestClient.Builder restClientBuilder) {
@@ -90,9 +107,9 @@ public class GeminiQuestionClient {
     GeminiResponse response =
         restClient
             .post()
-            .uri(GENERATE_CONTENT_PATH, MODEL)
+            .uri(GENERATE_CONTENT_PATH, model)
             .header(API_KEY_HEADER, apiKey)
-            .body(GeminiRequest.of(buildPrompt(book)))
+            .body(GeminiRequest.of(buildPrompt(book), generationConfig()))
             .retrieve()
             .body(GeminiResponse.class);
 
@@ -219,15 +236,31 @@ public class GeminiQuestionClient {
   private record AdaptedQuestion(Integer order, boolean adapted, String question) {}
 
   private record GeminiRequest(List<Content> contents, GenerationConfig generationConfig) {
-    private static GeminiRequest of(String prompt) {
+    private static GeminiRequest of(String prompt, GenerationConfig generationConfig) {
       List<Content> contents = new ArrayList<>();
       contents.add(new Content(List.of(new Part(prompt))));
-      // JSON 강제 + 낮은 temperature — 각색은 창작이 아니라 제한된 변형이다
-      return new GeminiRequest(contents, new GenerationConfig("application/json", 0.2));
+      return new GeminiRequest(contents, generationConfig);
     }
   }
 
-  private record GenerationConfig(String responseMimeType, double temperature) {}
+  // JSON 강제는 세대 공통, 변형 폭을 좁히는 수단만 세대별로 다르다.
+  private GenerationConfig generationConfig() {
+    return supportsThinkingLevel()
+        ? new GenerationConfig("application/json", null, new ThinkingConfig(THINKING_LEVEL))
+        : new GenerationConfig("application/json", LEGACY_TEMPERATURE, null);
+  }
+
+  // 3.x 이후를 thinking 계열로 본다 — 아는 구세대만 제외해야 새 모델이 조용히 구설정으로 떨어지지 않는다
+  private boolean supportsThinkingLevel() {
+    return !model.startsWith("gemini-1.") && !model.startsWith("gemini-2.");
+  }
+
+  // 세대별로 안 쓰는 필드는 아예 보내지 않는다 — null이 그대로 직렬화되면 API가 400으로 거절한다
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private record GenerationConfig(
+      String responseMimeType, Double temperature, ThinkingConfig thinkingConfig) {}
+
+  private record ThinkingConfig(String thinkingLevel) {}
 
   private record GeminiResponse(List<Candidate> candidates) {}
 
