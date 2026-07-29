@@ -77,9 +77,9 @@ class NotificationQueryServiceTest {
     when(first.getType()).thenReturn(NotificationType.MEETING_STARTED);
     when(second.getId()).thenReturn(102L);
     when(second.getType()).thenReturn(NotificationType.SYSTEM);
-    PageRequest pageRequest = PageRequest.of(0, 2);
+    PageRequest pageRequest = PageRequest.of(0, 22);
     when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
-            1L, 100L, pageRequest))
+            1L, 80L, pageRequest))
         .thenReturn(new SliceImpl<>(List.of(first, second), pageRequest, true));
 
     NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 100L, 2);
@@ -93,14 +93,14 @@ class NotificationQueryServiceTest {
     assertThat(response.nextCursor()).isEqualTo(102L);
     assertThat(response.hasNext()).isTrue();
     verify(notificationRepository)
-        .findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L, pageRequest);
+        .findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 80L, pageRequest);
   }
 
   @Test
   void getNewNotificationsKeepsCursorWhenNoNotificationWasCreatedAfterId() {
-    PageRequest pageRequest = PageRequest.of(0, 20);
+    PageRequest pageRequest = PageRequest.of(0, 40);
     when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
-            1L, 100L, pageRequest))
+            1L, 80L, pageRequest))
         .thenReturn(new SliceImpl<>(List.of(), pageRequest, false));
 
     NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 100L, 20);
@@ -108,5 +108,34 @@ class NotificationQueryServiceTest {
     assertThat(response.notifications()).isEmpty();
     assertThat(response.nextCursor()).isEqualTo(100L);
     assertThat(response.hasNext()).isFalse();
+  }
+
+  @Test
+  void getNewNotificationsReplaysLowerIdThatCommittedAfterCursorAdvanced() {
+    Notification lateCommittedNotification = mock(Notification.class);
+    when(lateCommittedNotification.getId()).thenReturn(101L);
+    when(lateCommittedNotification.getType()).thenReturn(NotificationType.MEETING_STARTED);
+    PageRequest pageRequest = PageRequest.of(0, 40);
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+            1L, 82L, pageRequest))
+        .thenReturn(new SliceImpl<>(List.of(lateCommittedNotification), pageRequest, false));
+
+    NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 102L, 20);
+
+    assertThat(response.notifications()).extracting(NotificationInfo::id).containsExactly(101L);
+    assertThat(response.nextCursor()).isEqualTo(102L);
+    assertThat(response.hasNext()).isFalse();
+  }
+
+  @Test
+  void getNewNotificationsDoesNotAddReplayAllowanceForInitialCursor() {
+    PageRequest pageRequest = PageRequest.of(0, 20);
+    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 0L, pageRequest))
+        .thenReturn(new SliceImpl<>(List.of(), pageRequest, false));
+
+    NewNotificationResponse response = notificationQueryService.getNewNotifications(1L, 0L, 20);
+
+    assertThat(response.notifications()).isEmpty();
+    assertThat(response.nextCursor()).isZero();
   }
 }

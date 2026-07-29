@@ -225,7 +225,9 @@ public interface NotificationControllerDocs {
 
   @Operation(
       summary = "새 알림 조회",
-      description = "인증된 사용자의 알림 중 afterId보다 ID가 큰 알림을 ID 오름차순으로 조회합니다.")
+      description =
+          "인증된 사용자의 새 알림을 ID 오름차순으로 조회합니다. 커밋 순서 역전으로 인한 누락을 방지하기 위해 "
+              + "afterId 이전 최근 20개 ID 구간을 함께 반환하므로 클라이언트는 알림 ID로 중복 제거해야 합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -286,7 +288,7 @@ public interface NotificationControllerDocs {
           @Min(value = 0, message = "afterId는 0 이상이어야 합니다.")
           @RequestParam(name = "afterId")
           Long afterId,
-      @Parameter(description = "한 번에 조회할 새 알림 개수", example = "20")
+      @Parameter(description = "한 번에 조회할 새 알림 개수(재전송 구간은 최대 20개 추가될 수 있음)", example = "20")
           @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
           @Max(value = 50, message = "페이지 크기는 50 이하여야 합니다.")
           Integer size);
