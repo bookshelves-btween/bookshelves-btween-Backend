@@ -509,6 +509,31 @@ class MemberCommandServiceTest {
   }
 
   @Test
+  void anonymizeMemberAnonymizesExistingMember() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    ReflectionTestUtils.setField(member, "id", 1L);
+    ReflectionTestUtils.setField(member, "status", MemberStatus.WITHDRAWN);
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
+    memberCommandService.anonymizeMember(1L);
+
+    assertThat(member.getStatus()).isEqualTo(MemberStatus.ANONYMIZED);
+    assertThat(member.getNickname()).isEqualTo("탈퇴한 사용자1");
+    assertThat(member.getProvider()).isNull();
+    assertThat(member.getProviderId()).isNull();
+  }
+
+  @Test
+  void anonymizeMemberThrowsMemberNotFoundWhenMemberDoesNotExist() {
+    when(memberRepository.findById(1L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> memberCommandService.anonymizeMember(1L))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+  }
+
+  @Test
   void updateMyInfoThrowsInvalidRequestWhenNicknameNounNotInAllowedList() {
     MemberUpdateRequest request =
         MemberUpdateRequest.builder()
