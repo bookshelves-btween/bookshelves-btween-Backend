@@ -31,7 +31,7 @@ class KakaoTokenVerifierTest {
   void setUp() {
     RestClient.Builder restClientBuilder = RestClient.builder();
     mockServer = MockRestServiceServer.bindTo(restClientBuilder).build();
-    kakaoTokenVerifier = new KakaoTokenVerifier(restClientBuilder, USER_INFO_URI);
+    kakaoTokenVerifier = new KakaoTokenVerifier(restClientBuilder.baseUrl(USER_INFO_URI).build());
   }
 
   @Test
