@@ -55,19 +55,26 @@ public class MeetingCommandService {
     return MeetingCreateResDTO.from(savedMeeting);
   }
 
+  // 마감 처리를 완료한 뒤 모집 마감 예외를 반환하므로 MeetingException에도 변경사항을 커밋한다.
+  @Transactional(noRollbackFor = MeetingException.class)
   public MeetingParticipationResDTO participateMeeting(Long meetingId) {
     Meeting meeting =
         meetingRepository
             .findByIdForUpdate(meetingId)
             .orElseThrow(() -> new MeetingException(MeetingErrorCode.MEETING_NOT_FOUND));
-    Long memberId = authenticationFacade.getCurrentMemberId();
 
-    if (meetingParticipantRepository.existsByMeetingIdAndMemberId(meetingId, memberId)) {
-      throw new MeetingException(MeetingErrorCode.DUPLICATE_MEETING);
-    }
     if (meeting.getStatus() != MeetingStatus.RECRUITING
         || meeting.getCurParticipants() >= meeting.getMaxParticipants()) {
       throw new MeetingException(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
+    }
+    if (meeting.isRecruitmentClosedAt(LocalDateTime.now())) {
+      completeRecruitmentDeadline(meetingId, meeting);
+      throw new MeetingException(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
+    }
+
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    if (meetingParticipantRepository.existsByMeetingIdAndMemberId(meetingId, memberId)) {
+      throw new MeetingException(MeetingErrorCode.DUPLICATE_MEETING);
     }
 
     Member member = memberRepository.getReferenceById(memberId);
@@ -108,9 +115,14 @@ public class MeetingCommandService {
       return false;
     }
 
+    completeRecruitmentDeadline(meetingId, meeting);
+    return true;
+  }
+
+  private void completeRecruitmentDeadline(Long meetingId, Meeting meeting) {
     if (meeting.canStart()) {
       meeting.closeRecruitment();
-      return true;
+      return;
     }
 
     // 모임을 삭제하기 전에 모든 참여자의 취소 알림을 영속화한다.
@@ -124,7 +136,6 @@ public class MeetingCommandService {
     chatRoomRepository.deleteAllByMeetingId(meetingId);
     meetingParticipantRepository.deleteAllByMeetingId(meetingId);
     meetingRepository.delete(meeting);
-    return true;
   }
 
   // 채팅방 최초 유효 구독 시 출석 처리("1회 이상 입장 = 출석"). 이미 true면 멱등하게 무시하며,

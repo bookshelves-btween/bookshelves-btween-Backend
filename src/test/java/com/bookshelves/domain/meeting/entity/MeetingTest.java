@@ -75,4 +75,20 @@ class MeetingTest {
 
     assertThat(meeting.getRecruitmentCloseDate()).isEqualTo(startDate.minusHours(6));
   }
+
+  @Test
+  void determinesWhetherRecruitmentDeadlineHasPassed() {
+    LocalDateTime startDate = LocalDateTime.of(2026, 8, 1, 20, 0);
+    Meeting meeting =
+        Meeting.builder()
+            .book(org.mockito.Mockito.mock(Book.class))
+            .startDate(startDate)
+            .duration(60)
+            .maxParticipants(4)
+            .build();
+
+    assertThat(meeting.isRecruitmentClosedAt(startDate.minusHours(6).minusNanos(1))).isFalse();
+    assertThat(meeting.isRecruitmentClosedAt(startDate.minusHours(6))).isTrue();
+    assertThat(meeting.isRecruitmentClosedAt(startDate.minusHours(5))).isTrue();
+  }
 }
