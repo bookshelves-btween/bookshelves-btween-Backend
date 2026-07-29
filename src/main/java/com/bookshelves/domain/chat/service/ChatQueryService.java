@@ -1,8 +1,8 @@
 package com.bookshelves.domain.chat.service;
 
 import com.bookshelves.domain.ai.entity.AIQuestion;
+import com.bookshelves.domain.ai.enums.SeedQuestion;
 import com.bookshelves.domain.ai.repository.AIQuestionRepository;
-import com.bookshelves.domain.ai.service.AIQuestionGenerationService;
 import com.bookshelves.domain.ai.service.QuestionVoteStore;
 import com.bookshelves.domain.chat.code.ChatErrorCode;
 import com.bookshelves.domain.chat.converter.ChatConverter;
@@ -41,11 +41,12 @@ public class ChatQueryService {
     // 접근 검증 기준(403·410)은 SUBSCRIBE 검증과 동일해야 한다 — validator로 단일화
     chatSubscriptionValidator.validate(chatRoom, memberId);
 
-    // 모임 시작 시 질문 1개 자동 생성이 보장되어 IN_PROGRESS에서는 항상 존재, 시작 전이면 null
+    // 질문 5개는 모임 시작 전에 미리 저장되므로 "가장 큰 order"가 아니라 커서로 현재 질문을 찾는다.
+    // 시작 시 커서가 1로 올라가고 안전망이 질문을 보장하므로 IN_PROGRESS에서는 항상 존재, 시작 전이면 null
     AIQuestion currentQuestion =
         meeting.getStatus() == MeetingStatus.IN_PROGRESS
             ? aiQuestionRepository
-                .findTopByMeetingIdOrderByQuestionOrderDesc(meeting.getId())
+                .findByMeetingIdAndQuestionOrder(meeting.getId(), meeting.getCurrentQuestionOrder())
                 .orElse(null)
             : null;
 
@@ -58,7 +59,7 @@ public class ChatQueryService {
         chatPresenceService.requiredVotes(chatroomId),
         questionVoteStore.hasVoted(chatroomId, memberId),
         currentQuestion,
-        AIQuestionGenerationService.MAX_QUESTIONS,
+        SeedQuestion.count(),
         chatMessageRepository.findAllWithSenderByChatroomId(chatroomId));
   }
 }
