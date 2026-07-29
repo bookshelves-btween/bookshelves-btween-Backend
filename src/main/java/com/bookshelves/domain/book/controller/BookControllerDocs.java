@@ -93,7 +93,8 @@ public interface BookControllerDocs {
 
   @Operation(
       summary = "외부 도서 검색",
-      description = "카카오 도서 검색 API를 정확도순으로 한 번 호출합니다. ISBN13을 우선해 정규화하고 회원의 최근 검색어를 저장합니다.")
+      description =
+          "카카오 도서 검색 API를 정확도순으로 한 번 호출합니다. ISBN13을 우선해 정규화하고 saveRecent가 true일 때 회원의 최근 검색어를 저장합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -190,7 +191,12 @@ public interface BookControllerDocs {
               description = "페이지 크기(1~50)",
               example = "15",
               schema = @Schema(type = "integer", minimum = "1", maximum = "50"))
-          String size);
+          String size,
+      @Parameter(
+              description = "최근 도서 검색어 저장 여부입니다. 기본값은 true이며, 모임 검색에서는 false를 전달합니다.",
+              example = "true",
+              schema = @Schema(type = "boolean", defaultValue = "true"))
+          boolean saveRecent);
 
   @Operation(summary = "최근 검색어 조회", description = "회원의 최근 도서 검색어를 검색 시각 내림차순으로 최대 5개 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
