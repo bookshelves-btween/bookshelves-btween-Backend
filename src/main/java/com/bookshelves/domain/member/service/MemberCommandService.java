@@ -125,6 +125,15 @@ public class MemberCommandService {
     return MemberConverter.toMemberInfoResponse(member, categories);
   }
 
+  public void anonymizeMember(Long memberId) {
+    Member member =
+        memberRepository
+            .findById(memberId)
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+    member.anonymize();
+  }
+
   public MemberWithdrawResponse withdraw(Long memberId) {
     Member member =
         memberRepository
