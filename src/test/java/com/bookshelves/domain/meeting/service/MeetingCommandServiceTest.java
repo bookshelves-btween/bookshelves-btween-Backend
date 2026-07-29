@@ -29,6 +29,7 @@ import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.enums.NotificationType;
 import com.bookshelves.domain.notification.repository.NotificationRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
+import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,6 +44,7 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.Transactional;
 
 @ExtendWith(MockitoExtension.class)
 class MeetingCommandServiceTest {
@@ -172,6 +174,9 @@ class MeetingCommandServiceTest {
   void rejectsDuplicateMeeting() {
     Meeting meeting = mock(Meeting.class);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getCurParticipants()).willReturn(1);
+    given(meeting.getMaxParticipants()).willReturn(4);
     given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(meetingParticipantRepository.existsByMeetingIdAndMemberId(1L, 10L)).willReturn(true);
 
@@ -186,7 +191,6 @@ class MeetingCommandServiceTest {
   void rejectsMeetingThatIsNotRecruiting() {
     Meeting meeting = mock(Meeting.class);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
-    given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(meeting.getStatus()).willReturn(MeetingStatus.IN_PROGRESS);
 
     assertThatThrownBy(() -> meetingCommandService.participateMeeting(1L))
@@ -200,7 +204,6 @@ class MeetingCommandServiceTest {
   void rejectsRecruitingMeetingThatIsAlreadyFull() {
     Meeting meeting = mock(Meeting.class);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
-    given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
     given(meeting.getCurParticipants()).willReturn(4);
     given(meeting.getMaxParticipants()).willReturn(4);
@@ -210,6 +213,67 @@ class MeetingCommandServiceTest {
         .extracting("errorCode")
         .isEqualTo(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
     verify(meetingParticipantRepository, never()).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void closesRecruitmentAndRejectsParticipationAfterDeadlineWhenMinimumWasReached() {
+    Meeting meeting = mock(Meeting.class);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getCurParticipants()).willReturn(3);
+    given(meeting.getMaxParticipants()).willReturn(6);
+    given(meeting.isRecruitmentClosedAt(any(LocalDateTime.class))).willReturn(true);
+    given(meeting.canStart()).willReturn(true);
+
+    assertThatThrownBy(() -> meetingCommandService.participateMeeting(1L))
+        .isInstanceOf(MeetingException.class)
+        .extracting("errorCode")
+        .isEqualTo(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
+
+    verify(meeting).closeRecruitment();
+    verify(meetingParticipantRepository, never()).save(any());
+    verify(meetingRepository, never()).delete(any());
+  }
+
+  @Test
+  void cancelsMeetingAndRejectsParticipationAfterDeadlineWhenUnderstaffed() {
+    Meeting meeting = mock(Meeting.class);
+    Book book = mock(Book.class);
+    Member member = mock(Member.class);
+    MeetingParticipant participant = mock(MeetingParticipant.class);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meeting.getStatus()).willReturn(MeetingStatus.RECRUITING);
+    given(meeting.getCurParticipants()).willReturn(2);
+    given(meeting.getMaxParticipants()).willReturn(6);
+    given(meeting.isRecruitmentClosedAt(any(LocalDateTime.class))).willReturn(true);
+    given(meeting.canStart()).willReturn(false);
+    given(meeting.getBook()).willReturn(book);
+    given(meeting.getStartDate()).willReturn(LocalDateTime.of(2026, 8, 2, 2, 0));
+    given(book.getTitle()).willReturn("혼모노");
+    given(meetingParticipantRepository.findAllWithMemberByMeetingId(1L))
+        .willReturn(List.of(participant));
+    given(participant.getMember()).willReturn(member);
+
+    assertThatThrownBy(() -> meetingCommandService.participateMeeting(1L))
+        .isInstanceOf(MeetingException.class)
+        .extracting("errorCode")
+        .isEqualTo(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
+
+    verify(notificationRepository).saveAllAndFlush(any());
+    verify(chatRoomRepository).deleteAllByMeetingId(1L);
+    verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
+    verify(meetingRepository).delete(meeting);
+    verify(meetingParticipantRepository, never()).save(any());
+  }
+
+  @Test
+  void participationCommitsDeadlineProcessingWhenRecruitmentClosedExceptionIsThrown()
+      throws Exception {
+    Method method = MeetingCommandService.class.getMethod("participateMeeting", Long.class);
+    Transactional transactional = method.getAnnotation(Transactional.class);
+
+    assertThat(transactional).isNotNull();
+    assertThat(transactional.noRollbackFor()).containsExactly(MeetingException.class);
   }
 
   @Test

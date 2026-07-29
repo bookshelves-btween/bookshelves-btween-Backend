@@ -92,6 +92,10 @@ public class Meeting extends BaseEntity {
     return this.startDate.minusHours(RECRUITMENT_CLOSE_HOURS_BEFORE_START);
   }
 
+  public boolean isRecruitmentClosedAt(LocalDateTime now) {
+    return !getRecruitmentCloseDate().isAfter(now);
+  }
+
   // 종료 시각 = 시작 시각 + 진행 시간(분)
   public LocalDateTime getEndDate() {
     return this.startDate.plusMinutes(this.duration);
