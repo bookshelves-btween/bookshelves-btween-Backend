@@ -35,10 +35,11 @@ class GeminiSummaryClientTest {
     mockServer = MockRestServiceServer.bindTo(builder).build();
     client =
         new GeminiSummaryClient(
-            builder.baseUrl(GeminiQuestionClient.BASE_URL).build(),
-            new ObjectMapper(),
-            "test-api-key",
-            GeminiQuestionClient.DEFAULT_MODEL);
+            new GeminiClient(
+                builder.baseUrl(GeminiClient.BASE_URL).build(),
+                new ObjectMapper(),
+                "test-api-key",
+                GeminiClient.DEFAULT_MODEL));
   }
 
   private Book book() {
@@ -67,9 +68,9 @@ class GeminiSummaryClientTest {
     mockServer
         .expect(
             requestTo(
-                GeminiQuestionClient.BASE_URL
+                GeminiClient.BASE_URL
                     + "/models/"
-                    + GeminiQuestionClient.DEFAULT_MODEL
+                    + GeminiClient.DEFAULT_MODEL
                     + ":generateContent"))
         .andExpect(method(HttpMethod.POST))
         .andRespond(
