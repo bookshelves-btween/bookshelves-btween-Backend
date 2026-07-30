@@ -4,6 +4,7 @@ import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
@@ -21,6 +22,51 @@ import org.springframework.http.ResponseEntity;
 
 @Tag(name = "도서", description = "도서·내 서재 API")
 public interface BookControllerDocs {
+
+  @Operation(summary = "독서 캘린더 조회", description = "지정한 연·월의 실제 독서 진행 기록을 날짜별로 조회합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "독서 캘린더 조회 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_7",
+                              "message": "독서 캘린더 조회에 성공했습니다.",
+                              "result": {
+                                "year": 2026,
+                                "month": 7,
+                                "days": [{
+                                  "date": "2026-07-14",
+                                  "books": [{
+                                    "historyId": 31,
+                                    "memberBookId": 10,
+                                    "progress": 70,
+                                    "bookId": 1,
+                                    "title": "아몬드",
+                                    "coverImageUrl": "https://image.example.com/almond.jpg"
+                                  }]
+                                }]
+                              }
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "year 또는 month 값 오류"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 필요")
+  })
+  ResponseEntity<ApiResponse<MemberBookCalendarResDTO>> getMemberBookCalendar(
+      @Parameter(description = "조회 연도", example = "2026", required = true) String year,
+      @Parameter(description = "조회 월", example = "7", required = true) String month);
 
   @Operation(summary = "카테고리 목록 조회", description = "KDC 최상위 분류 10개를 코드 오름차순으로 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")

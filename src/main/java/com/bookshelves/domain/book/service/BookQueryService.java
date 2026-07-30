@@ -11,6 +11,9 @@ import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO.BookInfo;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO.CategoryInfo;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO.CalendarBook;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO.CalendarDay;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO.MemberBookRecord;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
@@ -18,22 +21,29 @@ import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO.RecentSea
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.entity.MemberBook;
+import com.bookshelves.domain.book.entity.MemberBookHistory;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
+import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
 import com.bookshelves.global.security.AuthenticationFacade;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,6 +67,7 @@ public class BookQueryService {
   private final CategoryRepository categoryRepository;
   private final BookRepository bookRepository;
   private final MemberBookRepository memberBookRepository;
+  private final MemberBookHistoryRepository memberBookHistoryRepository;
   private final KakaoBookSearchClient kakaoBookSearchClient;
   private final Data4LibraryBookDetailClient data4LibraryBookDetailClient;
   private final RecentBookSearchRepository recentBookSearchRepository;
@@ -133,6 +144,65 @@ public class BookQueryService {
           memberBooks.hasNext());
     } catch (DataAccessException exception) {
       throw new BookException(BookErrorCode.MEMBER_BOOK_LIST_FAILED);
+    }
+  }
+
+  @Transactional(readOnly = true)
+  public MemberBookCalendarResDTO getMemberBookCalendar(String yearValue, String monthValue) {
+    YearMonth yearMonth = parseMemberBookCalendarYearMonth(yearValue, monthValue);
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    LocalDateTime startAt = yearMonth.atDay(1).atStartOfDay();
+    LocalDateTime endAt = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+
+    try {
+      List<MemberBookHistory> histories =
+          memberBookHistoryRepository
+              .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAsc(
+                  memberId, startAt, endAt);
+      return toMemberBookCalendarResDTO(yearMonth, histories);
+    } catch (DataAccessException exception) {
+      throw new BookException(BookErrorCode.MEMBER_BOOK_CALENDAR_FAILED);
+    }
+  }
+
+  private MemberBookCalendarResDTO toMemberBookCalendarResDTO(
+      YearMonth yearMonth, List<MemberBookHistory> histories) {
+    Map<LocalDate, Map<Long, MemberBookHistory>> historiesByDate = new LinkedHashMap<>();
+    for (MemberBookHistory history : histories) {
+      LocalDate date = history.getCreatedAt().toLocalDate();
+      historiesByDate
+          .computeIfAbsent(date, ignored -> new LinkedHashMap<>())
+          .put(history.getMemberBook().getId(), history);
+    }
+
+    List<CalendarDay> days =
+        historiesByDate.entrySet().stream()
+            .map(
+                entry ->
+                    new CalendarDay(
+                        entry.getKey(),
+                        entry.getValue().values().stream().map(this::toCalendarBook).toList()))
+            .toList();
+    return new MemberBookCalendarResDTO(yearMonth.getYear(), yearMonth.getMonthValue(), days);
+  }
+
+  private CalendarBook toCalendarBook(MemberBookHistory history) {
+    MemberBook memberBook = history.getMemberBook();
+    Book book = memberBook.getBook();
+    return new CalendarBook(
+        history.getId(),
+        memberBook.getId(),
+        history.getProgress(),
+        book.getId(),
+        book.getTitle(),
+        book.getCoverImageUrl());
+  }
+
+  private YearMonth parseMemberBookCalendarYearMonth(String yearValue, String monthValue) {
+    try {
+      return YearMonth.of(Integer.parseInt(yearValue), Integer.parseInt(monthValue));
+    } catch (NumberFormatException | DateTimeException | NullPointerException exception) {
+      throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST);
     }
   }
 
