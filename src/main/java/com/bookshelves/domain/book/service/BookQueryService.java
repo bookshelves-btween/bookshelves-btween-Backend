@@ -177,6 +177,8 @@ public class BookQueryService {
 
     try {
       List<MemberBook> completedMemberBooks =
+          memberBookRepository.findByMemberIdAndProgress(memberId, 100);
+      List<MemberBook> monthlyCompletedMemberBooks =
           memberBookRepository
               .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
                   memberId, 100, startAt, endAt);
@@ -186,7 +188,7 @@ public class BookQueryService {
           completedMemberBooks.size(),
           countReviews(completedMemberBooks),
           calculateAverageRating(completedMemberBooks),
-          calculateCategoryStatistics(completedMemberBooks));
+          calculateCategoryStatistics(monthlyCompletedMemberBooks));
     } catch (DataAccessException exception) {
       throw new BookException(BookErrorCode.MEMBER_BOOK_STATISTICS_FAILED);
     }
