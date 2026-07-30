@@ -120,7 +120,9 @@ public class BookQueryService {
     validateMemberBookListRequest(page, size);
 
     Long memberId = authenticationFacade.getCurrentMemberId();
-    Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+    Pageable pageable =
+        PageRequest.of(
+            page - 1, size, Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id")));
 
     try {
       Page<MemberBook> memberBooks = findMemberBooks(memberId, status, pageable);
