@@ -65,6 +65,10 @@ public class BookCommandService {
     String canonicalIsbn = IsbnNormalizer.toIsbn13(requestedIsbn);
     Long memberId = authenticationFacade.getCurrentMemberId();
 
+    memberRepository
+        .findByIdForUpdate(memberId)
+        .orElseThrow(() -> new IllegalStateException("인증된 회원을 찾을 수 없습니다."));
+
     MemberBook memberBook =
         memberBookRepository
             .findByMemberIdAndBookIsbn(memberId, canonicalIsbn)
