@@ -216,7 +216,18 @@ public interface MeetingControllerDocs {
           @Max(value = 50, message = "페이지 크기는 50 이하여야 합니다.")
           Integer size);
 
-  @Operation(summary = "모임 상세 조회", description = "모임과 도서 정보 및 질문별 모임 요약을 조회합니다.")
+  @Operation(
+      summary = "모임 상세 조회",
+      description =
+          """
+          모임과 도서 정보 및 모임 요약을 조회합니다.
+
+          요약은 질문별이 아니라 분석 축 3개를 기준으로 한 주제 3개입니다. 완료된 모임은 항상 3개가
+          `order` 오름차순으로 나갑니다. 대화가 적어 채울 내용이 없는 주제는 `title`에 안내 문구가
+          들어가고 `summary`는 빈 문자열이므로, 클라이언트가 개수를 세거나 빈 경우를 분기할 필요가 없습니다.
+
+          완료되지 않은 모임은 `meetingSummary`가 `null`입니다.
+          """)
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -254,14 +265,19 @@ public interface MeetingControllerDocs {
                     },
                     "meetingSummary": [
                       {
-                        "questionOrder": 1,
-                        "question": "각 화자의 시선이 사건을 이해하는 데 어떤 차이를 만들었나요?",
+                        "order": 1,
+                        "title": "기억은 누구의 것인가",
                         "summary": "참여자들은 서로 다른 화자의 기억이 하나의 사건을 입체적으로 구성한다는 데 의견을 모았다."
                       },
                       {
-                        "questionOrder": 2,
-                        "question": "이 작품이 오늘날 우리에게 던지는 질문은 무엇인가요?",
-                        "summary": "과거의 고통을 기억하고 타인의 아픔에 응답하는 책임에 관해 토론했다."
+                        "order": 2,
+                        "title": "가장 오래 남은 장면",
+                        "summary": "평가가 갈린 지점과 공통적으로 인상 깊게 느낀 장면을 함께 이야기했다."
+                      },
+                      {
+                        "order": 3,
+                        "title": "나눈 이야기가 적어 정리하지 못했어요",
+                        "summary": ""
                       }
                     ]
                   }
