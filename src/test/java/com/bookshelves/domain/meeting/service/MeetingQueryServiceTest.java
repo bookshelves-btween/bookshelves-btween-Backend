@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.bookshelves.domain.ai.entity.MeetingSummary;
+import com.bookshelves.domain.ai.enums.SummaryAxis;
 import com.bookshelves.domain.ai.repository.MeetingSummaryRepository;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.chat.entity.ChatRoom;
@@ -48,22 +49,31 @@ class MeetingQueryServiceTest {
     Long meetingId = 1L;
     Meeting meeting = meeting(meetingId, MeetingStatus.COMPLETED);
     ChatRoom chatRoom = mock(ChatRoom.class);
-    MeetingSummary meetingSummary = mock(MeetingSummary.class);
 
     given(chatRoom.getId()).willReturn(10L);
-    given(meetingSummary.getTitle()).willReturn("핵심 논점");
-    given(meetingSummary.getContent()).willReturn("참여자들의 의견을 요약한 내용");
     given(meetingRepository.findWithBookById(meetingId)).willReturn(Optional.of(meeting));
     given(chatRoomRepository.findByMeetingId(meetingId)).willReturn(Optional.of(chatRoom));
+    // 저장 순서가 축 순서와 다르게 돌아와도 응답은 축 표시 순서로 정렬돼야 한다
     given(meetingSummaryRepository.findAllByMeetingId(meetingId))
-        .willReturn(List.of(meetingSummary));
+        .willReturn(
+            List.of(
+                summary(SummaryAxis.LIFE_LINK, "삶과 연결"),
+                summary(SummaryAxis.KEY_ARGUMENT, "핵심 논점"),
+                summary(SummaryAxis.REACTION, "참여자 반응")));
 
     MeetingDetailResDTO result = meetingQueryService.getMeetingDetail(meetingId);
 
     assertThat(result.chatroomId()).isEqualTo(10L);
     assertThat(result.status()).isEqualTo(MeetingStatus.COMPLETED);
-    assertThat(result.meetingSummary()).hasSize(1);
-    assertThat(result.meetingSummary().getFirst().title()).isEqualTo("핵심 논점");
+    // 프론트가 주제 3칸을 그리므로 완료된 모임은 항상 3개가 나가야 한다
+    assertThat(result.meetingSummary()).hasSize(3);
+    assertThat(result.meetingSummary())
+        .extracting(MeetingDetailResDTO.SummaryInfo::title)
+        .containsExactly("핵심 논점", "참여자 반응", "삶과 연결");
+  }
+
+  private MeetingSummary summary(SummaryAxis axis, String title) {
+    return MeetingSummary.builder().axis(axis).title(title).content(title + " 본문").build();
   }
 
   @Test
