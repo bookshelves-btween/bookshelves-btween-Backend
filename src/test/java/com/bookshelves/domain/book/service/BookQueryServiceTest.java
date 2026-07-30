@@ -376,7 +376,8 @@ class BookQueryServiceTest {
   void getMemberBooksReturnsOwnReadingRecordsWithDerivedStatusAndUnclassifiedKdc() {
     Book book = mock(Book.class);
     MemberBook memberBook = mock(MemberBook.class);
-    Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "updatedAt"));
+    Pageable pageable =
+        PageRequest.of(0, 20, Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id")));
 
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
     given(memberBookRepository.findByMemberId(7L, pageable))
@@ -411,7 +412,8 @@ class BookQueryServiceTest {
 
   @Test
   void getMemberBooksUsesProgressRangeForReadingStatus() {
-    Pageable pageable = PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "updatedAt"));
+    Pageable pageable =
+        PageRequest.of(1, 10, Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id")));
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
     given(memberBookRepository.findByMemberIdAndProgressBetween(7L, 1, 99, pageable))
         .willReturn(new PageImpl<>(List.of(), pageable, 21));

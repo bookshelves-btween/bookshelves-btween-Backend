@@ -110,7 +110,7 @@ public interface BookControllerDocs {
                             {
                               "isSuccess": true,
                               "code": "BOOK200_6",
-                              "message": "Member book list was found.",
+                              "message": "내 서재 목록 조회에 성공했습니다.",
                               "result": {
                                 "memberBooks": [{
                                   "memberBook": {
