@@ -4,6 +4,7 @@ import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
@@ -60,6 +61,15 @@ public class BookController implements BookControllerDocs {
     RecentBookSearchResDTO response = bookQueryService.getRecentBookSearches();
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.RECENT_BOOK_SEARCHES_FOUND, response));
+  }
+
+  @Override
+  @GetMapping("/api/v1/member-books/calendar")
+  public ResponseEntity<ApiResponse<MemberBookCalendarResDTO>> getMemberBookCalendar(
+      @RequestParam(required = false) String year, @RequestParam(required = false) String month) {
+    MemberBookCalendarResDTO response = bookQueryService.getMemberBookCalendar(year, month);
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_CALENDAR_FOUND, response));
   }
 
   @Override
