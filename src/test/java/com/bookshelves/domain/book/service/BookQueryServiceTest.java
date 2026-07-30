@@ -621,6 +621,47 @@ class BookQueryServiceTest {
   }
 
   @Test
+  void getMemberBookStatisticsUsesCurrentSeoulYearWhenYearIsOmitted() {
+    YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(
+            memberBookRepository
+                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
+                    7L,
+                    100,
+                    LocalDateTime.of(currentYearMonth.getYear(), 6, 1, 0, 0),
+                    LocalDateTime.of(currentYearMonth.getYear(), 7, 1, 0, 0)))
+        .willReturn(List.of());
+
+    MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics(null, "6");
+
+    assertThat(result.year()).isEqualTo(currentYearMonth.getYear());
+    assertThat(result.month()).isEqualTo(6);
+  }
+
+  @Test
+  void getMemberBookStatisticsUsesCurrentSeoulMonthWhenMonthIsOmitted() {
+    YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(
+            memberBookRepository
+                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
+                    7L,
+                    100,
+                    LocalDateTime.of(2026, currentYearMonth.getMonthValue(), 1, 0, 0),
+                    LocalDateTime.of(2026, currentYearMonth.getMonthValue(), 1, 0, 0)
+                        .plusMonths(1)))
+        .willReturn(List.of());
+
+    MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics("2026", null);
+
+    assertThat(result.year()).isEqualTo(2026);
+    assertThat(result.month()).isEqualTo(currentYearMonth.getMonthValue());
+  }
+
+  @Test
   void getMemberBookStatisticsThrowsBookExceptionWhenDatabaseLookupFails() {
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
     given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
