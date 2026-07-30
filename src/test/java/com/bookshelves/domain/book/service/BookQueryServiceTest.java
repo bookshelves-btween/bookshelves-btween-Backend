@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -16,21 +17,29 @@ import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookSearchR
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookStatisticsResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.entity.MemberBook;
+import com.bookshelves.domain.book.entity.MemberBookHistory;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
+import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -39,6 +48,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class BookQueryServiceTest {
@@ -46,6 +59,7 @@ class BookQueryServiceTest {
   @Mock private CategoryRepository categoryRepository;
   @Mock private BookRepository bookRepository;
   @Mock private MemberBookRepository memberBookRepository;
+  @Mock private MemberBookHistoryRepository memberBookHistoryRepository;
   @Mock private KakaoBookSearchClient kakaoBookSearchClient;
   @Mock private Data4LibraryBookDetailClient data4LibraryBookDetailClient;
   @Mock private RecentBookSearchRepository recentBookSearchRepository;
@@ -115,7 +129,7 @@ class BookQueryServiceTest {
     given(kakaoBookSearchClient.search("미움받을 용기", 1, 15))
         .willReturn(new KakaoBookSearchResult(List.of(first, duplicate, noIsbn), false));
 
-    BookSearchResDTO result = bookQueryService.searchExternalBooks("  미움받을 용기  ", "1", "15");
+    BookSearchResDTO result = bookQueryService.searchExternalBooks("  미움받을 용기  ", "1", "15", true);
 
     assertThat(result.books()).hasSize(2);
     assertThat(result.books().getFirst().isbn()).isEqualTo("9788996991342");
@@ -131,7 +145,7 @@ class BookQueryServiceTest {
 
   @Test
   void searchExternalBooksRejectsInvalidRequestBeforeAuthenticationAndExternalCall() {
-    assertThatThrownBy(() -> bookQueryService.searchExternalBooks(" ", "1", "15"))
+    assertThatThrownBy(() -> bookQueryService.searchExternalBooks(" ", "1", "15", true))
         .isInstanceOf(BookException.class)
         .satisfies(
             exception ->
@@ -143,11 +157,11 @@ class BookQueryServiceTest {
 
   @Test
   void searchExternalBooksRejectsPageAndSizeOutsideSupportedRange() {
-    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "0", "15"))
+    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "0", "15", true))
         .isInstanceOf(BookException.class);
-    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "1", "51"))
+    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "1", "51", true))
         .isInstanceOf(BookException.class);
-    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "abc", "15"))
+    assertThatThrownBy(() -> bookQueryService.searchExternalBooks("책", "abc", "15", true))
         .isInstanceOf(BookException.class);
 
     verifyNoInteractions(authenticationFacade, kakaoBookSearchClient, recentBookSearchRepository);
@@ -162,10 +176,22 @@ class BookQueryServiceTest {
         .when(recentBookSearchRepository)
         .save(7L, "책");
 
-    BookSearchResDTO result = bookQueryService.searchExternalBooks("책", "1", "15");
+    BookSearchResDTO result = bookQueryService.searchExternalBooks("책", "1", "15", true);
 
     assertThat(result.books()).isEmpty();
     assertThat(result.hasNext()).isFalse();
+  }
+
+  @Test
+  void searchExternalBooksDoesNotSaveRecentQueryWhenSaveRecentIsFalse() {
+    given(kakaoBookSearchClient.search("혼모노", 1, 15))
+        .willReturn(new KakaoBookSearchResult(List.of(), true));
+
+    BookSearchResDTO result = bookQueryService.searchExternalBooks("혼모노", "1", "15", false);
+
+    assertThat(result.books()).isEmpty();
+    assertThat(result.hasNext()).isFalse();
+    verifyNoInteractions(authenticationFacade, recentBookSearchRepository);
   }
 
   @Test
@@ -352,6 +378,323 @@ class BookQueryServiceTest {
             exception ->
                 assertThat(((BookException) exception).getErrorCode())
                     .isEqualTo(BookErrorCode.BOOK_NOT_FOUND));
+  }
+
+  @Test
+  void getMemberBooksReturnsOwnReadingRecordsWithDerivedStatusAndUnclassifiedKdc() {
+    Book book = mock(Book.class);
+    MemberBook memberBook = mock(MemberBook.class);
+    Pageable pageable =
+        PageRequest.of(0, 20, Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id")));
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberId(7L, pageable))
+        .willReturn(new PageImpl<>(List.of(memberBook), pageable, 1));
+    given(memberBook.getBook()).willReturn(book);
+    given(memberBook.getId()).willReturn(10L);
+    given(memberBook.getProgress()).willReturn(70);
+    given(memberBook.getRating()).willReturn(BigDecimal.valueOf(4.5));
+    given(memberBook.getMemo()).willReturn("memo");
+    given(memberBook.getUpdatedAt()).willReturn(LocalDateTime.of(2026, 7, 14, 4, 30));
+    given(book.getId()).willReturn(1L);
+    given(book.getIsbn()).willReturn("9788936434595");
+    given(book.getTitle()).willReturn("Almond");
+    given(book.getAuthor()).willReturn("Sohn Won-pyung");
+    given(book.getPublisher()).willReturn("Changbi");
+    given(book.getCoverImageUrl()).willReturn("https://example.com/book.jpg");
+    given(book.getKdcCode()).willReturn(null);
+    given(book.getKdcName()).willReturn(null);
+
+    MemberBookListResDTO result = bookQueryService.getMemberBooks("ALL", "1", "20");
+
+    assertThat(result.memberBooks()).hasSize(1);
+    assertThat(result.memberBooks().getFirst().memberBook().status()).isEqualTo("READING");
+    assertThat(result.memberBooks().getFirst().memberBook().updatedAt())
+        .isEqualTo(LocalDateTime.of(2026, 7, 14, 4, 30));
+    assertThat(result.memberBooks().getFirst().book().kdcCode()).isNull();
+    assertThat(result.memberBooks().getFirst().book().kdcName()).isEqualTo("미분류");
+    assertThat(result.page()).isEqualTo(1);
+    assertThat(result.size()).isEqualTo(20);
+    assertThat(result.hasNext()).isFalse();
+  }
+
+  @Test
+  void getMemberBooksUsesProgressRangeForReadingStatus() {
+    Pageable pageable =
+        PageRequest.of(1, 10, Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id")));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgressBetween(7L, 1, 99, pageable))
+        .willReturn(new PageImpl<>(List.of(), pageable, 21));
+
+    MemberBookListResDTO result = bookQueryService.getMemberBooks("READING", "2", "10");
+
+    assertThat(result.memberBooks()).isEmpty();
+    assertThat(result.hasNext()).isTrue();
+  }
+
+  @Test
+  void getMemberBooksRejectsInvalidStatusAndPaginationBeforeAuthentication() {
+    assertThatThrownBy(() -> bookQueryService.getMemberBooks("UNKNOWN", "1", "20"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST));
+    assertThatThrownBy(() -> bookQueryService.getMemberBooks("ALL", "0", "20"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST));
+
+    verifyNoInteractions(authenticationFacade, memberBookRepository);
+  }
+
+  @Test
+  void getMemberBookCalendarReturnsFirstRecordedBookCoverForEachDay() {
+    MemberBook memberBook = mock(MemberBook.class);
+    Book book = mock(Book.class);
+    MemberBookHistory morningHistory = mock(MemberBookHistory.class);
+    MemberBookHistory afternoonHistory = mock(MemberBookHistory.class);
+    MemberBookHistory nextDayHistory = mock(MemberBookHistory.class);
+    LocalDateTime monthStart = LocalDateTime.of(2026, 7, 1, 0, 0);
+    LocalDateTime nextMonthStart = LocalDateTime.of(2026, 8, 1, 0, 0);
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(
+            memberBookHistoryRepository
+                .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+                    7L, monthStart, nextMonthStart))
+        .willReturn(List.of(morningHistory, afternoonHistory, nextDayHistory));
+    given(memberBook.getBook()).willReturn(book);
+    given(book.getCoverImageUrl()).willReturn("https://image.example.com/almond.jpg");
+    given(morningHistory.getMemberBook()).willReturn(memberBook);
+    given(morningHistory.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 14, 9, 0));
+    given(afternoonHistory.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 14, 18, 0));
+    given(nextDayHistory.getMemberBook()).willReturn(memberBook);
+    given(nextDayHistory.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 15, 10, 0));
+
+    MemberBookCalendarResDTO result = bookQueryService.getMemberBookCalendar("2026", "7");
+
+    assertThat(result.year()).isEqualTo(2026);
+    assertThat(result.month()).isEqualTo(7);
+    assertThat(result.days()).hasSize(2);
+    assertThat(result.days().getFirst().date()).isEqualTo(LocalDate.of(2026, 7, 14));
+    assertThat(result.days().getFirst().coverImageUrl())
+        .isEqualTo("https://image.example.com/almond.jpg");
+    assertThat(result.days().getLast().date()).isEqualTo(LocalDate.of(2026, 7, 15));
+    assertThat(result.days().getLast().coverImageUrl())
+        .isEqualTo("https://image.example.com/almond.jpg");
+
+    verify(memberBookHistoryRepository)
+        .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+            7L, monthStart, nextMonthStart);
+  }
+
+  @Test
+  void getMemberBookCalendarRejectsInvalidYearOrMonthBeforeAuthentication() {
+    assertThatThrownBy(() -> bookQueryService.getMemberBookCalendar("2026", "13"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST));
+    assertThatThrownBy(() -> bookQueryService.getMemberBookCalendar("year", "7"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST));
+    assertThatThrownBy(() -> bookQueryService.getMemberBookCalendar(null, "7"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST));
+
+    verifyNoInteractions(authenticationFacade, memberBookHistoryRepository);
+  }
+
+  @Test
+  void getMemberBookCalendarThrowsBookExceptionWhenDatabaseLookupFails() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(
+            memberBookHistoryRepository
+                .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+                    7L, LocalDateTime.of(2026, 7, 1, 0, 0), LocalDateTime.of(2026, 8, 1, 0, 0)))
+        .willThrow(new DataAccessResourceFailureException("database unavailable"));
+
+    assertThatThrownBy(() -> bookQueryService.getMemberBookCalendar("2026", "7"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.MEMBER_BOOK_CALENDAR_FAILED));
+  }
+
+  @Test
+  void getMemberBookStatisticsReturnsCumulativeSummaryAndMonthlyTopThreeCategories() {
+    MemberBook koreanLiteratureOne = memberBook("한국 문학", BigDecimal.valueOf(4.1), "memo");
+    MemberBook koreanLiteratureTwo = memberBook("한국 문학", BigDecimal.valueOf(4.2), " ");
+    MemberBook englishLiterature = memberBook("영미문학", null, null);
+    MemberBook psychology = memberBook("심리학", null, "memo");
+    MemberBook history = memberBook("역사", null, null);
+    MemberBook unclassified = memberBook(null, null, null);
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
+        .willReturn(List.of(koreanLiteratureOne, koreanLiteratureTwo));
+    given(
+            memberBookRepository
+                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
+                    7L,
+                    100,
+                    LocalDateTime.of(2026, 6, 1, 0, 0),
+                    LocalDateTime.of(2026, 7, 1, 0, 0)))
+        .willReturn(
+            List.of(
+                koreanLiteratureOne,
+                koreanLiteratureTwo,
+                englishLiterature,
+                psychology,
+                history,
+                unclassified));
+
+    MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics("2026", "6");
+
+    assertThat(result.year()).isEqualTo(2026);
+    assertThat(result.month()).isEqualTo(6);
+    assertThat(result.completedBookCount()).isEqualTo(2L);
+    assertThat(result.reviewCount()).isEqualTo(1L);
+    assertThat(result.averageRating()).isEqualByComparingTo("4.1");
+    assertThat(result.categoryStatistics())
+        .extracting(MemberBookStatisticsResDTO.CategoryStatistic::name)
+        .containsExactly("한국 문학", "심리학", "역사", "기타");
+    assertThat(result.categoryStatistics())
+        .extracting(MemberBookStatisticsResDTO.CategoryStatistic::count)
+        .containsExactly(2L, 1L, 1L, 2L);
+  }
+
+  @Test
+  void getMemberBookStatisticsIncludesUnclassifiedBookAsOtherWhenThreeOrFewerCategories() {
+    MemberBook literature = memberBook("문학", null, null);
+    MemberBook psychology = memberBook("심리학", null, null);
+    MemberBook unclassified = memberBook(null, null, null);
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
+        .willReturn(List.of(literature, psychology, unclassified));
+    given(
+            memberBookRepository
+                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
+                    7L,
+                    100,
+                    LocalDateTime.of(2026, 6, 1, 0, 0),
+                    LocalDateTime.of(2026, 7, 1, 0, 0)))
+        .willReturn(List.of(literature, psychology, unclassified));
+
+    MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics("2026", "6");
+
+    assertThat(result.categoryStatistics())
+        .extracting(MemberBookStatisticsResDTO.CategoryStatistic::name)
+        .containsExactly("문학", "심리학", "기타");
+    assertThat(result.averageRating()).isEqualByComparingTo("0.0");
+  }
+
+  @Test
+  void getMemberBookStatisticsUsesCurrentSeoulMonthWhenYearAndMonthAreOmitted() {
+    YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(
+            memberBookRepository
+                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
+                    7L,
+                    100,
+                    currentYearMonth.atDay(1).atStartOfDay(),
+                    currentYearMonth.plusMonths(1).atDay(1).atStartOfDay()))
+        .willReturn(List.of());
+
+    MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics(null, null);
+
+    assertThat(result.year()).isEqualTo(currentYearMonth.getYear());
+    assertThat(result.month()).isEqualTo(currentYearMonth.getMonthValue());
+    assertThat(result.completedBookCount()).isZero();
+  }
+
+  @Test
+  void getMemberBookStatisticsUsesCurrentSeoulYearWhenYearIsOmitted() {
+    YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(
+            memberBookRepository
+                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
+                    7L,
+                    100,
+                    LocalDateTime.of(currentYearMonth.getYear(), 6, 1, 0, 0),
+                    LocalDateTime.of(currentYearMonth.getYear(), 7, 1, 0, 0)))
+        .willReturn(List.of());
+
+    MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics(null, "6");
+
+    assertThat(result.year()).isEqualTo(currentYearMonth.getYear());
+    assertThat(result.month()).isEqualTo(6);
+  }
+
+  @Test
+  void getMemberBookStatisticsUsesCurrentSeoulMonthWhenMonthIsOmitted() {
+    YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(
+            memberBookRepository
+                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
+                    7L,
+                    100,
+                    LocalDateTime.of(2026, currentYearMonth.getMonthValue(), 1, 0, 0),
+                    LocalDateTime.of(2026, currentYearMonth.getMonthValue(), 1, 0, 0)
+                        .plusMonths(1)))
+        .willReturn(List.of());
+
+    MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics("2026", null);
+
+    assertThat(result.year()).isEqualTo(2026);
+    assertThat(result.month()).isEqualTo(currentYearMonth.getMonthValue());
+  }
+
+  @Test
+  void getMemberBookStatisticsThrowsBookExceptionWhenDatabaseLookupFails() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
+        .willThrow(new DataAccessResourceFailureException("database unavailable"));
+
+    assertThatThrownBy(() -> bookQueryService.getMemberBookStatistics("2026", "6"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.MEMBER_BOOK_STATISTICS_FAILED));
+  }
+
+  @Test
+  void getMemberBookStatisticsRejectsInvalidYearOrMonthBeforeAuthentication() {
+    assertThatThrownBy(() -> bookQueryService.getMemberBookStatistics("2026", "13"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST));
+
+    verifyNoInteractions(authenticationFacade, memberBookRepository);
+  }
+
+  private MemberBook memberBook(String kdcName, BigDecimal rating, String memo) {
+    MemberBook memberBook = mock(MemberBook.class);
+    Book book = mock(Book.class);
+    given(memberBook.getBook()).willReturn(book);
+    lenient().when(memberBook.getRating()).thenReturn(rating);
+    lenient().when(memberBook.getMemo()).thenReturn(memo);
+    given(book.getKdcName()).willReturn(kdcName);
+    return memberBook;
   }
 
   private Category category(Long id, String kdcCode, String name) {

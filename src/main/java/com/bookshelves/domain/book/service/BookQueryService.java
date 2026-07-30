@@ -11,31 +11,50 @@ import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO.BookInfo;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO.CategoryInfo;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO.CalendarDay;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO.MemberBookRecord;
+import com.bookshelves.domain.book.dto.response.MemberBookStatisticsResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO.RecentSearchInfo;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.entity.MemberBook;
+import com.bookshelves.domain.book.entity.MemberBookHistory;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
+import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
 import com.bookshelves.global.security.AuthenticationFacade;
+import com.bookshelves.global.util.ServiceTime;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,13 +63,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class BookQueryService {
 
-  private static final ZoneId SEOUL_ZONE_ID = ZoneId.of("Asia/Seoul");
   private static final int DESCRIPTION_PREVIEW_LENGTH = 126;
   private static final String DESCRIPTION_SUFFIX = "...";
 
   private final CategoryRepository categoryRepository;
   private final BookRepository bookRepository;
   private final MemberBookRepository memberBookRepository;
+  private final MemberBookHistoryRepository memberBookHistoryRepository;
   private final KakaoBookSearchClient kakaoBookSearchClient;
   private final Data4LibraryBookDetailClient data4LibraryBookDetailClient;
   private final RecentBookSearchRepository recentBookSearchRepository;
@@ -73,17 +92,20 @@ public class BookQueryService {
     return new CategoryInfo(category.getId(), category.getKdcCode(), category.getName());
   }
 
-  public BookSearchResDTO searchExternalBooks(String query, String pageValue, String sizeValue) {
+  public BookSearchResDTO searchExternalBooks(
+      String query, String pageValue, String sizeValue, boolean saveRecent) {
     int page = parsePageParameter(pageValue);
     int size = parsePageParameter(sizeValue);
     validateSearchRequest(query, page, size);
 
     String normalizedQuery = query.trim();
-    Long memberId = authenticationFacade.getCurrentMemberId();
     KakaoBookSearchResult searchResult = kakaoBookSearchClient.search(normalizedQuery, page, size);
 
     List<BookInfo> books = normalizeAndDeduplicate(searchResult.books());
-    saveRecentSearchWithoutInterruptingResponse(memberId, normalizedQuery);
+    if (saveRecent) {
+      Long memberId = authenticationFacade.getCurrentMemberId();
+      saveRecentSearchWithoutInterruptingResponse(memberId, normalizedQuery);
+    }
 
     return new BookSearchResDTO(books, page, size, !searchResult.isEnd());
   }
@@ -100,6 +122,254 @@ public class BookQueryService {
     } catch (DataAccessException exception) {
       throw new BookException(BookErrorCode.RECENT_BOOK_SEARCHES_FAILED);
     }
+  }
+
+  @Transactional(readOnly = true)
+  public MemberBookListResDTO getMemberBooks(
+      String statusValue, String pageValue, String sizeValue) {
+    MemberBookStatus status = parseMemberBookStatus(statusValue);
+    int page = parseMemberBookListPageParameter(pageValue);
+    int size = parseMemberBookListPageParameter(sizeValue);
+    validateMemberBookListRequest(page, size);
+
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    Pageable pageable =
+        PageRequest.of(
+            page - 1, size, Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id")));
+
+    try {
+      Page<MemberBook> memberBooks = findMemberBooks(memberId, status, pageable);
+      return new MemberBookListResDTO(
+          memberBooks.getContent().stream().map(this::toMemberBookListInfo).toList(),
+          page,
+          size,
+          memberBooks.hasNext());
+    } catch (DataAccessException exception) {
+      throw new BookException(BookErrorCode.MEMBER_BOOK_LIST_FAILED);
+    }
+  }
+
+  @Transactional(readOnly = true)
+  public MemberBookCalendarResDTO getMemberBookCalendar(String yearValue, String monthValue) {
+    YearMonth yearMonth = parseMemberBookCalendarYearMonth(yearValue, monthValue);
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    LocalDateTime startAt = yearMonth.atDay(1).atStartOfDay();
+    LocalDateTime endAt = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+
+    try {
+      List<MemberBookHistory> histories =
+          memberBookHistoryRepository
+              .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+                  memberId, startAt, endAt);
+      return toMemberBookCalendarResDTO(yearMonth, histories);
+    } catch (DataAccessException exception) {
+      throw new BookException(BookErrorCode.MEMBER_BOOK_CALENDAR_FAILED);
+    }
+  }
+
+  @Transactional(readOnly = true)
+  public MemberBookStatisticsResDTO getMemberBookStatistics(String yearValue, String monthValue) {
+    YearMonth yearMonth = parseMemberBookStatisticsYearMonth(yearValue, monthValue);
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    LocalDateTime startAt = yearMonth.atDay(1).atStartOfDay();
+    LocalDateTime endAt = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+
+    try {
+      List<MemberBook> completedMemberBooks =
+          memberBookRepository.findByMemberIdAndProgress(memberId, 100);
+      List<MemberBook> monthlyCompletedMemberBooks =
+          memberBookRepository
+              .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
+                  memberId, 100, startAt, endAt);
+      return new MemberBookStatisticsResDTO(
+          yearMonth.getYear(),
+          yearMonth.getMonthValue(),
+          completedMemberBooks.size(),
+          countReviews(completedMemberBooks),
+          calculateAverageRating(completedMemberBooks),
+          calculateCategoryStatistics(monthlyCompletedMemberBooks));
+    } catch (DataAccessException exception) {
+      throw new BookException(BookErrorCode.MEMBER_BOOK_STATISTICS_FAILED);
+    }
+  }
+
+  private YearMonth parseMemberBookStatisticsYearMonth(String yearValue, String monthValue) {
+    YearMonth now = YearMonth.now(ServiceTime.ZONE);
+    try {
+      int year = yearValue == null ? now.getYear() : Integer.parseInt(yearValue);
+      int month = monthValue == null ? now.getMonthValue() : Integer.parseInt(monthValue);
+      return YearMonth.of(year, month);
+    } catch (NumberFormatException | DateTimeException exception) {
+      throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST);
+    }
+  }
+
+  private long countReviews(List<MemberBook> completedMemberBooks) {
+    return completedMemberBooks.stream()
+        .map(MemberBook::getMemo)
+        .filter(memo -> memo != null && !memo.isBlank())
+        .count();
+  }
+
+  private BigDecimal calculateAverageRating(List<MemberBook> completedMemberBooks) {
+    List<BigDecimal> ratings =
+        completedMemberBooks.stream()
+            .map(MemberBook::getRating)
+            .filter(java.util.Objects::nonNull)
+            .toList();
+    if (ratings.isEmpty()) {
+      return BigDecimal.ZERO.setScale(1);
+    }
+    return ratings.stream()
+        .reduce(BigDecimal.ZERO, BigDecimal::add)
+        .divide(BigDecimal.valueOf(ratings.size()), 1, RoundingMode.DOWN);
+  }
+
+  private List<MemberBookStatisticsResDTO.CategoryStatistic> calculateCategoryStatistics(
+      List<MemberBook> monthlyCompletedMemberBooks) {
+    List<MemberBook> completedMemberBooks = monthlyCompletedMemberBooks;
+    if (completedMemberBooks.isEmpty()) {
+      return List.of();
+    }
+
+    Map<String, Long> categoryCounts = new LinkedHashMap<>();
+    long unclassifiedCount = 0;
+    for (MemberBook memberBook : completedMemberBooks) {
+      String kdcName = memberBook.getBook().getKdcName();
+      if (kdcName == null || kdcName.isBlank()) {
+        unclassifiedCount++;
+        continue;
+      }
+      categoryCounts.merge(kdcName, 1L, Long::sum);
+    }
+
+    List<Map.Entry<String, Long>> sortedCategories =
+        categoryCounts.entrySet().stream()
+            .sorted(
+                Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
+                    .thenComparing(Map.Entry.comparingByKey()))
+            .toList();
+    boolean hasMoreThanThreeCategories = sortedCategories.size() >= 4;
+    List<MemberBookStatisticsResDTO.CategoryStatistic> statistics = new ArrayList<>();
+    sortedCategories.stream()
+        .limit(hasMoreThanThreeCategories ? 3 : sortedCategories.size())
+        .forEach(
+            category ->
+                statistics.add(
+                    toCategoryStatistic(
+                        category.getKey(), category.getValue(), completedMemberBooks.size())));
+
+    long otherCount =
+        unclassifiedCount
+            + (hasMoreThanThreeCategories
+                ? sortedCategories.stream().skip(3).mapToLong(Map.Entry::getValue).sum()
+                : 0);
+    if (otherCount > 0) {
+      statistics.add(toCategoryStatistic("기타", otherCount, completedMemberBooks.size()));
+    }
+    return List.copyOf(statistics);
+  }
+
+  private MemberBookStatisticsResDTO.CategoryStatistic toCategoryStatistic(
+      String name, long count, int totalCount) {
+    int percentage = (int) Math.round((double) count * 100 / totalCount);
+    return new MemberBookStatisticsResDTO.CategoryStatistic(name, count, percentage);
+  }
+
+  private MemberBookCalendarResDTO toMemberBookCalendarResDTO(
+      YearMonth yearMonth, List<MemberBookHistory> histories) {
+    Map<LocalDate, MemberBookHistory> historiesByDate = new LinkedHashMap<>();
+    for (MemberBookHistory history : histories) {
+      LocalDate date = history.getCreatedAt().toLocalDate();
+      historiesByDate.putIfAbsent(date, history);
+    }
+
+    List<CalendarDay> days =
+        historiesByDate.entrySet().stream()
+            .map(
+                entry ->
+                    new CalendarDay(
+                        entry.getKey(),
+                        entry.getValue().getMemberBook().getBook().getCoverImageUrl()))
+            .toList();
+    return new MemberBookCalendarResDTO(yearMonth.getYear(), yearMonth.getMonthValue(), days);
+  }
+
+  private YearMonth parseMemberBookCalendarYearMonth(String yearValue, String monthValue) {
+    try {
+      return YearMonth.of(Integer.parseInt(yearValue), Integer.parseInt(monthValue));
+    } catch (NumberFormatException | DateTimeException | NullPointerException exception) {
+      throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST);
+    }
+  }
+
+  private Page<MemberBook> findMemberBooks(
+      Long memberId, MemberBookStatus status, Pageable pageable) {
+    return switch (status) {
+      case ALL -> memberBookRepository.findByMemberId(memberId, pageable);
+      case BEFORE_READING -> memberBookRepository.findByMemberIdAndProgress(memberId, 0, pageable);
+      case READING ->
+          memberBookRepository.findByMemberIdAndProgressBetween(memberId, 1, 99, pageable);
+      case FINISHED -> memberBookRepository.findByMemberIdAndProgress(memberId, 100, pageable);
+    };
+  }
+
+  private MemberBookListResDTO.MemberBookInfo toMemberBookListInfo(MemberBook memberBook) {
+    Book book = memberBook.getBook();
+    String kdcName = book.getKdcName();
+    if (kdcName == null || kdcName.isBlank()) {
+      kdcName = "미분류";
+    }
+
+    return new MemberBookListResDTO.MemberBookInfo(
+        new MemberBookRecord(
+            memberBook.getId(),
+            memberBook.getProgress(),
+            toMemberBookStatus(memberBook.getProgress()).name(),
+            memberBook.getRating(),
+            memberBook.getMemo(),
+            memberBook.getUpdatedAt()),
+        new MemberBookListResDTO.BookInfo(
+            book.getId(),
+            book.getIsbn(),
+            book.getTitle(),
+            book.getAuthor(),
+            book.getPublisher(),
+            book.getCoverImageUrl(),
+            book.getKdcCode(),
+            kdcName));
+  }
+
+  private MemberBookStatus parseMemberBookStatus(String value) {
+    try {
+      return MemberBookStatus.valueOf(value);
+    } catch (IllegalArgumentException | NullPointerException exception) {
+      throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST);
+    }
+  }
+
+  private int parseMemberBookListPageParameter(String value) {
+    try {
+      return Integer.parseInt(value);
+    } catch (NumberFormatException | NullPointerException exception) {
+      throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST);
+    }
+  }
+
+  private void validateMemberBookListRequest(int page, int size) {
+    if (page < 1 || size < 1 || size > 50) {
+      throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST);
+    }
+  }
+
+  private MemberBookStatus toMemberBookStatus(int progress) {
+    if (progress == 0) {
+      return MemberBookStatus.BEFORE_READING;
+    }
+    if (progress == 100) {
+      return MemberBookStatus.FINISHED;
+    }
+    return MemberBookStatus.READING;
   }
 
   public BookDetailResDTO getBookDetail(String rawIsbn) {
@@ -188,7 +458,7 @@ public class BookQueryService {
     return new RecentSearchInfo(
         recentSearch.keyword(),
         Instant.ofEpochMilli(recentSearch.searchedAtEpochMillis())
-            .atZone(SEOUL_ZONE_ID)
+            .atZone(ServiceTime.ZONE)
             .toOffsetDateTime());
   }
 
@@ -256,5 +526,12 @@ public class BookQueryService {
     } catch (RuntimeException exception) {
       log.warn("최근 도서 검색어 저장에 실패했습니다. memberId={}", memberId, exception);
     }
+  }
+
+  private enum MemberBookStatus {
+    ALL,
+    BEFORE_READING,
+    READING,
+    FINISHED
   }
 }

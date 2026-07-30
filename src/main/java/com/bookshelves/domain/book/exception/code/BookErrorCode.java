@@ -8,6 +8,16 @@ import org.springframework.http.HttpStatus;
 @Getter
 @AllArgsConstructor
 public enum BookErrorCode implements BaseErrorCode {
+  MEMBER_BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK404_2", "내 서재 독서 기록을 찾을 수 없습니다."),
+  INVALID_MEMBER_BOOK_STATISTICS_REQUEST(
+      HttpStatus.BAD_REQUEST, "BOOK400_6", "year 또는 month 값이 올바르지 않습니다."),
+  MEMBER_BOOK_STATISTICS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "BOOK500_5", "독서 통계 조회에 실패했습니다."),
+  INVALID_MEMBER_BOOK_CALENDAR_REQUEST(
+      HttpStatus.BAD_REQUEST, "BOOK400_5", "year 또는 month 값이 올바르지 않습니다."),
+  MEMBER_BOOK_CALENDAR_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "BOOK500_4", "독서 캘린더 조회에 실패했습니다."),
+  INVALID_MEMBER_BOOK_LIST_REQUEST(
+      HttpStatus.BAD_REQUEST, "BOOK400_4", "독서 상태, page 또는 size 값이 올바르지 않습니다."),
+  MEMBER_BOOK_LIST_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "BOOK500_3", "내 서재 목록 조회에 실패했습니다."),
   INVALID_BOOK_ISBN(HttpStatus.BAD_REQUEST, "BOOK400_2", "ISBN 형식이 올바르지 않습니다."),
   INVALID_BOOK_SEARCH_REQUEST(
       HttpStatus.BAD_REQUEST, "BOOK400_1", "검색어, page 또는 size 값이 올바르지 않습니다."),

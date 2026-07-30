@@ -12,6 +12,7 @@ import com.bookshelves.domain.member.entity.MemberCategory;
 import com.bookshelves.domain.member.entity.MemberTerms;
 import com.bookshelves.domain.member.entity.Terms;
 import com.bookshelves.domain.member.enums.MemberStatus;
+import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.exception.MemberErrorCode;
 import com.bookshelves.domain.member.exception.MemberException;
@@ -21,6 +22,7 @@ import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.repository.MemberTermsRepository;
 import com.bookshelves.domain.member.repository.TermsRepository;
 import com.bookshelves.global.security.RedisTokenRepository;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -103,6 +105,9 @@ public class MemberCommandService {
 
     validateNicknameLength(
         request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
+    validateNicknameWords(
+        request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
+    validateAnimalColorMapping(request.getNicknameAnimal(), request.getProfileBackgroundColor());
     validateRequiredTermsAgreed(request.getAgreedTermsIds());
 
     member.updateNickname(
@@ -119,6 +124,24 @@ public class MemberCommandService {
 
     List<Category> categories = memberCategoryRepository.findCategoriesByMemberId(memberId);
     return MemberConverter.toMemberInfoResponse(member, categories);
+  }
+
+  public void anonymizeMember(Long memberId) {
+    Member member =
+        memberRepository
+            .findById(memberId)
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
+
+    // 스케줄러의 대상 조회 이후 복구되었거나 상태가 바뀌었을 수 있으므로 여기서 다시 검증한다.
+    LocalDateTime threshold =
+        LocalDateTime.now(Member.SERVICE_ZONE).minusDays(Member.RESTORE_PERIOD_DAYS);
+    if (member.getStatus() != MemberStatus.WITHDRAWN
+        || member.getDeletedAt() == null
+        || member.getDeletedAt().isAfter(threshold)) {
+      return;
+    }
+
+    member.anonymize();
   }
 
   public MemberWithdrawResponse withdraw(Long memberId) {
@@ -219,6 +242,8 @@ public class MemberCommandService {
     if (providedCount == 3) {
       validateNicknameLength(
           request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
+      validateNicknameWords(
+          request.getNicknameNoun(), request.getNicknameModifier(), request.getNicknameAnimal());
     }
   }
 
@@ -231,6 +256,23 @@ public class MemberCommandService {
     int combinedLength = noun.length() + 1 + modifier.length() + 1 + animal.length();
 
     if (anyPartTooLong || combinedLength > NICKNAME_MAX_LENGTH) {
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    }
+  }
+
+  private void validateNicknameWords(String noun, String modifier, String animal) {
+    boolean allowed =
+        NicknameWords.NOUNS.contains(noun)
+            && NicknameWords.MODIFIERS.contains(modifier)
+            && NicknameWords.ANIMALS.contains(animal);
+
+    if (!allowed) {
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    }
+  }
+
+  private void validateAnimalColorMapping(String animal, ProfileBackgroundColor color) {
+    if (NicknameAnimalColors.DEFAULT_COLORS.get(animal) != color) {
       throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
     }
   }

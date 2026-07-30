@@ -10,7 +10,8 @@ import org.springframework.http.HttpStatus;
 public enum NotificationSuccessCode implements BaseSuccessCode {
   FCM_TOKEN_REGISTERED(HttpStatus.OK, "NOTI200_1", "FCM 토큰이 등록되었습니다."),
   NOTIFICATION_LIST_FOUND(HttpStatus.OK, "NOTI200_2", "알림 목록 조회에 성공했습니다."),
-  NOTIFICATION_READ(HttpStatus.OK, "NOTI200_3", "알림을 읽음 처리했습니다.");
+  NOTIFICATION_READ(HttpStatus.OK, "NOTI200_3", "알림을 읽음 처리했습니다."),
+  NEW_NOTIFICATIONS_FOUND(HttpStatus.OK, "NOTI200_4", "새 알림 조회에 성공했습니다.");
 
   private final HttpStatus status;
   private final String code;

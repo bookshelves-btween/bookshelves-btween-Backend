@@ -13,7 +13,9 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # 스키마는 Flyway만 만든다. 로컬도 운영과 같은 validate로 두어야 마이그레이션 누락이 로컬에서 잡힌다.
+      # update로 두면 엔티티에 컬럼을 추가했을 때 로컬만 조용히 통과하고 운영 배포에서 검증 실패로 터진다.
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
@@ -38,6 +40,7 @@ external:
   # LLM API KEY
   gemini:
     api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-3.6-flash}
   # 도서관 정보나루
   data4library:
     auth-key: ${DATA4LIBRARY_AUTH_KEY:}

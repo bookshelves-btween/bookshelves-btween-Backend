@@ -4,6 +4,9 @@ import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookStatisticsResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.global.apiPayload.ApiResponse;
@@ -20,6 +23,92 @@ import org.springframework.http.ResponseEntity;
 
 @Tag(name = "도서", description = "도서·내 서재 API")
 public interface BookControllerDocs {
+
+  @Operation(summary = "독서 통계 조회", description = "로그인한 회원의 완독 도서 수, 한줄평 작성 수, 평균 별점을 조회합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "독서 통계 조회 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_8",
+                              "message": "독서 통계 조회에 성공했습니다.",
+                              "result": {
+                                "year": 2026,
+                                "month": 6,
+                                "completedBookCount": 24,
+                                "reviewCount": 17,
+                                "averageRating": 4.0,
+                                "categoryStatistics": [
+                                  { "name": "한국 문학", "count": 14, "percentage": 58 },
+                                  { "name": "영미문학", "count": 6, "percentage": 25 },
+                                  { "name": "심리학", "count": 4, "percentage": 17 }
+                                ]
+                              }
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "year 또는 month 값 오류"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 필요"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "500",
+        description = "독서 통계 조회 실패 (BOOK500_5)")
+  })
+  ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics(
+      @Parameter(description = "조회 연도. 없으면 현재 연도", example = "2026") String year,
+      @Parameter(description = "조회 월. 없으면 현재 월", example = "6") String month);
+
+  @Operation(summary = "독서 캘린더 조회", description = "지정한 연·월의 실제 독서 진행 기록을 날짜별로 조회합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "독서 캘린더 조회 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_7",
+                              "message": "독서 캘린더 조회에 성공했습니다.",
+                              "result": {
+                                "year": 2026,
+                                "month": 7,
+                                "days": [{
+                                  "date": "2026-07-14",
+                                  "coverImageUrl": "https://image.example.com/almond.jpg"
+                                }]
+                              }
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "year 또는 month 값 오류"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 필요"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "500",
+        description = "독서 캘린더 조회 실패 (BOOK500_4)")
+  })
+  ResponseEntity<ApiResponse<MemberBookCalendarResDTO>> getMemberBookCalendar(
+      @Parameter(description = "조회 연도", example = "2026", required = true) String year,
+      @Parameter(description = "조회 월", example = "7", required = true) String month);
 
   @Operation(summary = "카테고리 목록 조회", description = "KDC 최상위 분류 10개를 코드 오름차순으로 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
@@ -92,8 +181,68 @@ public interface BookControllerDocs {
   ResponseEntity<ApiResponse<CategoryListResDTO>> getCategories();
 
   @Operation(
+      summary = "Member book list",
+      description = "Returns the authenticated member's reading records by most recently updated.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Member book list found",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_6",
+                              "message": "내 서재 목록 조회에 성공했습니다.",
+                              "result": {
+                                "memberBooks": [{
+                                  "memberBook": {
+                                    "id": 10,
+                                    "progress": 70,
+                                    "status": "READING",
+                                    "rating": 4.5,
+                                    "memo": "A memorable book",
+                                    "updatedAt": "2026-07-14T04:30:00"
+                                  },
+                                  "book": {
+                                    "id": 1,
+                                    "isbn": "9788936434595",
+                                    "title": "Almond",
+                                    "author": "Sohn Won-pyung",
+                                    "publisher": "Changbi",
+                                    "coverImageUrl": "https://image.example.com/book.jpg",
+                                    "kdcCode": "813",
+                                    "kdcName": "Literature"
+                                  }
+                                }],
+                                "page": 1,
+                                "size": 20,
+                                "hasNext": false
+                              }
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Invalid status, page, or size"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Authentication required")
+  })
+  ResponseEntity<ApiResponse<MemberBookListResDTO>> getMemberBooks(
+      @Parameter(description = "ALL, BEFORE_READING, READING, or FINISHED", example = "ALL")
+          String status,
+      @Parameter(description = "Page number, starting at 1", example = "1") String page,
+      @Parameter(description = "Page size, from 1 to 50", example = "20") String size);
+
+  @Operation(
       summary = "외부 도서 검색",
-      description = "카카오 도서 검색 API를 정확도순으로 한 번 호출합니다. ISBN13을 우선해 정규화하고 회원의 최근 검색어를 저장합니다.")
+      description =
+          "카카오 도서 검색 API를 정확도순으로 한 번 호출합니다. ISBN13을 우선해 정규화하고 saveRecent가 true일 때 회원의 최근 검색어를 저장합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -190,7 +339,12 @@ public interface BookControllerDocs {
               description = "페이지 크기(1~50)",
               example = "15",
               schema = @Schema(type = "integer", minimum = "1", maximum = "50"))
-          String size);
+          String size,
+      @Parameter(
+              description = "최근 도서 검색어 저장 여부입니다. 기본값은 true이며, 모임 검색에서는 false를 전달합니다.",
+              example = "true",
+              schema = @Schema(type = "boolean", defaultValue = "true"))
+          boolean saveRecent);
 
   @Operation(summary = "최근 검색어 조회", description = "회원의 최근 도서 검색어를 검색 시각 내림차순으로 최대 5개 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
@@ -439,4 +593,40 @@ public interface BookControllerDocs {
       @Parameter(description = "ISBN10 또는 ISBN13", example = "9788936434595", required = true)
           String isbn,
       @Valid MemberBookUpsertReqDTO request);
+
+  @Operation(
+      summary = "내 서재 독서 기록 삭제",
+      description = "로그인한 회원의 ISBN 기준 독서 기록과 진행률 이력을 삭제합니다. 책 자체는 삭제하지 않습니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "독서 기록 삭제 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_9",
+                              "message": "독서 기록 삭제에 성공했습니다.",
+                              "result": null
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "유효하지 않은 ISBN"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 필요"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "내 서재 독서 기록을 찾을 수 없음")
+  })
+  ResponseEntity<ApiResponse<Void>> deleteMemberBook(
+      @Parameter(description = "ISBN10 또는 ISBN13", example = "9788936434595", required = true)
+          String isbn);
 }
