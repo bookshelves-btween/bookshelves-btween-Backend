@@ -1,6 +1,8 @@
 package com.bookshelves.domain.book.repository;
 
 import com.bookshelves.domain.book.entity.MemberBook;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,7 +19,13 @@ public interface MemberBookRepository extends JpaRepository<MemberBook, Long> {
   @EntityGraph(attributePaths = "book")
   Page<MemberBook> findByMemberIdAndProgress(Long memberId, Integer progress, Pageable pageable);
 
+  List<MemberBook> findByMemberIdAndProgress(Long memberId, Integer progress);
+
   @EntityGraph(attributePaths = "book")
   Page<MemberBook> findByMemberIdAndProgressBetween(
       Long memberId, Integer startProgress, Integer endProgress, Pageable pageable);
+
+  @EntityGraph(attributePaths = "book")
+  List<MemberBook> findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
+      Long memberId, Integer progress, LocalDateTime startAt, LocalDateTime endAt);
 }

@@ -6,6 +6,7 @@ import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookStatisticsResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.exception.code.BookSuccessCode;
@@ -70,6 +71,15 @@ public class BookController implements BookControllerDocs {
     MemberBookCalendarResDTO response = bookQueryService.getMemberBookCalendar(year, month);
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_CALENDAR_FOUND, response));
+  }
+
+  @Override
+  @GetMapping("/api/v1/member-books/statistics")
+  public ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics(
+      @RequestParam(required = false) String year, @RequestParam(required = false) String month) {
+    MemberBookStatisticsResDTO response = bookQueryService.getMemberBookStatistics(year, month);
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_STATISTICS_FOUND, response));
   }
 
   @Override
