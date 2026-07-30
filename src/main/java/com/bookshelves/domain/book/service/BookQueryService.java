@@ -195,13 +195,12 @@ public class BookQueryService {
   }
 
   private YearMonth parseMemberBookStatisticsYearMonth(String yearValue, String monthValue) {
-    if (yearValue == null && monthValue == null) {
-      return YearMonth.now(SEOUL_ZONE_ID);
-    }
-
+    YearMonth now = YearMonth.now(SEOUL_ZONE_ID);
     try {
-      return YearMonth.of(Integer.parseInt(yearValue), Integer.parseInt(monthValue));
-    } catch (NumberFormatException | DateTimeException | NullPointerException exception) {
+      int year = yearValue == null ? now.getYear() : Integer.parseInt(yearValue);
+      int month = monthValue == null ? now.getMonthValue() : Integer.parseInt(monthValue);
+      return YearMonth.of(year, month);
+    } catch (NumberFormatException | DateTimeException exception) {
       throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST);
     }
   }
@@ -228,7 +227,8 @@ public class BookQueryService {
   }
 
   private List<MemberBookStatisticsResDTO.CategoryStatistic> calculateCategoryStatistics(
-      List<MemberBook> completedMemberBooks) {
+      List<MemberBook> monthlyCompletedMemberBooks) {
+    List<MemberBook> completedMemberBooks = monthlyCompletedMemberBooks;
     if (completedMemberBooks.isEmpty()) {
       return List.of();
     }
