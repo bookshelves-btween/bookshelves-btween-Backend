@@ -24,7 +24,7 @@ CREATE TABLE `ai_question` (
   UNIQUE KEY `uk_ai_question_meeting_question_order` (`meeting_id`,`question_order`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
-CREATE TABLE `airecommendation` (
+CREATE TABLE `ai_recommendation` (
   `book_id` bigint NOT NULL,
   `created_at` datetime(6) NOT NULL,
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -236,8 +236,8 @@ CREATE TABLE `terms` (
 ALTER TABLE `ai_question`
     ADD CONSTRAINT `fk_ai_question_meeting` FOREIGN KEY (`meeting_id`) REFERENCES `meeting` (`id`);
 
-ALTER TABLE `airecommendation`
-    ADD CONSTRAINT `fk_airecommendation_book` FOREIGN KEY (`book_id`) REFERENCES `book` (`id`);
+ALTER TABLE `ai_recommendation`
+    ADD CONSTRAINT `fk_ai_recommendation_book` FOREIGN KEY (`book_id`) REFERENCES `book` (`id`);
 
 ALTER TABLE `chat_message`
     ADD CONSTRAINT `fk_chat_message_chatroom` FOREIGN KEY (`chatroom_id`) REFERENCES `chat_room` (`id`);
