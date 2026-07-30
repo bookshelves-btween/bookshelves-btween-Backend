@@ -1,9 +1,6 @@
 package com.bookshelves.domain.ai.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.bookshelves.domain.ai.entity.AIQuestion;
 import com.bookshelves.domain.ai.enums.SeedQuestion;
@@ -17,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -64,22 +59,9 @@ class GeminiSummaryClientTest {
         .build();
   }
 
+  // 절대 URL과 API 키 헤더 검증은 GeminiClientTest가 맡는다. 여기는 프롬프트와 검증만 본다.
   private void respondWith(String modelText) {
-    mockServer
-        .expect(
-            requestTo(
-                GeminiClient.BASE_URL
-                    + "/models/"
-                    + GeminiClient.DEFAULT_MODEL
-                    + ":generateContent"))
-        .andExpect(method(HttpMethod.POST))
-        .andRespond(
-            withSuccess(
-                """
-                {"candidates":[{"content":{"parts":[{"text":%s}]}}]}
-                """
-                    .formatted(new ObjectMapper().valueToTree(modelText).toString()),
-                MediaType.APPLICATION_JSON));
+    GeminiTestResponses.expectPost(mockServer, modelText);
   }
 
   @Test
