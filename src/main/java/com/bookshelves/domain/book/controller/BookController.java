@@ -16,6 +16,7 @@ import com.bookshelves.global.apiPayload.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -106,5 +107,12 @@ public class BookController implements BookControllerDocs {
 
     return ResponseEntity.status(successCode.getStatus())
         .body(ApiResponse.onSuccess(successCode, result.response()));
+  }
+
+  @Override
+  @DeleteMapping("/api/v1/member-books/{isbn}")
+  public ResponseEntity<ApiResponse<Void>> deleteMemberBook(@PathVariable String isbn) {
+    bookCommandService.deleteMemberBook(isbn);
+    return ResponseEntity.ok(ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_DELETED, null));
   }
 }

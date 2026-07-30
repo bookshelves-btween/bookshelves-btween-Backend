@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MemberBookHistoryRepository extends JpaRepository<MemberBookHistory, Long> {
 
+  void deleteAllByMemberBookId(Long memberBookId);
+
   @EntityGraph(attributePaths = "memberBook.book")
   List<MemberBookHistory>
       findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(

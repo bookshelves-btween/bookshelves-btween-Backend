@@ -58,6 +58,26 @@ public class BookCommandService {
         .orElseThrow(() -> new IllegalStateException("인증된 회원을 찾을 수 없습니다."));
   }
 
+  public void deleteMemberBook(String rawIsbn) {
+    String requestedIsbn =
+        IsbnNormalizer.normalize(rawIsbn)
+            .orElseThrow(() -> new BookException(BookErrorCode.INVALID_BOOK_ISBN));
+    String canonicalIsbn = IsbnNormalizer.toIsbn13(requestedIsbn);
+    Long memberId = authenticationFacade.getCurrentMemberId();
+
+    memberRepository
+        .findByIdForUpdate(memberId)
+        .orElseThrow(() -> new IllegalStateException("인증된 회원을 찾을 수 없습니다."));
+
+    MemberBook memberBook =
+        memberBookRepository
+            .findByMemberIdAndBookIsbn(memberId, canonicalIsbn)
+            .orElseThrow(() -> new BookException(BookErrorCode.MEMBER_BOOK_NOT_FOUND));
+
+    memberBookHistoryRepository.deleteAllByMemberBookId(memberBook.getId());
+    memberBookRepository.delete(memberBook);
+  }
+
   private MemberBookUpsertResult upsertLockedMemberBook(
       Long memberId, Member member, Book book, MemberBookUpsertReqDTO request) {
     return memberBookRepository
