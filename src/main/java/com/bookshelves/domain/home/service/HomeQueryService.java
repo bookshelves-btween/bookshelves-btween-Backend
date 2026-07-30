@@ -45,10 +45,12 @@ public class HomeQueryService {
 
     MemberBook recentBook =
         memberBookRepository.findFirstByMemberIdOrderByUpdatedAtDescIdDesc(memberId).orElse(null);
+    // 모집 마감을 넘긴 모임은 상태가 아직 RECRUITING이어도 참여가 거절된다. 홈은 카드마다
+    // 참여하기 버튼을 그리므로 그 구간을 미리 걷어낸다.
     List<Meeting> meetings =
         meetingRepository.findJoinableMeetings(
             MeetingStatus.RECRUITING,
-            ServiceTime.now(),
+            ServiceTime.now().plusHours(Meeting.RECRUITMENT_CLOSE_HOURS_BEFORE_START),
             memberId,
             PageRequest.of(0, JOINABLE_MEETING_LIMIT));
 

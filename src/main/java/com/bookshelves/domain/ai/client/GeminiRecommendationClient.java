@@ -21,6 +21,7 @@ import tools.jackson.core.type.TypeReference;
 public class GeminiRecommendationClient {
 
   // 멘트 한 줄이라 응답이 짧다. 스케줄러가 새벽까지 물고 있을 이유가 없다.
+  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
   private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
 
   // 프롬프트로 요구하는 길이와 코드로 자르는 길이를 다르게 둔다.
@@ -37,7 +38,7 @@ public class GeminiRecommendationClient {
 
   @Autowired
   public GeminiRecommendationClient(GeminiClientFactory geminiClientFactory) {
-    this(geminiClientFactory.create(READ_TIMEOUT));
+    this(geminiClientFactory.create(CONNECT_TIMEOUT, READ_TIMEOUT));
   }
 
   GeminiRecommendationClient(GeminiClient geminiClient) {

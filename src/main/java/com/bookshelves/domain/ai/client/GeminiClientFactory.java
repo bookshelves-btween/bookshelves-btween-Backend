@@ -9,15 +9,14 @@ import tools.jackson.databind.ObjectMapper;
 
 // 용도별 GeminiClient를 만든다.
 //
-// 읽기 타임아웃만 용도마다 다르다. 질문 생성은 모임 준비 중이라 오래 붙잡으면 안 되고, 요약은 대화
-// 전체가 입력이라 응답이 길며 종료 후 비동기라 여유가 있다. 타임아웃이 RestClient 인스턴스에 고정되는
-// 값이라 빈 하나를 공유할 수 없어 팩토리를 둔다.
+// 타임아웃이 RestClient 인스턴스에 고정되는 값이라 빈 하나를 공유할 수 없어 팩토리를 둔다.
+// 용도마다 허용 지연이 다르다. 질문 생성은 모임 준비를 붙잡고 있어 짧게 끊어야 하고, 요약은 대화
+// 전체가 입력이라 응답이 길며 종료 후 비동기라 여유가 있다.
 //
-// 접속 타임아웃은 용도와 무관하게 같은 호스트를 부르는 일이라 나누지 않는다.
+// 두 타임아웃을 모두 호출부가 정하게 둔다. 접속 타임아웃까지 여기서 하나로 묶었더니 질문 생성이
+// 5초에서 10초로 늘어나 폴백이 그만큼 늦어졌다. 공통화가 조용히 동작을 바꾼 자리다.
 @Component
 public class GeminiClientFactory {
-
-  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
 
   private final RestClient.Builder restClientBuilder;
   private final ObjectMapper objectMapper;
@@ -35,9 +34,9 @@ public class GeminiClientFactory {
     this.model = model;
   }
 
-  public GeminiClient create(Duration readTimeout) {
+  public GeminiClient create(Duration connectTimeout, Duration readTimeout) {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-    requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
+    requestFactory.setConnectTimeout(connectTimeout);
     requestFactory.setReadTimeout(readTimeout);
 
     // 주입받은 빌더를 그대로 변형하지 않는다. 이 팩토리는 빌더 하나를 들고 용도별로 여러 번 불리는데,
