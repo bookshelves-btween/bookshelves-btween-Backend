@@ -22,8 +22,28 @@ public class TaskExecutorConfig {
     return buildExecutor("meeting-summary-");
   }
 
-  // 두 실행기의 크기가 같은 것은 우연이 아니라 같은 성격의 작업이기 때문이다.
-  // 둘 다 LLM 호출 하나를 기다리는 일이라 동시 처리량보다 큐가 넘치지 않는 쪽이 중요하다.
+  // 추천 도서 준비 전용. 여기만 스레드가 하나다.
+  //
+  // 호출자를 떼어놓는 것이 1차 목적이다. 기동 훅은 메인 스레드에서, 23시 잡은 풀 크기 2짜리 공용
+  // taskScheduler에서 불리는데, 둘 다 LLM 응답을 기다리게 두면 기동 지연과 모임 시작·종료 배치
+  // 지연으로 번진다.
+  //
+  // 스레드를 하나로 묶는 것은 준비 작업끼리 겹치지 않게 하려는 것이다. 23시 직후에 배포가 겹치면
+  // 내일치와 오늘치가 동시에 돌 수 있는데, 그러면 둘 다 저장 전 상태를 읽어 같은 책을 이틀 연속으로
+  // 뽑는다. 날짜가 달라 unique 제약도 걸리지 않는다. 직렬화하면 뒤에 도는 쪽이 앞의 결과를 본다.
+  @Bean
+  public ThreadPoolTaskExecutor aiRecommendationTaskExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(1);
+    executor.setMaxPoolSize(1);
+    executor.setQueueCapacity(10);
+    executor.setThreadNamePrefix("ai-recommendation-");
+    executor.initialize();
+    return executor;
+  }
+
+  // 질문 생성과 요약 생성의 크기가 같은 것은 우연이 아니라 같은 성격의 작업이기 때문이다.
+  // 둘 다 모임 단위로 LLM 호출 하나를 기다리는 일이라 동시 처리량보다 큐가 넘치지 않는 쪽이 중요하다.
   private ThreadPoolTaskExecutor buildExecutor(String threadNamePrefix) {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
     executor.setCorePoolSize(2);

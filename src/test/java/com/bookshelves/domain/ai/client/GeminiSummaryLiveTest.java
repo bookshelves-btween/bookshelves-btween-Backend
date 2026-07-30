@@ -39,13 +39,14 @@ class GeminiSummaryLiveTest {
     requestFactory.setReadTimeout(Duration.ofSeconds(180));
 
     return new GeminiSummaryClient(
-        RestClient.builder()
-            .baseUrl(GeminiQuestionClient.BASE_URL)
-            .requestFactory(requestFactory)
-            .build(),
-        new ObjectMapper(),
-        System.getenv("GEMINI_API_KEY"),
-        GeminiQuestionClient.DEFAULT_MODEL);
+        new GeminiClient(
+            RestClient.builder()
+                .baseUrl(GeminiClient.BASE_URL)
+                .requestFactory(requestFactory)
+                .build(),
+            new ObjectMapper(),
+            System.getenv("GEMINI_API_KEY"),
+            GeminiClient.DEFAULT_MODEL));
   }
 
   private Book almond() {
