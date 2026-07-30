@@ -39,6 +39,10 @@ public class GeminiSummaryClient {
   // title 컬럼이 VARCHAR(255)다. 초과분이 저장 단계까지 가면 INSERT가 실패하므로 여기서 거른다.
   static final int MAX_TITLE_LENGTH = 60;
 
+  // 본문 상한. content가 TEXT라 이론상 65535바이트까지 들어가지만, 프롬프트는 2~3문장을 요구한다.
+  // 이보다 긴 응답은 모델이 형식을 벗어난 것이고, 그대로 저장하면 INSERT가 통째로 롤백될 수 있다.
+  static final int MAX_CONTENT_LENGTH = 2_000;
+
   // 대화량은 모임 duration 60분·정원 6명·메시지 500자로 구조상 상한이 있으나, 생성 API 검증에
   // 최대값이 없어 명세 밖의 값이 들어올 여지가 있다. 프롬프트 자체에도 상한을 둔다.
   private static final int MAX_MESSAGES = 400;
@@ -231,7 +235,16 @@ public class GeminiSummaryClient {
             MAX_TITLE_LENGTH);
         continue;
       }
-      accepted.put(axis, new SummaryDraft(title, normalize(candidate.summary())));
+      String content = normalize(candidate.summary());
+      if (content != null && content.length() > MAX_CONTENT_LENGTH) {
+        log.warn(
+            "요약 본문이 상한을 넘어 안내 문구를 사용한다: axis={}, 길이={}, 허용={}",
+            axis,
+            content.length(),
+            MAX_CONTENT_LENGTH);
+        continue;
+      }
+      accepted.put(axis, new SummaryDraft(title, content));
     }
     return accepted;
   }

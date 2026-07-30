@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -31,11 +32,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.task.SyncTaskExecutor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 
 @ExtendWith(MockitoExtension.class)
 class MeetingSummaryPreparationServiceTest {
@@ -111,7 +117,9 @@ class MeetingSummaryPreparationServiceTest {
     ChatRoom chatRoom = ChatRoom.create(meeting);
     ReflectionTestUtils.setField(chatRoom, "id", CHATROOM_ID);
 
-    given(meetingSummaryRepository.findAllByMeetingId(MEETING_ID)).willReturn(List.of());
+    // 진입 가드와 저장 직전 재조회는 비어 있고, 저장 후 재확인에서는 3행이 보인다
+    given(meetingSummaryRepository.findAllByMeetingId(MEETING_ID))
+        .willReturn(List.of(), List.of(), storedRows());
     given(meetingRepository.findWithBookById(MEETING_ID)).willReturn(Optional.of(meeting));
     given(meetingRepository.findByIdForUpdate(MEETING_ID)).willReturn(Optional.of(meeting));
     given(chatRoomRepository.findByMeetingId(MEETING_ID)).willReturn(Optional.of(chatRoom));
@@ -119,6 +127,12 @@ class MeetingSummaryPreparationServiceTest {
         .willReturn(List.of(message("윤재가 변한 게 맞나요")));
     given(aiQuestionRepository.findAllByMeetingIdOrderByQuestionOrderAsc(MEETING_ID))
         .willReturn(List.of());
+  }
+
+  private List<MeetingSummary> storedRows() {
+    return SummaryAxis.ordered().stream()
+        .map(axis -> MeetingSummary.builder().axis(axis).title("저장됨").content("본문").build())
+        .toList();
   }
 
   private List<MeetingSummary> captureSaved() {
@@ -171,7 +185,9 @@ class MeetingSummaryPreparationServiceTest {
   @Test
   void fillsEveryAxisWithFallbackWhenClientKeepsFailing() {
     givenMeetingWithConversation();
-    willThrow(new IllegalStateException("호출 실패"))
+    willThrow(
+            HttpServerErrorException.create(
+                HttpStatus.SERVICE_UNAVAILABLE, "Unavailable", null, null, null))
         .given(geminiSummaryClient)
         .generateSummaries(any(), any(), any());
 
@@ -189,7 +205,8 @@ class MeetingSummaryPreparationServiceTest {
   void skipsLlmCallWhenThereIsNoConversation() {
     runTransactionCallbackInline();
     Meeting meeting = meeting();
-    given(meetingSummaryRepository.findAllByMeetingId(MEETING_ID)).willReturn(List.of());
+    given(meetingSummaryRepository.findAllByMeetingId(MEETING_ID))
+        .willReturn(List.of(), List.of(), storedRows());
     given(meetingRepository.findWithBookById(MEETING_ID)).willReturn(Optional.of(meeting));
     given(meetingRepository.findByIdForUpdate(MEETING_ID)).willReturn(Optional.of(meeting));
     given(chatRoomRepository.findByMeetingId(MEETING_ID)).willReturn(Optional.empty());
@@ -219,12 +236,50 @@ class MeetingSummaryPreparationServiceTest {
   }
 
   @Test
-  void notifiesAfterSummariesAreStored() {
+  void notifiesOnlyAfterSummariesAreStored() {
     givenMeetingWithConversation();
     given(geminiSummaryClient.generateSummaries(any(), any(), any())).willReturn(Map.of());
 
     service.prepare(MEETING_ID);
 
-    verify(meetingSummaryNotifier).notifySummaryDone(MEETING_ID);
+    // 순서가 뒤집히면 저장에 실패한 모임에도 완료 알림이 나간다
+    InOrder inOrder = inOrder(meetingSummaryRepository, meetingSummaryNotifier);
+    inOrder.verify(meetingSummaryRepository).saveAll(any());
+    inOrder.verify(meetingSummaryNotifier).notifySummaryDone(MEETING_ID);
+  }
+
+  @Test
+  void doesNotNotifyWhenSaveFailedToFillEveryAxis() {
+    runTransactionCallbackInline();
+    Meeting meeting = meeting();
+    // 저장 전에는 0행, 저장 시도 후에도 여전히 0행 — 제약 위반으로 INSERT가 롤백된 상황
+    given(meetingSummaryRepository.findAllByMeetingId(MEETING_ID)).willReturn(List.of());
+    given(meetingRepository.findWithBookById(MEETING_ID)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(MEETING_ID)).willReturn(Optional.of(meeting));
+    given(chatRoomRepository.findByMeetingId(MEETING_ID)).willReturn(Optional.empty());
+    willThrow(new DataIntegrityViolationException("본문 길이 초과"))
+        .given(meetingSummaryRepository)
+        .saveAll(any());
+
+    service.prepare(MEETING_ID);
+
+    // 한 행도 안 들어갔는데 요약이 준비되었다는 알림을 보내면 안 된다
+    verify(meetingSummaryNotifier, never()).notifySummaryDone(any());
+  }
+
+  @Test
+  void doesNotRetryWhenErrorIsNotRetryable() {
+    givenMeetingWithConversation();
+    willThrow(
+            HttpClientErrorException.create(
+                HttpStatus.BAD_REQUEST, "Bad Request", null, null, null))
+        .given(geminiSummaryClient)
+        .generateSummaries(any(), any(), any());
+
+    service.prepare(MEETING_ID);
+
+    // 다시 보내도 같은 응답이 오는 오류는 백오프를 태우지 않고 즉시 폴백한다
+    verify(geminiSummaryClient, times(1)).generateSummaries(any(), any(), any());
+    assertThat(captureSaved()).hasSize(3);
   }
 }

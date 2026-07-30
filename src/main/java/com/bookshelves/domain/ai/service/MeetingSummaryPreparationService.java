@@ -25,6 +25,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 
 // 모임 종료 후 요약 3주제를 저장한다.
 //
@@ -98,6 +101,14 @@ public class MeetingSummaryPreparationService {
 
       Map<SummaryAxis, SummaryDraft> drafts = generate(meeting);
       saveSummaries(meetingId, drafts);
+
+      // 저장 성공 여부를 결과로 확인한 뒤에만 알림을 만든다.
+      // 예외 종류로 판정하면 unique 충돌과 길이 초과를 구분하지 못해, 한 행도 안 들어간 모임에
+      // 요약이 준비되었다는 알림을 보내게 된다.
+      if (!isFullyPrepared(meetingId)) {
+        log.error("AI 요약 저장이 3행을 채우지 못해 알림을 보내지 않는다: meetingId={}", meetingId);
+        return;
+      }
       meetingSummaryNotifier.notifySummaryDone(meetingId);
       log.info("AI 요약 준비 완료: meetingId={}, 생성={}건", meetingId, drafts.size());
     } catch (Exception e) {
@@ -136,7 +147,7 @@ public class MeetingSummaryPreparationService {
             aiQuestionRepository.findAllByMeetingIdOrderByQuestionOrderAsc(meeting.getId()),
             messages);
       } catch (Exception e) {
-        if (attempt == MAX_ATTEMPTS) {
+        if (attempt == MAX_ATTEMPTS || !isRetryable(e)) {
           log.warn("Gemini 요약 생성 실패 — 안내 문구를 사용한다: meetingId={}", meeting.getId(), e);
           return Map.of();
         }
@@ -144,6 +155,16 @@ public class MeetingSummaryPreparationService {
       }
     }
     return Map.of();
+  }
+
+  // 다시 보내면 결과가 달라질 수 있는 오류만 재시도한다.
+  //
+  // 모델 혼잡(5xx), 무료 티어 쿼터(429), 네트워크·타임아웃이 여기 해당한다. 잘못된 요청이나 인증
+  // 실패는 몇 번을 보내도 같은 응답이 오므로 백오프만 태우고 전용 executor 스레드를 붙잡는다.
+  private boolean isRetryable(Exception e) {
+    return e instanceof HttpServerErrorException
+        || e instanceof HttpClientErrorException.TooManyRequests
+        || e instanceof ResourceAccessException;
   }
 
   private void sleep(long millis) {
@@ -172,8 +193,9 @@ public class MeetingSummaryPreparationService {
                         }
                       }));
     } catch (DataIntegrityViolationException e) {
-      // 락이 닿지 않는 경로(다중 인스턴스)까지 대비한 최종 방어 — (meeting_id, axis) unique.
-      // 길이 초과나 NOT NULL 위반도 같은 예외로 오므로 원인을 로그에 남겨 구분할 수 있게 한다.
+      // 락이 닿지 않는 경로(다중 인스턴스)에서의 unique 충돌과, 길이 초과·NOT NULL 위반이 모두 같은
+      // 예외형으로 온다. 여기서는 구분하지 않고 로그만 남기고, 실제 성공 여부는 호출부가 저장된 축을
+      // 다시 세어 판정한다.
       log.warn("AI 요약 저장 충돌 또는 제약 위반: meetingId={}", meetingId, e);
     }
   }
