@@ -1,7 +1,5 @@
 package com.bookshelves.domain.ai.client;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
 import com.bookshelves.domain.ai.entity.AIQuestion;
 import com.bookshelves.domain.ai.enums.SeedQuestion;
 import com.bookshelves.domain.ai.enums.SummaryAxis;
@@ -16,27 +14,24 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 // 실제 Gemini API를 호출해 요약 결과를 눈으로 확인하는 수동 테스트.
-// GEMINI_API_KEY가 없으면 통째로 skip되므로 CI에는 영향이 없다.
 //
-// 실행: GEMINI_API_KEY=... ./gradlew test --tests '*GeminiSummaryLiveTest' -i
+// 키만으로 켜지면 GEMINI_API_KEY가 있는 환경의 일반 테스트 실행이 모두 과금 대상 외부 호출을 하게 된다.
+// 전용 스위치를 따로 요구해 이 테스트는 의도적으로 켤 때만 돈다. 환경 변수를 쓰는 이유는 Gradle이
+// 시스템 속성을 테스트 JVM으로 그대로 넘기지 않기 때문이다.
+//
+// 실행: RUN_GEMINI_LIVE_TESTS=true GEMINI_API_KEY=... ./gradlew test --tests '*GeminiSummaryLiveTest'
+// -i
+@EnabledIfEnvironmentVariable(named = "RUN_GEMINI_LIVE_TESTS", matches = "true")
 @EnabledIfEnvironmentVariable(named = "GEMINI_API_KEY", matches = ".+")
 class GeminiSummaryLiveTest {
-
-  @BeforeAll
-  static void enableRawResponseLogging() {
-    Logger clientLogger = (Logger) LoggerFactory.getLogger(GeminiSummaryClient.class);
-    clientLogger.setLevel(Level.DEBUG);
-  }
 
   private GeminiSummaryClient client() {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
