@@ -83,7 +83,11 @@ public final class MeetingConverter {
         book.getKdcName());
   }
 
+  // 순번은 축의 displayOrder를 그대로 쓴다. 정렬 기준과 응답 순번이 같은 값이어야 둘이 어긋나지 않는다.
   private static SummaryInfo toSummaryInfo(MeetingSummary meetingSummary) {
-    return new SummaryInfo(meetingSummary.getTitle(), meetingSummary.getContent());
+    return new SummaryInfo(
+        meetingSummary.getAxis().getDisplayOrder(),
+        meetingSummary.getTitle(),
+        meetingSummary.getContent());
   }
 }
