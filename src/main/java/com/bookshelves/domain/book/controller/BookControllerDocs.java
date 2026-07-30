@@ -45,14 +45,7 @@ public interface BookControllerDocs {
                                 "month": 7,
                                 "days": [{
                                   "date": "2026-07-14",
-                                  "books": [{
-                                    "historyId": 31,
-                                    "memberBookId": 10,
-                                    "progress": 70,
-                                    "bookId": 1,
-                                    "title": "아몬드",
-                                    "coverImageUrl": "https://image.example.com/almond.jpg"
-                                  }]
+                                  "coverImageUrl": "https://image.example.com/almond.jpg"
                                 }]
                               }
                             }

@@ -5,13 +5,5 @@ import java.util.List;
 
 public record MemberBookCalendarResDTO(int year, int month, List<CalendarDay> days) {
 
-  public record CalendarDay(LocalDate date, List<CalendarBook> books) {}
-
-  public record CalendarBook(
-      Long historyId,
-      Long memberBookId,
-      Integer progress,
-      Long bookId,
-      String title,
-      String coverImageUrl) {}
+  public record CalendarDay(LocalDate date, String coverImageUrl) {}
 }
