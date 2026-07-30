@@ -13,6 +13,7 @@ import com.bookshelves.domain.meeting.exception.MeetingException;
 import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,7 +45,9 @@ public class MeetingQueryService {
             .map(chatRoom -> chatRoom.getId())
             .orElse(null);
     List<MeetingSummary> summaries =
-        meetingSummaryRepository.findAllByMeetingIdOrderByQuestionOrder(meetingId);
+        meetingSummaryRepository.findAllByMeetingId(meetingId).stream()
+            .sorted(Comparator.comparingInt(summary -> summary.getAxis().getDisplayOrder()))
+            .toList();
 
     return MeetingConverter.toMeetingDetailResDTO(meeting, chatroomId, summaries);
   }
