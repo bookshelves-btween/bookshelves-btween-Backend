@@ -18,6 +18,7 @@ import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookStatisticsResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.Category;
@@ -29,6 +30,7 @@ import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.MemberBookRepository.MemberBookStatistics;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.global.security.AuthenticationFacade;
@@ -526,6 +528,53 @@ class BookQueryServiceTest {
             exception ->
                 assertThat(((BookException) exception).getErrorCode())
                     .isEqualTo(BookErrorCode.MEMBER_BOOK_CALENDAR_FAILED));
+  }
+
+  @Test
+  void getMemberBookStatisticsReturnsCompletedBookReviewAndAverageRating() {
+    MemberBookStatistics statistics = mock(MemberBookStatistics.class);
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findStatisticsByMemberId(7L)).willReturn(statistics);
+    given(statistics.getCompletedBookCount()).willReturn(24L);
+    given(statistics.getReviewCount()).willReturn(17L);
+    given(statistics.getAverageRating()).willReturn(4.25);
+
+    MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics();
+
+    assertThat(result.completedBookCount()).isEqualTo(24L);
+    assertThat(result.reviewCount()).isEqualTo(17L);
+    assertThat(result.averageRating()).isEqualByComparingTo("4.3");
+    verify(memberBookRepository).findStatisticsByMemberId(7L);
+  }
+
+  @Test
+  void getMemberBookStatisticsReturnsZeroAverageWhenNoBookIsRated() {
+    MemberBookStatistics statistics = mock(MemberBookStatistics.class);
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findStatisticsByMemberId(7L)).willReturn(statistics);
+    given(statistics.getCompletedBookCount()).willReturn(0L);
+    given(statistics.getReviewCount()).willReturn(0L);
+    given(statistics.getAverageRating()).willReturn(null);
+
+    MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics();
+
+    assertThat(result.completedBookCount()).isZero();
+    assertThat(result.reviewCount()).isZero();
+    assertThat(result.averageRating()).isEqualByComparingTo("0.0");
+  }
+
+  @Test
+  void getMemberBookStatisticsThrowsBookExceptionWhenDatabaseLookupFails() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findStatisticsByMemberId(7L))
+        .willThrow(new DataAccessResourceFailureException("database unavailable"));
+
+    assertThatThrownBy(bookQueryService::getMemberBookStatistics)
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.MEMBER_BOOK_STATISTICS_FAILED));
   }
 
   private Category category(Long id, String kdcCode, String name) {

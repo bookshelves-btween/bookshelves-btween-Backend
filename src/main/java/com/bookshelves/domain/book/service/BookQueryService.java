@@ -15,6 +15,7 @@ import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO.CalendarDay;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO.MemberBookRecord;
+import com.bookshelves.domain.book.dto.response.MemberBookStatisticsResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO.RecentSearchInfo;
 import com.bookshelves.domain.book.entity.Book;
@@ -27,10 +28,13 @@ import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.MemberBookRepository.MemberBookStatistics;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
 import com.bookshelves.global.security.AuthenticationFacade;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -162,6 +166,28 @@ public class BookQueryService {
     } catch (DataAccessException exception) {
       throw new BookException(BookErrorCode.MEMBER_BOOK_CALENDAR_FAILED);
     }
+  }
+
+  @Transactional(readOnly = true)
+  public MemberBookStatisticsResDTO getMemberBookStatistics() {
+    Long memberId = authenticationFacade.getCurrentMemberId();
+
+    try {
+      MemberBookStatistics statistics = memberBookRepository.findStatisticsByMemberId(memberId);
+      return new MemberBookStatisticsResDTO(
+          statistics.getCompletedBookCount(),
+          statistics.getReviewCount(),
+          toAverageRating(statistics.getAverageRating()));
+    } catch (DataAccessException exception) {
+      throw new BookException(BookErrorCode.MEMBER_BOOK_STATISTICS_FAILED);
+    }
+  }
+
+  private BigDecimal toAverageRating(Double averageRating) {
+    if (averageRating == null) {
+      return BigDecimal.ZERO.setScale(1);
+    }
+    return BigDecimal.valueOf(averageRating).setScale(1, RoundingMode.HALF_UP);
   }
 
   private MemberBookCalendarResDTO toMemberBookCalendarResDTO(
