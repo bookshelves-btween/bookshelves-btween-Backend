@@ -302,6 +302,7 @@ class BookCommandServiceTest {
     org.springframework.test.util.ReflectionTestUtils.setField(memberBook, "id", 10L);
 
     given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberRepository.findByIdForUpdate(1L)).willReturn(Optional.of(memberBook.getMember()));
     given(memberBookRepository.findByMemberIdAndBookIsbn(1L, ISBN))
         .willReturn(Optional.of(memberBook));
 
@@ -315,6 +316,8 @@ class BookCommandServiceTest {
   @Test
   void rejectsDeletingMemberBookThatDoesNotBelongToCurrentMember() {
     given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberRepository.findByIdForUpdate(1L))
+        .willReturn(Optional.of(Member.createSocialMember(null, "provider-id")));
     given(memberBookRepository.findByMemberIdAndBookIsbn(1L, ISBN)).willReturn(Optional.empty());
 
     assertThatThrownBy(() -> bookCommandService.deleteMemberBook(ISBN))
