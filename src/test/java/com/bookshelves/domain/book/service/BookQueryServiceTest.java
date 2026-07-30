@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -532,7 +533,7 @@ class BookQueryServiceTest {
   }
 
   @Test
-  void getMemberBookStatisticsReturnsMonthlySummaryAndTopThreeCategories() {
+  void getMemberBookStatisticsReturnsCumulativeSummaryAndMonthlyTopThreeCategories() {
     MemberBook koreanLiteratureOne = memberBook("한국 문학", BigDecimal.valueOf(4.1), "memo");
     MemberBook koreanLiteratureTwo = memberBook("한국 문학", BigDecimal.valueOf(4.2), " ");
     MemberBook englishLiterature = memberBook("영미문학", null, null);
@@ -540,6 +541,8 @@ class BookQueryServiceTest {
     MemberBook history = memberBook("역사", null, null);
     MemberBook unclassified = memberBook(null, null, null);
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
+        .willReturn(List.of(koreanLiteratureOne, koreanLiteratureTwo));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -560,8 +563,8 @@ class BookQueryServiceTest {
 
     assertThat(result.year()).isEqualTo(2026);
     assertThat(result.month()).isEqualTo(6);
-    assertThat(result.completedBookCount()).isEqualTo(6L);
-    assertThat(result.reviewCount()).isEqualTo(2L);
+    assertThat(result.completedBookCount()).isEqualTo(2L);
+    assertThat(result.reviewCount()).isEqualTo(1L);
     assertThat(result.averageRating()).isEqualByComparingTo("4.1");
     assertThat(result.categoryStatistics())
         .extracting(MemberBookStatisticsResDTO.CategoryStatistic::name)
@@ -577,6 +580,8 @@ class BookQueryServiceTest {
     MemberBook psychology = memberBook("심리학", null, null);
     MemberBook unclassified = memberBook(null, null, null);
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
+        .willReturn(List.of(literature, psychology, unclassified));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -598,6 +603,7 @@ class BookQueryServiceTest {
   void getMemberBookStatisticsUsesCurrentSeoulMonthWhenYearAndMonthAreOmitted() {
     YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -617,13 +623,7 @@ class BookQueryServiceTest {
   @Test
   void getMemberBookStatisticsThrowsBookExceptionWhenDatabaseLookupFails() {
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(
-            memberBookRepository
-                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
-                    7L,
-                    100,
-                    LocalDateTime.of(2026, 6, 1, 0, 0),
-                    LocalDateTime.of(2026, 7, 1, 0, 0)))
+    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
         .willThrow(new DataAccessResourceFailureException("database unavailable"));
 
     assertThatThrownBy(() -> bookQueryService.getMemberBookStatistics("2026", "6"))
@@ -650,8 +650,8 @@ class BookQueryServiceTest {
     MemberBook memberBook = mock(MemberBook.class);
     Book book = mock(Book.class);
     given(memberBook.getBook()).willReturn(book);
-    given(memberBook.getRating()).willReturn(rating);
-    given(memberBook.getMemo()).willReturn(memo);
+    lenient().when(memberBook.getRating()).thenReturn(rating);
+    lenient().when(memberBook.getMemo()).thenReturn(memo);
     given(book.getKdcName()).willReturn(kdcName);
     return memberBook;
   }

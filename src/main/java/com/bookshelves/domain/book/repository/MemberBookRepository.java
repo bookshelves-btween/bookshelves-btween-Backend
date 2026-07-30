@@ -19,6 +19,8 @@ public interface MemberBookRepository extends JpaRepository<MemberBook, Long> {
   @EntityGraph(attributePaths = "book")
   Page<MemberBook> findByMemberIdAndProgress(Long memberId, Integer progress, Pageable pageable);
 
+  List<MemberBook> findByMemberIdAndProgress(Long memberId, Integer progress);
+
   @EntityGraph(attributePaths = "book")
   Page<MemberBook> findByMemberIdAndProgressBetween(
       Long memberId, Integer startProgress, Integer endProgress, Pageable pageable);
