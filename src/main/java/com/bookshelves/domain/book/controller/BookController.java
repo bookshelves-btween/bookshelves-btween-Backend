@@ -4,6 +4,7 @@ import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.exception.code.BookSuccessCode;
@@ -59,6 +60,17 @@ public class BookController implements BookControllerDocs {
     RecentBookSearchResDTO response = bookQueryService.getRecentBookSearches();
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.RECENT_BOOK_SEARCHES_FOUND, response));
+  }
+
+  @Override
+  @GetMapping("/api/v1/member-books")
+  public ResponseEntity<ApiResponse<MemberBookListResDTO>> getMemberBooks(
+      @RequestParam(defaultValue = "ALL") String status,
+      @RequestParam(defaultValue = "1") String page,
+      @RequestParam(defaultValue = "20") String size) {
+    MemberBookListResDTO response = bookQueryService.getMemberBooks(status, page, size);
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_LIST_FOUND, response));
   }
 
   @Override
