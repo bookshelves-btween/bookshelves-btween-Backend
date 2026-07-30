@@ -14,6 +14,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import lombok.AccessLevel;
@@ -22,6 +24,15 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
+@Table(
+    name = "notification",
+    uniqueConstraints = {
+      // 같은 회원에게 같은 사건의 알림이 두 번 쌓이는 것을 막는다. 조회 후 삽입만으로는 동시 실행에서
+      // 둘 다 없다고 읽어 각각 INSERT한다. related_id가 NULL인 취소 알림은 제약을 받지 않는다.
+      @UniqueConstraint(
+          name = "uk_notification_member_type_related",
+          columnNames = {"member_id", "type", "related_id"})
+    })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Notification extends BaseEntity {
 
