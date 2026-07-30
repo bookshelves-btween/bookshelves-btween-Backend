@@ -12,7 +12,6 @@ import com.bookshelves.domain.book.dto.response.BookSearchResDTO.BookInfo;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO.CategoryInfo;
 import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
-import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO.CalendarBook;
 import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO.CalendarDay;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO.MemberBookRecord;
@@ -167,12 +166,10 @@ public class BookQueryService {
 
   private MemberBookCalendarResDTO toMemberBookCalendarResDTO(
       YearMonth yearMonth, List<MemberBookHistory> histories) {
-    Map<LocalDate, Map<Long, MemberBookHistory>> historiesByDate = new LinkedHashMap<>();
+    Map<LocalDate, MemberBookHistory> historiesByDate = new LinkedHashMap<>();
     for (MemberBookHistory history : histories) {
       LocalDate date = history.getCreatedAt().toLocalDate();
-      historiesByDate
-          .computeIfAbsent(date, ignored -> new LinkedHashMap<>())
-          .put(history.getMemberBook().getId(), history);
+      historiesByDate.putIfAbsent(date, history);
     }
 
     List<CalendarDay> days =
@@ -181,21 +178,9 @@ public class BookQueryService {
                 entry ->
                     new CalendarDay(
                         entry.getKey(),
-                        entry.getValue().values().stream().map(this::toCalendarBook).toList()))
+                        entry.getValue().getMemberBook().getBook().getCoverImageUrl()))
             .toList();
     return new MemberBookCalendarResDTO(yearMonth.getYear(), yearMonth.getMonthValue(), days);
-  }
-
-  private CalendarBook toCalendarBook(MemberBookHistory history) {
-    MemberBook memberBook = history.getMemberBook();
-    Book book = memberBook.getBook();
-    return new CalendarBook(
-        history.getId(),
-        memberBook.getId(),
-        history.getProgress(),
-        book.getId(),
-        book.getTitle(),
-        book.getCoverImageUrl());
   }
 
   private YearMonth parseMemberBookCalendarYearMonth(String yearValue, String monthValue) {

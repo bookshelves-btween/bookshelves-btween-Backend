@@ -447,7 +447,7 @@ class BookQueryServiceTest {
   }
 
   @Test
-  void getMemberBookCalendarReturnsOnlyOwnRecordsAndLatestProgressForEachBookOnSameDay() {
+  void getMemberBookCalendarReturnsFirstRecordedBookCoverForEachDay() {
     MemberBook memberBook = mock(MemberBook.class);
     Book book = mock(Book.class);
     MemberBookHistory morningHistory = mock(MemberBookHistory.class);
@@ -462,19 +462,12 @@ class BookQueryServiceTest {
                 .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAsc(
                     7L, monthStart, nextMonthStart))
         .willReturn(List.of(morningHistory, afternoonHistory, nextDayHistory));
-    given(memberBook.getId()).willReturn(10L);
     given(memberBook.getBook()).willReturn(book);
-    given(book.getId()).willReturn(1L);
-    given(book.getTitle()).willReturn("아몬드");
     given(book.getCoverImageUrl()).willReturn("https://image.example.com/almond.jpg");
     given(morningHistory.getMemberBook()).willReturn(memberBook);
     given(morningHistory.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 14, 9, 0));
-    given(afternoonHistory.getMemberBook()).willReturn(memberBook);
-    given(afternoonHistory.getId()).willReturn(32L);
-    given(afternoonHistory.getProgress()).willReturn(70);
     given(afternoonHistory.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 14, 18, 0));
     given(nextDayHistory.getMemberBook()).willReturn(memberBook);
-    given(nextDayHistory.getProgress()).willReturn(100);
     given(nextDayHistory.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 15, 10, 0));
 
     MemberBookCalendarResDTO result = bookQueryService.getMemberBookCalendar("2026", "7");
@@ -483,11 +476,11 @@ class BookQueryServiceTest {
     assertThat(result.month()).isEqualTo(7);
     assertThat(result.days()).hasSize(2);
     assertThat(result.days().getFirst().date()).isEqualTo(LocalDate.of(2026, 7, 14));
-    assertThat(result.days().getFirst().books()).hasSize(1);
-    assertThat(result.days().getFirst().books().getFirst().historyId()).isEqualTo(32L);
-    assertThat(result.days().getFirst().books().getFirst().progress()).isEqualTo(70);
+    assertThat(result.days().getFirst().coverImageUrl())
+        .isEqualTo("https://image.example.com/almond.jpg");
     assertThat(result.days().getLast().date()).isEqualTo(LocalDate.of(2026, 7, 15));
-    assertThat(result.days().getLast().books().getFirst().progress()).isEqualTo(100);
+    assertThat(result.days().getLast().coverImageUrl())
+        .isEqualTo("https://image.example.com/almond.jpg");
   }
 
   @Test
