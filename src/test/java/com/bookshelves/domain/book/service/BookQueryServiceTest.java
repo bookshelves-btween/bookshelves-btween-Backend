@@ -16,15 +16,18 @@ import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookSearchR
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.entity.MemberBook;
+import com.bookshelves.domain.book.entity.MemberBookHistory;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
+import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
@@ -52,6 +55,7 @@ class BookQueryServiceTest {
   @Mock private CategoryRepository categoryRepository;
   @Mock private BookRepository bookRepository;
   @Mock private MemberBookRepository memberBookRepository;
+  @Mock private MemberBookHistoryRepository memberBookHistoryRepository;
   @Mock private KakaoBookSearchClient kakaoBookSearchClient;
   @Mock private Data4LibraryBookDetailClient data4LibraryBookDetailClient;
   @Mock private RecentBookSearchRepository recentBookSearchRepository;
@@ -440,6 +444,88 @@ class BookQueryServiceTest {
                     .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST));
 
     verifyNoInteractions(authenticationFacade, memberBookRepository);
+  }
+
+  @Test
+  void getMemberBookCalendarReturnsFirstRecordedBookCoverForEachDay() {
+    MemberBook memberBook = mock(MemberBook.class);
+    Book book = mock(Book.class);
+    MemberBookHistory morningHistory = mock(MemberBookHistory.class);
+    MemberBookHistory afternoonHistory = mock(MemberBookHistory.class);
+    MemberBookHistory nextDayHistory = mock(MemberBookHistory.class);
+    LocalDateTime monthStart = LocalDateTime.of(2026, 7, 1, 0, 0);
+    LocalDateTime nextMonthStart = LocalDateTime.of(2026, 8, 1, 0, 0);
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(
+            memberBookHistoryRepository
+                .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+                    7L, monthStart, nextMonthStart))
+        .willReturn(List.of(morningHistory, afternoonHistory, nextDayHistory));
+    given(memberBook.getBook()).willReturn(book);
+    given(book.getCoverImageUrl()).willReturn("https://image.example.com/almond.jpg");
+    given(morningHistory.getMemberBook()).willReturn(memberBook);
+    given(morningHistory.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 14, 9, 0));
+    given(afternoonHistory.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 14, 18, 0));
+    given(nextDayHistory.getMemberBook()).willReturn(memberBook);
+    given(nextDayHistory.getCreatedAt()).willReturn(LocalDateTime.of(2026, 7, 15, 10, 0));
+
+    MemberBookCalendarResDTO result = bookQueryService.getMemberBookCalendar("2026", "7");
+
+    assertThat(result.year()).isEqualTo(2026);
+    assertThat(result.month()).isEqualTo(7);
+    assertThat(result.days()).hasSize(2);
+    assertThat(result.days().getFirst().date()).isEqualTo(LocalDate.of(2026, 7, 14));
+    assertThat(result.days().getFirst().coverImageUrl())
+        .isEqualTo("https://image.example.com/almond.jpg");
+    assertThat(result.days().getLast().date()).isEqualTo(LocalDate.of(2026, 7, 15));
+    assertThat(result.days().getLast().coverImageUrl())
+        .isEqualTo("https://image.example.com/almond.jpg");
+
+    verify(memberBookHistoryRepository)
+        .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+            7L, monthStart, nextMonthStart);
+  }
+
+  @Test
+  void getMemberBookCalendarRejectsInvalidYearOrMonthBeforeAuthentication() {
+    assertThatThrownBy(() -> bookQueryService.getMemberBookCalendar("2026", "13"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST));
+    assertThatThrownBy(() -> bookQueryService.getMemberBookCalendar("year", "7"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST));
+    assertThatThrownBy(() -> bookQueryService.getMemberBookCalendar(null, "7"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST));
+
+    verifyNoInteractions(authenticationFacade, memberBookHistoryRepository);
+  }
+
+  @Test
+  void getMemberBookCalendarThrowsBookExceptionWhenDatabaseLookupFails() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(
+            memberBookHistoryRepository
+                .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+                    7L, LocalDateTime.of(2026, 7, 1, 0, 0), LocalDateTime.of(2026, 8, 1, 0, 0)))
+        .willThrow(new DataAccessResourceFailureException("database unavailable"));
+
+    assertThatThrownBy(() -> bookQueryService.getMemberBookCalendar("2026", "7"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.MEMBER_BOOK_CALENDAR_FAILED));
   }
 
   private Category category(Long id, String kdcCode, String name) {
