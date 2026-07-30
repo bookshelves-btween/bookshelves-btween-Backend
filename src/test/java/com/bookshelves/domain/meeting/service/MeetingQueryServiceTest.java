@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -76,37 +78,24 @@ class MeetingQueryServiceTest {
     return MeetingSummary.builder().axis(axis).title(title).content(title + " 본문").build();
   }
 
-  @Test
-  void getMeetingDetailReturnsStatusAndNullSummaryBeforeSummaryIsCompleted() {
+  // 완료 전에는 요약이 응답에 실리지 않으므로 조회할 이유도 없다.
+  @ParameterizedTest
+  @EnumSource(
+      value = MeetingStatus.class,
+      names = {"RECRUITING", "IN_PROGRESS"})
+  void getMeetingDetailSkipsSummaryLookupUntilMeetingIsCompleted(MeetingStatus status) {
     Long meetingId = 1L;
-    Meeting meeting = meeting(meetingId, MeetingStatus.RECRUITING);
+    Meeting meeting = meeting(meetingId, status);
 
     given(meetingRepository.findWithBookById(meetingId)).willReturn(Optional.of(meeting));
     given(chatRoomRepository.findByMeetingId(meetingId)).willReturn(Optional.empty());
-    given(meetingSummaryRepository.findAllByMeetingId(meetingId)).willReturn(List.of());
 
     MeetingDetailResDTO result = meetingQueryService.getMeetingDetail(meetingId);
 
     assertThat(result.chatroomId()).isNull();
-    assertThat(result.status()).isEqualTo(MeetingStatus.RECRUITING);
+    assertThat(result.status()).isEqualTo(status);
     assertThat(result.meetingSummary()).isNull();
-  }
-
-  @Test
-  void getMeetingDetailReturnsNullSummaryWhenMeetingIsNotCompleted() {
-    Long meetingId = 1L;
-    Meeting meeting = meeting(meetingId, MeetingStatus.IN_PROGRESS);
-
-    MeetingSummary meetingSummary = mock(MeetingSummary.class);
-    given(meetingRepository.findWithBookById(meetingId)).willReturn(Optional.of(meeting));
-    given(chatRoomRepository.findByMeetingId(meetingId)).willReturn(Optional.empty());
-    given(meetingSummaryRepository.findAllByMeetingId(meetingId))
-        .willReturn(List.of(meetingSummary));
-
-    MeetingDetailResDTO result = meetingQueryService.getMeetingDetail(meetingId);
-
-    assertThat(result.status()).isEqualTo(MeetingStatus.IN_PROGRESS);
-    assertThat(result.meetingSummary()).isNull();
+    verifyNoInteractions(meetingSummaryRepository);
   }
 
   @Test
