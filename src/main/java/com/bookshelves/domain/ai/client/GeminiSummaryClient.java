@@ -104,7 +104,9 @@ public class GeminiSummaryClient {
     if (json == null || json.isBlank()) {
       throw new IllegalStateException("Gemini 응답에서 요약을 추출하지 못했습니다.");
     }
-    log.debug("Gemini 요약 원문 응답: model={}, body={}", model, json);
+    // 응답 본문에는 참여자가 꺼낸 개인 경험이 그대로 담긴다. 로그 보존 범위로 새어나가지 않도록
+    // 길이와 모델명만 남긴다.
+    log.debug("Gemini 요약 응답 수신: model={}, length={}", model, json.length());
     return validate(parse(json));
   }
 
