@@ -9,8 +9,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.bookshelves.domain.ai.entity.AIQuestion;
 import com.bookshelves.domain.ai.entity.MeetingSummary;
+import com.bookshelves.domain.ai.enums.SummaryAxis;
 import com.bookshelves.domain.ai.repository.MeetingSummaryRepository;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.chat.entity.ChatRoom;
@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -49,58 +51,51 @@ class MeetingQueryServiceTest {
     Long meetingId = 1L;
     Meeting meeting = meeting(meetingId, MeetingStatus.COMPLETED);
     ChatRoom chatRoom = mock(ChatRoom.class);
-    MeetingSummary meetingSummary = mock(MeetingSummary.class);
-    AIQuestion aiQuestion = mock(AIQuestion.class);
 
     given(chatRoom.getId()).willReturn(10L);
-    given(meetingSummary.getAiQuestion()).willReturn(aiQuestion);
-    given(meetingSummary.getContent()).willReturn("참여자들의 의견을 요약한 내용");
-    given(aiQuestion.getQuestionOrder()).willReturn(1);
-    given(aiQuestion.getContent()).willReturn("가장 인상 깊었던 장면은 무엇인가요?");
     given(meetingRepository.findWithBookById(meetingId)).willReturn(Optional.of(meeting));
     given(chatRoomRepository.findByMeetingId(meetingId)).willReturn(Optional.of(chatRoom));
-    given(meetingSummaryRepository.findAllByMeetingIdOrderByQuestionOrder(meetingId))
-        .willReturn(List.of(meetingSummary));
+    // 저장 순서가 축 순서와 다르게 돌아와도 응답은 축 표시 순서로 정렬돼야 한다
+    given(meetingSummaryRepository.findAllByMeetingId(meetingId))
+        .willReturn(
+            List.of(
+                summary(SummaryAxis.LIFE_LINK, "삶과 연결"),
+                summary(SummaryAxis.KEY_ARGUMENT, "핵심 논점"),
+                summary(SummaryAxis.REACTION, "참여자 반응")));
 
     MeetingDetailResDTO result = meetingQueryService.getMeetingDetail(meetingId);
 
     assertThat(result.chatroomId()).isEqualTo(10L);
     assertThat(result.status()).isEqualTo(MeetingStatus.COMPLETED);
-    assertThat(result.meetingSummary()).hasSize(1);
-    assertThat(result.meetingSummary().getFirst().questionOrder()).isEqualTo(1);
+    // 프론트가 주제 3칸을 그리므로 완료된 모임은 항상 3개가 나가야 한다
+    assertThat(result.meetingSummary()).hasSize(3);
+    assertThat(result.meetingSummary())
+        .extracting(MeetingDetailResDTO.SummaryInfo::title)
+        .containsExactly("핵심 논점", "참여자 반응", "삶과 연결");
   }
 
-  @Test
-  void getMeetingDetailReturnsStatusAndNullSummaryBeforeSummaryIsCompleted() {
+  private MeetingSummary summary(SummaryAxis axis, String title) {
+    return MeetingSummary.builder().axis(axis).title(title).content(title + " 본문").build();
+  }
+
+  // 완료 전에는 요약이 응답에 실리지 않으므로 조회할 이유도 없다.
+  @ParameterizedTest
+  @EnumSource(
+      value = MeetingStatus.class,
+      names = {"RECRUITING", "IN_PROGRESS"})
+  void getMeetingDetailSkipsSummaryLookupUntilMeetingIsCompleted(MeetingStatus status) {
     Long meetingId = 1L;
-    Meeting meeting = meeting(meetingId, MeetingStatus.RECRUITING);
+    Meeting meeting = meeting(meetingId, status);
 
     given(meetingRepository.findWithBookById(meetingId)).willReturn(Optional.of(meeting));
     given(chatRoomRepository.findByMeetingId(meetingId)).willReturn(Optional.empty());
-    given(meetingSummaryRepository.findAllByMeetingIdOrderByQuestionOrder(meetingId))
-        .willReturn(List.of());
 
     MeetingDetailResDTO result = meetingQueryService.getMeetingDetail(meetingId);
 
     assertThat(result.chatroomId()).isNull();
-    assertThat(result.status()).isEqualTo(MeetingStatus.RECRUITING);
+    assertThat(result.status()).isEqualTo(status);
     assertThat(result.meetingSummary()).isNull();
-  }
-
-  @Test
-  void getMeetingDetailReturnsNullSummaryWhenMeetingIsNotCompleted() {
-    Long meetingId = 1L;
-    Meeting meeting = meeting(meetingId, MeetingStatus.IN_PROGRESS);
-
-    given(meetingRepository.findWithBookById(meetingId)).willReturn(Optional.of(meeting));
-    given(chatRoomRepository.findByMeetingId(meetingId)).willReturn(Optional.empty());
-    given(meetingSummaryRepository.findAllByMeetingIdOrderByQuestionOrder(meetingId))
-        .willReturn(List.of(mock(MeetingSummary.class)));
-
-    MeetingDetailResDTO result = meetingQueryService.getMeetingDetail(meetingId);
-
-    assertThat(result.status()).isEqualTo(MeetingStatus.IN_PROGRESS);
-    assertThat(result.meetingSummary()).isNull();
+    verifyNoInteractions(meetingSummaryRepository);
   }
 
   @Test
