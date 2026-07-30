@@ -593,4 +593,40 @@ public interface BookControllerDocs {
       @Parameter(description = "ISBN10 또는 ISBN13", example = "9788936434595", required = true)
           String isbn,
       @Valid MemberBookUpsertReqDTO request);
+
+  @Operation(
+      summary = "내 서재 독서 기록 삭제",
+      description = "로그인한 회원의 ISBN 기준 독서 기록과 진행률 이력을 삭제합니다. 책 자체는 삭제하지 않습니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "독서 기록 삭제 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_9",
+                              "message": "독서 기록 삭제에 성공했습니다.",
+                              "result": null
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "유효하지 않은 ISBN"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 필요"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "내 서재 독서 기록을 찾을 수 없음")
+  })
+  ResponseEntity<ApiResponse<Void>> deleteMemberBook(
+      @Parameter(description = "ISBN10 또는 ISBN13", example = "9788936434595", required = true)
+          String isbn);
 }

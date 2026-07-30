@@ -13,6 +13,8 @@ public interface MemberBookRepository extends JpaRepository<MemberBook, Long> {
 
   Optional<MemberBook> findByMemberIdAndBookId(Long memberId, Long bookId);
 
+  Optional<MemberBook> findByMemberIdAndBookIsbn(Long memberId, String isbn);
+
   @EntityGraph(attributePaths = "book")
   Page<MemberBook> findByMemberId(Long memberId, Pageable pageable);
 
