@@ -24,7 +24,7 @@ public final class NotificationConverter {
         notificationPage.hasNext());
   }
 
-  private static NotificationInfo toNotificationInfo(Notification notification) {
+  public static NotificationInfo toNotificationInfo(Notification notification) {
     return new NotificationInfo(
         notification.getId(),
         notification.getType(),

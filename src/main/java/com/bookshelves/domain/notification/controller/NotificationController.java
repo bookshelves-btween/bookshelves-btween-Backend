@@ -2,6 +2,7 @@ package com.bookshelves.domain.notification.controller;
 
 import com.bookshelves.domain.notification.code.NotificationSuccessCode;
 import com.bookshelves.domain.notification.dto.request.FcmTokenRegisterRequest;
+import com.bookshelves.domain.notification.dto.response.NewNotificationResponse;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
 import com.bookshelves.domain.notification.dto.response.NotificationReadResponse;
 import com.bookshelves.domain.notification.service.NotificationCommandService;
@@ -46,6 +47,18 @@ public class NotificationController implements NotificationControllerDocs {
 
     return ResponseEntity.ok(
         ApiResponse.onSuccess(NotificationSuccessCode.NOTIFICATION_LIST_FOUND, response));
+  }
+
+  @Override
+  public ResponseEntity<ApiResponse<NewNotificationResponse>> getNewNotifications(
+      @RequestParam(name = "afterId") Long afterId,
+      @RequestParam(name = "size", defaultValue = "20") Integer size) {
+    NewNotificationResponse response =
+        notificationQueryService.getNewNotifications(
+            authenticationFacade.getCurrentMemberId(), afterId, size);
+
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(NotificationSuccessCode.NEW_NOTIFICATIONS_FOUND, response));
   }
 
   @Override

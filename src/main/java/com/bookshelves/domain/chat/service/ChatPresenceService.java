@@ -1,6 +1,6 @@
 package com.bookshelves.domain.chat.service;
 
-import com.bookshelves.domain.ai.service.AIQuestionGenerationService;
+import com.bookshelves.domain.ai.service.QuestionRevealService;
 import com.bookshelves.domain.ai.service.QuestionVoteStore;
 import com.bookshelves.domain.chat.dto.ChatFrame;
 import com.bookshelves.domain.chat.dto.ChatParticipantPayload;
@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Service;
 // LEFT는 즉시 내보내지 않고 유예(grace)를 둔다 — 마지막 구독이 끊겨도 유예 시간 안에
 // 재접속하면 LEFT 없이 presence를 유지한다. iOS 백그라운드 전환처럼 짧게 끊겼다 돌아오는
 // 경우에 connected 숫자가 깜빡이는 것을 막는다. 유예 동안에도 회원을 접속자로 계속 센다.
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatPresenceService {
@@ -37,7 +39,7 @@ public class ChatPresenceService {
   private final MemberRepository memberRepository;
   private final SimpMessagingTemplate messagingTemplate;
   private final QuestionVoteStore questionVoteStore;
-  private final AIQuestionGenerationService aiQuestionGenerationService;
+  private final QuestionRevealService questionRevealService;
   // 필드명이 빈 이름(webSocketTaskScheduler)과 일치 → 브로커 자체 스케줄러와 구분해 주입
   private final ThreadPoolTaskScheduler webSocketTaskScheduler;
 
@@ -171,36 +173,64 @@ public class ChatPresenceService {
   }
 
   // 유예 시간이 지나도 재접속이 없으면 실제 LEFT를 확정한다.
-  private synchronized void finalizeLeave(
-      Long chatroomId, Long memberId, ScheduledFuture<?> expected) {
-    Map<Long, ScheduledFuture<?>> pending = pendingLeaveByChatroom.get(chatroomId);
-    if (pending == null || pending.get(memberId) != expected) {
-      // 재접속으로 취소됐거나, 해제→재접속→재해제로 새 타이머가 등록된 경우 — 이 태스크는 무시
-      return;
+  //
+  // presence 판정·정리·LEFT 전파·정족수 재판정은 전부 락 안에서 한 덩어리로 끝내고,
+  // 질문 공개(revealNext)만 락 밖으로 뺀다. 그 하나만 모임 행 비관적 락을 거는 DB 트랜잭션이라,
+  // 락을 쥔 채 기다리면 무관한 채팅방의 입장·퇴장·접속자 조회까지 그 시간만큼 멈춘다.
+  //
+  // 나머지를 락 밖으로 빼면 안 된다. pending에서 지운 뒤 락을 풀면 그 사이 같은 회원이 재접속해
+  // JOINED가 먼저 나가고 낡은 LEFT가 뒤따르고, 빈 방 판정과 라운드 무효화 사이에 끼어든 표가
+  // 함께 지워진다. expected 비교는 이미 지운 뒤의 재접속을 잡지 못한다.
+  //
+  // 판정 시점 이후 방이 비더라도 안전하다. 방을 비우는 쪽이 라운드를 무효화하므로,
+  // 뒤늦게 도착한 revealNext는 세대 불일치로 아무것도 공개하지 않는다.
+  private void finalizeLeave(Long chatroomId, Long memberId, ScheduledFuture<?> expected) {
+    Integer roundToReveal;
+    synchronized (this) {
+      Map<Long, ScheduledFuture<?>> pending = pendingLeaveByChatroom.get(chatroomId);
+      if (pending == null || pending.get(memberId) != expected) {
+        // 재접속으로 취소됐거나, 해제→재접속→재해제로 새 타이머가 등록된 경우 — 이 태스크는 무시
+        return;
+      }
+
+      pending.remove(memberId);
+      if (pending.isEmpty()) {
+        pendingLeaveByChatroom.remove(chatroomId);
+      }
+
+      broadcastParticipant(chatroomId, memberId, EVENT_LEFT);
+      roundToReveal = quorumRoundToReveal(chatroomId);
     }
 
-    pending.remove(memberId);
-    if (pending.isEmpty()) {
-      pendingLeaveByChatroom.remove(chatroomId);
+    if (roundToReveal == null) {
+      return;
     }
-    broadcastParticipant(chatroomId, memberId, EVENT_LEFT);
-    reevaluateQuorum(chatroomId);
+    // 이 메서드는 LEFT 유예 타이머 스레드에서 실행된다 — DB 실패가 presence 정리를 되돌리면 안 된다
+    try {
+      questionRevealService.revealNext(chatroomId, roundToReveal);
+    } catch (Exception e) {
+      log.error("정족수 재판정 중 질문 공개 실패: chatroomId={}", chatroomId, e);
+    }
   }
 
   // 명세 "정족수 즉시 재판정" — LEFT로 connected가 줄어 requiredVotes가 내려갔을 때,
-  // 이미 모인 표가 새 정족수를 충족하면 그 자리에서 질문 생성을 시작한다.
-  private void reevaluateQuorum(Long chatroomId) {
+  // 이미 모인 표가 새 정족수를 충족하면 다음 질문을 공개해야 한다.
+  // 공개할 라운드 번호를 돌려주고, 공개할 필요가 없으면 null. 호출자가 락을 쥔 채로 부른다.
+  private Integer quorumRoundToReveal(Long chatroomId) {
     if (countConnected(chatroomId) == 0) {
-      // 방이 비면 라운드 자체가 무의미 — 남은 표를 정리하고 재판정하지 않는다
-      questionVoteStore.clearVotes(chatroomId);
-      return;
+      // 방이 비면 라운드 자체가 무의미 — 표를 버리고 라운드도 무효화한다.
+      // 표만 지우면, 지우기 전에 정족수를 판정해 둔 요청이 재접속 이후의 새 표를 같은 라운드로 보고 소비한다.
+      questionVoteStore.invalidateRound(chatroomId);
+      return null;
     }
 
     int requiredVotes = requiredVotes(chatroomId);
-    int currentVotes = questionVoteStore.countVotes(chatroomId);
-    if (currentVotes >= 1 && currentVotes >= requiredVotes) {
-      aiQuestionGenerationService.requestGeneration(chatroomId, requiredVotes);
+    // 표 수와 라운드를 같은 스냅샷에서 읽는다 — 투표 경로가 먼저 공개했다면 이 판정은 무효가 되어야 한다
+    QuestionVoteStore.VoteRound voteRound = questionVoteStore.snapshot(chatroomId);
+    if (voteRound.votes() >= 1 && voteRound.votes() >= requiredVotes) {
+      return voteRound.round();
     }
+    return null;
   }
 
   private void broadcastParticipant(Long chatroomId, Long memberId, String event) {

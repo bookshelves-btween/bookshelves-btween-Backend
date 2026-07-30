@@ -4,6 +4,9 @@ import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
 import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookStatisticsResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.exception.code.BookSuccessCode;
@@ -13,6 +16,7 @@ import com.bookshelves.global.apiPayload.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -39,8 +43,9 @@ public class BookController implements BookControllerDocs {
   public ResponseEntity<ApiResponse<BookSearchResDTO>> searchExternalBooks(
       @RequestParam(required = false) String query,
       @RequestParam(defaultValue = "1") String page,
-      @RequestParam(defaultValue = "15") String size) {
-    BookSearchResDTO response = bookQueryService.searchExternalBooks(query, page, size);
+      @RequestParam(defaultValue = "15") String size,
+      @RequestParam(defaultValue = "true") boolean saveRecent) {
+    BookSearchResDTO response = bookQueryService.searchExternalBooks(query, page, size, saveRecent);
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.EXTERNAL_BOOK_SEARCHED, response));
   }
@@ -61,6 +66,35 @@ public class BookController implements BookControllerDocs {
   }
 
   @Override
+  @GetMapping("/api/v1/member-books/calendar")
+  public ResponseEntity<ApiResponse<MemberBookCalendarResDTO>> getMemberBookCalendar(
+      @RequestParam(required = false) String year, @RequestParam(required = false) String month) {
+    MemberBookCalendarResDTO response = bookQueryService.getMemberBookCalendar(year, month);
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_CALENDAR_FOUND, response));
+  }
+
+  @Override
+  @GetMapping("/api/v1/member-books/statistics")
+  public ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics(
+      @RequestParam(required = false) String year, @RequestParam(required = false) String month) {
+    MemberBookStatisticsResDTO response = bookQueryService.getMemberBookStatistics(year, month);
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_STATISTICS_FOUND, response));
+  }
+
+  @Override
+  @GetMapping("/api/v1/member-books")
+  public ResponseEntity<ApiResponse<MemberBookListResDTO>> getMemberBooks(
+      @RequestParam(defaultValue = "ALL") String status,
+      @RequestParam(defaultValue = "1") String page,
+      @RequestParam(defaultValue = "20") String size) {
+    MemberBookListResDTO response = bookQueryService.getMemberBooks(status, page, size);
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_LIST_FOUND, response));
+  }
+
+  @Override
   @PutMapping("/api/v1/member-books/{isbn}")
   public ResponseEntity<ApiResponse<MemberBookUpsertResDTO>> upsertMemberBook(
       @PathVariable String isbn, @Valid @RequestBody MemberBookUpsertReqDTO request) {
@@ -73,5 +107,12 @@ public class BookController implements BookControllerDocs {
 
     return ResponseEntity.status(successCode.getStatus())
         .body(ApiResponse.onSuccess(successCode, result.response()));
+  }
+
+  @Override
+  @DeleteMapping("/api/v1/member-books/{isbn}")
+  public ResponseEntity<ApiResponse<Void>> deleteMemberBook(@PathVariable String isbn) {
+    bookCommandService.deleteMemberBook(isbn);
+    return ResponseEntity.ok(ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_DELETED, null));
   }
 }

@@ -24,6 +24,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Meeting extends BaseEntity {
 
+  public static final int MIN_PARTICIPANTS = 3;
+  public static final int RECRUITMENT_CLOSE_HOURS_BEFORE_START = 6;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -51,6 +54,15 @@ public class Meeting extends BaseEntity {
   @Column(name = "status", nullable = false)
   private MeetingStatus status = MeetingStatus.RECRUITING;
 
+  // 현재 참여자에게 공개된 AI 질문의 question_order. 0 = 아직 공개 전(모임 시작 전).
+  // 질문 5개는 모임 시작 전에 미리 저장되므로 "저장된 행 수"가 진행도를 뜻하지 않는다 — 커서로 분리한다.
+  // 기존 행에도 값이 필요해 DB 기본값 0을 함께 지정한다(ddl-auto가 컬럼을 추가할 때 적용).
+  @Column(
+      name = "current_question_order",
+      nullable = false,
+      columnDefinition = "INT NOT NULL DEFAULT 0")
+  private Integer currentQuestionOrder = 0;
+
   @Builder
   private Meeting(Book book, LocalDateTime startDate, Integer duration, Integer maxParticipants) {
     this.book = book;
@@ -60,6 +72,7 @@ public class Meeting extends BaseEntity {
     this.curParticipants = 0;
     this.realParticipants = 0;
     this.status = MeetingStatus.RECRUITING;
+    this.currentQuestionOrder = 0;
   }
 
   public void addParticipant() {
@@ -71,6 +84,33 @@ public class Meeting extends BaseEntity {
 
   public void complete() {
     this.status = MeetingStatus.COMPLETED;
+  }
+
+  // 시작과 동시에 1번 질문을 공개한다 — IN_PROGRESS인데 표시할 질문이 없는 구간을 만들지 않는다
+  public void start() {
+    this.status = MeetingStatus.IN_PROGRESS;
+    this.currentQuestionOrder = 1;
+  }
+
+  /** 다음 질문을 공개한다. 상한(질문 수) 판단은 호출부가 한다. */
+  public void revealNextQuestion() {
+    this.currentQuestionOrder++;
+  }
+
+  public void closeRecruitment() {
+    this.status = MeetingStatus.RECRUIT_CLOSED;
+  }
+
+  public boolean canStart() {
+    return this.curParticipants >= MIN_PARTICIPANTS;
+  }
+
+  public LocalDateTime getRecruitmentCloseDate() {
+    return this.startDate.minusHours(RECRUITMENT_CLOSE_HOURS_BEFORE_START);
+  }
+
+  public boolean isRecruitmentClosedAt(LocalDateTime now) {
+    return !getRecruitmentCloseDate().isAfter(now);
   }
 
   // 종료 시각 = 시작 시각 + 진행 시간(분)

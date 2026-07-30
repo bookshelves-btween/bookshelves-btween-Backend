@@ -84,9 +84,6 @@ public final class MeetingConverter {
   }
 
   private static SummaryInfo toSummaryInfo(MeetingSummary meetingSummary) {
-    return new SummaryInfo(
-        meetingSummary.getAiQuestion().getQuestionOrder(),
-        meetingSummary.getAiQuestion().getContent(),
-        meetingSummary.getContent());
+    return new SummaryInfo(meetingSummary.getTitle(), meetingSummary.getContent());
   }
 }

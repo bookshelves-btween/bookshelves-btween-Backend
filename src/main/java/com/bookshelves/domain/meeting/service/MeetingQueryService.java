@@ -13,6 +13,7 @@ import com.bookshelves.domain.meeting.exception.MeetingException;
 import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -43,8 +44,13 @@ public class MeetingQueryService {
             .findByMeetingId(meetingId)
             .map(chatRoom -> chatRoom.getId())
             .orElse(null);
+    // 요약은 완료된 모임에서만 응답에 실린다. 그 전에는 조회 자체를 건너뛴다.
     List<MeetingSummary> summaries =
-        meetingSummaryRepository.findAllByMeetingIdOrderByQuestionOrder(meetingId);
+        meeting.getStatus() == MeetingStatus.COMPLETED
+            ? meetingSummaryRepository.findAllByMeetingId(meetingId).stream()
+                .sorted(Comparator.comparingInt(summary -> summary.getAxis().getDisplayOrder()))
+                .toList()
+            : List.of();
 
     return MeetingConverter.toMeetingDetailResDTO(meeting, chatroomId, summaries);
   }

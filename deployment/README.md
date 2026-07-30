@@ -250,7 +250,59 @@ bash scripts/backup-mysql.sh
 
 스크립트는 `.env`의 RDS 접속 정보를 사용하며 기본 경로는 `/opt/bookshelf/backups/mysql`, 기본 보관 기간은 7일입니다. EC2 디스크의 SQL 덤프는 보조 사본일 뿐이므로 이후 S3 업로드와 RDS 복구 테스트를 추가해야 합니다.
 
-## 10. 중요한 제한과 다음 단계
+## 10. 스키마 관리와 Flyway
+
+스키마를 만드는 주체는 Flyway 하나입니다. 애플리케이션은 로컬과 운영 모두 `ddl-auto: validate`로 동작하므로 Hibernate는 테이블을 만들지도 고치지도 않고, 엔티티와 실제 스키마가 다르면 기동을 중단합니다.
+
+따라서 엔티티에 테이블이나 컬럼을 추가하면 `src/main/resources/db/migration`에 마이그레이션을 함께 작성해야 합니다. 빠뜨리면 로컬에서 바로 기동 실패로 드러납니다.
+
+### 새 환경에 처음 배포할 때
+
+빈 데이터베이스에 그대로 배포하면 됩니다. `V1__baseline_schema.sql`이 전체 스키마와 카테고리 마스터를 세우고, 이후 마이그레이션이 순서대로 적용됩니다. 별도 준비가 필요 없습니다.
+
+### 기존 이력이 남은 데이터베이스를 베이스라인으로 전환할 때
+
+이미 운영 중인 데이터베이스의 `flyway_schema_history`에 옛 마이그레이션 이력이 남아 있는 상태에서 마이그레이션 파일을 교체하면, Flyway가 기록된 체크섬과 새 파일을 대조해 기동을 중단시킵니다. `baseline-on-migrate: true`는 이력이 아예 없는 데이터베이스에만 적용되며 기존 이력의 체크섬을 재설정하지 않습니다.
+
+전환에는 데이터베이스 재생성이 필요합니다. 데이터 손실을 감수할 수 있을 때만 가능한 절차이므로, 데이터가 쌓이기 전에 수행해야 합니다.
+
+1. 데이터가 실제로 비어 있는지 확인합니다. 주요 테이블의 행 수를 직접 셉니다.
+
+    ```bash
+    cd /opt/bookshelf/runtime
+    sudo bash -c 'set -a; . .env; set +a; mysql -h "$MYSQL_HOST" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -t \
+      -e "SELECT (SELECT COUNT(*) FROM member) AS cnt_member, (SELECT COUNT(*) FROM meeting) AS cnt_meeting, (SELECT COUNT(*) FROM chat_message) AS cnt_chat"'
+    ```
+
+2. 덤프를 남깁니다. 비어 있더라도 되돌릴 수 있는 사본을 확보합니다.
+
+    ```bash
+    bash scripts/backup-mysql.sh
+    ```
+
+3. 애플리케이션 컨테이너를 정지합니다. 스키마를 지우는 동안 애플리케이션이 붙어 있으면 계속 오류를 냅니다.
+
+    ```bash
+    docker compose --env-file .env stop app
+    ```
+
+4. 스키마를 드롭하고 다시 만듭니다. `flyway_schema_history`도 이때 함께 사라집니다.
+
+5. 새 베이스라인이 포함된 이미지로 배포합니다. Flyway가 처음부터 전체 스키마를 세웁니다.
+
+    ```bash
+    bash scripts/deploy.sh
+    ```
+
+6. 적용 결과를 확인합니다. 로그에 마이그레이션 적용과 기동 성공이 함께 보여야 합니다.
+
+    ```bash
+    docker compose --env-file .env logs app | grep -E "Successfully applied|Started"
+    ```
+
+로컬 개발 환경도 같은 이유로 한 번 비워야 합니다. Hibernate가 만든 기존 로컬 데이터베이스에는 베이스라인 이력이 없어 그대로 두면 기동되지 않습니다.
+
+## 11. 중요한 제한과 다음 단계
 
 - HTTPS에는 실제 도메인과 신뢰 가능한 인증서가 필요합니다. 현재 Compose는 인증서 파일을 Nginx에 읽기 전용으로 연결하며 80번 요청을 443번으로 리다이렉트합니다. 인증서 자동 갱신은 별도로 구성해야 합니다.
 - RDS MySQL은 Private Database Subnet에 배치하고 EC2 Security Group에서만 접근을 허용합니다. Redis 포트도 인터넷에 노출하지 않습니다.

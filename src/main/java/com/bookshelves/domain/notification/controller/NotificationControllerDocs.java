@@ -1,6 +1,7 @@
 package com.bookshelves.domain.notification.controller;
 
 import com.bookshelves.domain.notification.dto.request.FcmTokenRegisterRequest;
+import com.bookshelves.domain.notification.dto.response.NewNotificationResponse;
 import com.bookshelves.domain.notification.dto.response.NotificationListResponse;
 import com.bookshelves.domain.notification.dto.response.NotificationReadResponse;
 import com.bookshelves.global.apiPayload.ApiResponse;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "알림", description = "알림 API")
 public interface NotificationControllerDocs {
@@ -217,6 +219,74 @@ public interface NotificationControllerDocs {
           @Min(value = 1, message = "페이지는 1 이상이어야 합니다.")
           Integer page,
       @Parameter(description = "한 페이지당 조회할 알림 개수", example = "20")
+          @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
+          @Max(value = 50, message = "페이지 크기는 50 이하여야 합니다.")
+          Integer size);
+
+  @Operation(
+      summary = "새 알림 조회",
+      description = "인증된 사용자의 알림 중 afterId보다 ID가 큰 알림을 ID 오름차순으로 조회합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "새 알림 조회 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": true,
+                "code": "NOTI200_4",
+                "message": "새 알림 조회에 성공했습니다.",
+                "result": {
+                  "notifications": [
+                    {
+                      "id": 102,
+                      "type": "MEETING_STARTED",
+                      "title": "아몬드 독서 모임이 시작되었어요",
+                      "content": "지금 모임에 참여해보세요",
+                      "isRead": false,
+                      "targetId": 12,
+                      "createdAt": "2026-07-29T20:00:00"
+                    }
+                  ],
+                  "nextCursor": 102,
+                  "hasNext": true
+                }
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "afterId 또는 size 요청값 검증 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "COMMON400_1",
+                "message": "잘못된 요청입니다.",
+                "result": {}
+              }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "access token이 없거나 만료·서명 불일치 등으로 유효하지 않음")
+  })
+  @GetMapping("/api/v1/notifications/new")
+  ResponseEntity<ApiResponse<NewNotificationResponse>> getNewNotifications(
+      @Parameter(description = "마지막으로 확인한 알림 ID", example = "101")
+          @Min(value = 0, message = "afterId는 0 이상이어야 합니다.")
+          @RequestParam(name = "afterId")
+          Long afterId,
+      @Parameter(description = "한 번에 조회할 새 알림 개수", example = "20")
           @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
           @Max(value = 50, message = "페이지 크기는 50 이하여야 합니다.")
           Integer size);

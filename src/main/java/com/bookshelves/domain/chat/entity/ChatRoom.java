@@ -33,4 +33,10 @@ public class ChatRoom extends BaseEntity {
   @OneToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "meeting_id", nullable = false)
   private Meeting meeting;
+
+  public static ChatRoom create(Meeting meeting) {
+    ChatRoom chatRoom = new ChatRoom();
+    chatRoom.meeting = meeting;
+    return chatRoom;
+  }
 }
