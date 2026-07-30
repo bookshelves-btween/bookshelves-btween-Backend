@@ -27,6 +27,6 @@ public record MeetingDetailResDTO(
       String coverImageUrl,
       String kdcName) {}
 
-  @Schema(description = "질문별 모임 요약")
-  public record SummaryInfo(Integer questionOrder, String question, String summary) {}
+  @Schema(description = "모임 요약 주제")
+  public record SummaryInfo(String title, String summary) {}
 }
