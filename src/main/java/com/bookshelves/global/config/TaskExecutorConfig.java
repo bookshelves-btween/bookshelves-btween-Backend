@@ -20,4 +20,17 @@ public class TaskExecutorConfig {
     executor.initialize();
     return executor;
   }
+
+  // 요약 생성 전용. 질문 생성과 큐를 나눠 한쪽이 밀려도 다른 쪽이 막히지 않게 한다.
+  // 요약은 대화 전체를 입력으로 넣어 호출이 길다.
+  @Bean
+  public ThreadPoolTaskExecutor meetingSummaryTaskExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(4);
+    executor.setQueueCapacity(100);
+    executor.setThreadNamePrefix("meeting-summary-");
+    executor.initialize();
+    return executor;
+  }
 }

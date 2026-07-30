@@ -35,7 +35,8 @@ public class MeetingTerminationService {
   private final ApplicationEventPublisher eventPublisher;
 
   // 커밋 후 broadcast를 위해 사용하는 내부 이벤트
-  public record MeetingEndedEvent(Long chatroomId) {}
+  // meetingId는 요약 준비가 쓴다. 종료된 모임의 대화와 질문을 찾으려면 모임 식별자가 필요하다.
+  public record MeetingEndedEvent(Long chatroomId, Long meetingId) {}
 
   // 스케줄러가 넘긴 엔티티는 detached이므로 트랜잭션 안에서 ID로 다시 로드해 관리 상태로 만든다.
   // 비관적 락(findByIdForUpdate)으로 종료 처리를 직렬화한다 — 다중 인스턴스/재실행에서 두 트랜잭션이
@@ -64,7 +65,9 @@ public class MeetingTerminationService {
     chatRoomRepository
         .findByMeetingId(meeting.getId())
         .ifPresent(
-            chatRoom -> eventPublisher.publishEvent(new MeetingEndedEvent(chatRoom.getId())));
+            chatRoom ->
+                eventPublisher.publishEvent(
+                    new MeetingEndedEvent(chatRoom.getId(), meeting.getId())));
   }
 
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
