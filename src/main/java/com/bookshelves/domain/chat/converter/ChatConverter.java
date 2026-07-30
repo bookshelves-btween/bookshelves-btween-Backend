@@ -7,16 +7,14 @@ import com.bookshelves.domain.chat.entity.ChatMessage;
 import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.member.entity.Member;
+import com.bookshelves.global.util.ServiceTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ChatConverter {
-
-  private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
 
   public static ChatMessage toChatMessage(ChatRoom chatRoom, Member sender, String content) {
     return ChatMessage.builder().chatRoom(chatRoom).senderMember(sender).message(content).build();
@@ -70,6 +68,6 @@ public class ChatConverter {
   }
 
   private static OffsetDateTime toOffset(java.time.LocalDateTime dateTime) {
-    return dateTime == null ? null : dateTime.atZone(SERVICE_ZONE).toOffsetDateTime();
+    return dateTime == null ? null : dateTime.atZone(ServiceTime.ZONE).toOffsetDateTime();
   }
 }

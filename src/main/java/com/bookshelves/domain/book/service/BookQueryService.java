@@ -32,6 +32,7 @@ import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
 import com.bookshelves.global.security.AuthenticationFacade;
+import com.bookshelves.global.util.ServiceTime;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DateTimeException;
@@ -39,7 +40,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -63,7 +63,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class BookQueryService {
 
-  private static final ZoneId SEOUL_ZONE_ID = ZoneId.of("Asia/Seoul");
   private static final int DESCRIPTION_PREVIEW_LENGTH = 126;
   private static final String DESCRIPTION_SUFFIX = "...";
 
@@ -195,7 +194,7 @@ public class BookQueryService {
   }
 
   private YearMonth parseMemberBookStatisticsYearMonth(String yearValue, String monthValue) {
-    YearMonth now = YearMonth.now(SEOUL_ZONE_ID);
+    YearMonth now = YearMonth.now(ServiceTime.ZONE);
     try {
       int year = yearValue == null ? now.getYear() : Integer.parseInt(yearValue);
       int month = monthValue == null ? now.getMonthValue() : Integer.parseInt(monthValue);
@@ -459,7 +458,7 @@ public class BookQueryService {
     return new RecentSearchInfo(
         recentSearch.keyword(),
         Instant.ofEpochMilli(recentSearch.searchedAtEpochMillis())
-            .atZone(SEOUL_ZONE_ID)
+            .atZone(ServiceTime.ZONE)
             .toOffsetDateTime());
   }
 

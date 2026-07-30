@@ -3,6 +3,7 @@ package com.bookshelves.domain.book.repository;
 import com.bookshelves.domain.book.entity.Book;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -42,4 +43,9 @@ public interface BookRepository extends JpaRepository<Book, Long> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select book from Book book where book.isbn = :isbn")
   Optional<Book> findByIsbnForUpdate(@Param("isbn") String isbn);
+
+  // 오늘의 추천 후보를 고르기 위한 조회. 엔티티가 아니라 ID만 읽어 하루 한 번 도는 스케줄러가
+  // 책 전체를 메모리에 올리지 않게 한다.
+  @Query("select book.id from Book book")
+  List<Long> findAllIds();
 }
