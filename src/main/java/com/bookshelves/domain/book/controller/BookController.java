@@ -75,8 +75,9 @@ public class BookController implements BookControllerDocs {
 
   @Override
   @GetMapping("/api/v1/member-books/statistics")
-  public ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics() {
-    MemberBookStatisticsResDTO response = bookQueryService.getMemberBookStatistics();
+  public ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics(
+      @RequestParam(required = false) String year, @RequestParam(required = false) String month) {
+    MemberBookStatisticsResDTO response = bookQueryService.getMemberBookStatistics(year, month);
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_STATISTICS_FOUND, response));
   }

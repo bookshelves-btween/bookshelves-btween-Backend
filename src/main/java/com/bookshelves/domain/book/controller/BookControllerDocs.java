@@ -42,12 +42,22 @@ public interface BookControllerDocs {
                               "code": "BOOK200_8",
                               "message": "독서 통계 조회에 성공했습니다.",
                               "result": {
+                                "year": 2026,
+                                "month": 6,
                                 "completedBookCount": 24,
                                 "reviewCount": 17,
-                                "averageRating": 4.0
+                                "averageRating": 4.0,
+                                "categoryStatistics": [
+                                  { "name": "한국 문학", "count": 14, "percentage": 58 },
+                                  { "name": "영미문학", "count": 6, "percentage": 25 },
+                                  { "name": "심리학", "count": 4, "percentage": 17 }
+                                ]
                               }
                             }
                             """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "year 또는 month 값 오류"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
         description = "인증 필요"),
@@ -55,7 +65,9 @@ public interface BookControllerDocs {
         responseCode = "500",
         description = "독서 통계 조회 실패 (BOOK500_5)")
   })
-  ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics();
+  ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics(
+      @Parameter(description = "조회 연도. 없으면 현재 연도", example = "2026") String year,
+      @Parameter(description = "조회 월. 없으면 현재 월", example = "6") String month);
 
   @Operation(summary = "독서 캘린더 조회", description = "지정한 연·월의 실제 독서 진행 기록을 날짜별로 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
