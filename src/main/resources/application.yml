@@ -38,6 +38,7 @@ external:
   # LLM API KEY
   gemini:
     api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-3.6-flash}
   # 도서관 정보나루
   data4library:
     auth-key: ${DATA4LIBRARY_AUTH_KEY:}
