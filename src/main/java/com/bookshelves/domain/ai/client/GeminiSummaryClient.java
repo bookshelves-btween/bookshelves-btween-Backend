@@ -28,6 +28,7 @@ public class GeminiSummaryClient {
 
   // 대화 전체가 입력이라 질문 생성보다 응답이 오래 걸린다. 요약은 종료 후 비동기 작업이라
   // 지연 상한에 여유가 있다.
+  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
   private static final Duration READ_TIMEOUT = Duration.ofSeconds(120);
 
   // title 컬럼이 VARCHAR(255)다. 초과분이 저장 단계까지 가면 INSERT가 실패하므로 여기서 거른다.
@@ -45,7 +46,7 @@ public class GeminiSummaryClient {
 
   @Autowired
   public GeminiSummaryClient(GeminiClientFactory geminiClientFactory) {
-    this(geminiClientFactory.create(READ_TIMEOUT));
+    this(geminiClientFactory.create(CONNECT_TIMEOUT, READ_TIMEOUT));
   }
 
   GeminiSummaryClient(GeminiClient geminiClient) {

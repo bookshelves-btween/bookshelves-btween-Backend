@@ -2,6 +2,7 @@ package com.bookshelves.domain.home.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -25,6 +26,7 @@ import com.bookshelves.global.util.ServiceTime;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -211,7 +213,7 @@ class HomeQueryServiceTest {
   }
 
   @Test
-  void asksOnlyForRecruitingMeetingsStartingInTheFuture() {
+  void asksOnlyForMeetingsStartingAfterTheRecruitmentDeadline() {
     givenMemberExists();
     givenNoRecentBookAndNoMeeting();
     given(aiRecommendationRepository.findByRecommendedDate(any())).willReturn(Optional.empty());
@@ -223,13 +225,20 @@ class HomeQueryServiceTest {
     homeQueryService.getHome();
 
     ArgumentCaptor<MeetingStatus> status = ArgumentCaptor.captor();
-    ArgumentCaptor<LocalDateTime> now = ArgumentCaptor.captor();
+    ArgumentCaptor<LocalDateTime> earliestStartDate = ArgumentCaptor.captor();
     ArgumentCaptor<Pageable> pageable = ArgumentCaptor.captor();
     verify(meetingRepository)
-        .findJoinableMeetings(status.capture(), now.capture(), eq(MEMBER_ID), pageable.capture());
+        .findJoinableMeetings(
+            status.capture(), earliestStartDate.capture(), eq(MEMBER_ID), pageable.capture());
 
     assertThat(status.getValue()).isEqualTo(MeetingStatus.RECRUITING);
-    assertThat(now.getValue()).isNotNull();
+
+    // 참여는 시작 6시간 전부터 거절된다. 현재 시각을 그대로 넘기면 그 구간의 모임이 참여 가능으로
+    // 나가고, 사용자가 참여하기를 눌렀을 때 즉시 거절된다.
+    LocalDateTime deadline =
+        ServiceTime.now().plusHours(Meeting.RECRUITMENT_CLOSE_HOURS_BEFORE_START);
+    assertThat(earliestStartDate.getValue()).isCloseTo(deadline, within(5, ChronoUnit.SECONDS));
+
     // 홈은 카드 세 장까지 그린다
     assertThat(pageable.getValue().getPageSize()).isEqualTo(3);
   }

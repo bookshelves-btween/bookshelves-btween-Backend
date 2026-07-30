@@ -29,6 +29,7 @@ import tools.jackson.core.type.TypeReference;
 public class GeminiQuestionClient {
 
   // LLM 응답 지연이 준비 스레드를 계속 붙잡지 않도록 짧게 끊는다. 초과하면 시드 원문으로 진행한다.
+  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
   private static final Duration READ_TIMEOUT = Duration.ofSeconds(20);
 
   // 길이는 시드 대비 비율이 아니라 절대값으로 잰다.
@@ -42,7 +43,7 @@ public class GeminiQuestionClient {
 
   @Autowired
   public GeminiQuestionClient(GeminiClientFactory geminiClientFactory) {
-    this(geminiClientFactory.create(READ_TIMEOUT));
+    this(geminiClientFactory.create(CONNECT_TIMEOUT, READ_TIMEOUT));
   }
 
   GeminiQuestionClient(GeminiClient geminiClient) {
