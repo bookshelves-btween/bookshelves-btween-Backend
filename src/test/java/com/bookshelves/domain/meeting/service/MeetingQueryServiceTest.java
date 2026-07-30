@@ -2,6 +2,7 @@ package com.bookshelves.domain.meeting.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -69,9 +70,11 @@ class MeetingQueryServiceTest {
     assertThat(result.status()).isEqualTo(MeetingStatus.COMPLETED);
     // 프론트가 주제 3칸을 그리므로 완료된 모임은 항상 3개가 나가야 한다
     assertThat(result.meetingSummary()).hasSize(3);
+
+    // 순번이 배열 순서와 같은 값이어야 한다. 둘이 어긋나면 프론트가 어느 쪽을 믿어도 틀린다.
     assertThat(result.meetingSummary())
-        .extracting(MeetingDetailResDTO.SummaryInfo::title)
-        .containsExactly("핵심 논점", "참여자 반응", "삶과 연결");
+        .extracting(MeetingDetailResDTO.SummaryInfo::order, MeetingDetailResDTO.SummaryInfo::title)
+        .containsExactly(tuple(1, "핵심 논점"), tuple(2, "참여자 반응"), tuple(3, "삶과 연결"));
   }
 
   private MeetingSummary summary(SummaryAxis axis, String title) {
