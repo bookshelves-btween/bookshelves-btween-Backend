@@ -27,6 +27,11 @@ public record MeetingDetailResDTO(
       String coverImageUrl,
       String kdcName) {}
 
+  // 순번을 배열 순서로만 두지 않는다. 화면이 주제 1, 2, 3 칸을 그리는데 배열 인덱스에 기대게 하면
+  // 서버에서 정렬이 바뀌었을 때 응답만 봐서는 무엇이 어긋났는지 알 수 없다.
   @Schema(description = "모임 요약 주제")
-  public record SummaryInfo(String title, String summary) {}
+  public record SummaryInfo(
+      @Schema(description = "주제 순번. 1부터 3까지 항상 순서대로 나갑니다", example = "1") Integer order,
+      String title,
+      String summary) {}
 }
