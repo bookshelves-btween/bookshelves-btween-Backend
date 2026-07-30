@@ -290,6 +290,45 @@ class BookCommandServiceTest {
   }
 
   @Test
+  void deletesOnlyCurrentMembersMemberBookAndItsHistories() {
+    Book book = Book.builder().isbn(ISBN).title("Almond").build();
+    MemberBook memberBook =
+        MemberBook.create(
+            book,
+            Member.createSocialMember(null, "provider-id"),
+            50,
+            new BigDecimal("4.0"),
+            "memo");
+    org.springframework.test.util.ReflectionTestUtils.setField(memberBook, "id", 10L);
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberBookRepository.findByMemberIdAndBookIsbn(1L, ISBN))
+        .willReturn(Optional.of(memberBook));
+
+    bookCommandService.deleteMemberBook(ISBN);
+
+    verify(memberBookHistoryRepository).deleteAllByMemberBookId(10L);
+    verify(memberBookRepository).delete(memberBook);
+    verify(bookRepository, never()).delete(org.mockito.ArgumentMatchers.any(Book.class));
+  }
+
+  @Test
+  void rejectsDeletingMemberBookThatDoesNotBelongToCurrentMember() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberBookRepository.findByMemberIdAndBookIsbn(1L, ISBN)).willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> bookCommandService.deleteMemberBook(ISBN))
+        .isInstanceOf(BookException.class)
+        .extracting(exception -> ((BookException) exception).getErrorCode())
+        .isEqualTo(BookErrorCode.MEMBER_BOOK_NOT_FOUND);
+
+    verify(memberBookHistoryRepository, never())
+        .deleteAllByMemberBookId(org.mockito.ArgumentMatchers.anyLong());
+    verify(memberBookRepository, never())
+        .delete(org.mockito.ArgumentMatchers.any(MemberBook.class));
+  }
+
+  @Test
   void preservesCompletionTimeWhenUpdatingCompletedMemberBook() {
     MemberBook memberBook =
         MemberBook.create(
