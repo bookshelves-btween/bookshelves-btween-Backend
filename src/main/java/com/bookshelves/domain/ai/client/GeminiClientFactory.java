@@ -40,8 +40,14 @@ public class GeminiClientFactory {
     requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
     requestFactory.setReadTimeout(readTimeout);
 
+    // 주입받은 빌더를 그대로 변형하지 않는다. 이 팩토리는 빌더 하나를 들고 용도별로 여러 번 불리는데,
+    // 원본을 건드리면 나중에 만드는 클라이언트가 앞서 설정한 타임아웃을 물려받을 수 있다.
     RestClient restClient =
-        restClientBuilder.baseUrl(GeminiClient.BASE_URL).requestFactory(requestFactory).build();
+        restClientBuilder
+            .clone()
+            .baseUrl(GeminiClient.BASE_URL)
+            .requestFactory(requestFactory)
+            .build();
     return new GeminiClient(restClient, objectMapper, apiKey, model);
   }
 }
