@@ -4,6 +4,7 @@ import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.global.entity.BaseEntity;
+import com.bookshelves.global.util.ServiceTime;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -28,7 +29,7 @@ public class Member extends BaseEntity {
   // JVM 기본 타임존(LocalDateTime.now())을 쓰면 서버 OS 설정에 따라 값이 달라져,
   // 이후 AuthCommandService/MemberCommandService/MemberAnonymizationScheduler가
   // 이 값을 Asia/Seoul로 재해석할 때 어긋난다.
-  public static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
+  public static final ZoneId SERVICE_ZONE = ServiceTime.ZONE;
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
