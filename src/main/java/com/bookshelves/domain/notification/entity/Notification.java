@@ -79,6 +79,16 @@ public class Notification extends BaseEntity {
     return notification;
   }
 
+  public static Notification meetingSummaryDone(Member member, Meeting meeting) {
+    Notification notification = new Notification();
+    notification.member = member;
+    notification.title = "%s 모임 요약이 준비되었어요".formatted(meeting.getBook().getTitle());
+    notification.content = "모임에서 나눈 이야기를 확인해보세요";
+    notification.type = NotificationType.MEETING_SUMMARY_DONE;
+    notification.relatedId = meeting.getId();
+    return notification;
+  }
+
   public void markAsRead() {
     this.isRead = true;
   }
