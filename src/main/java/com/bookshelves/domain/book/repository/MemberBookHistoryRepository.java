@@ -10,6 +10,6 @@ public interface MemberBookHistoryRepository extends JpaRepository<MemberBookHis
 
   @EntityGraph(attributePaths = "memberBook.book")
   List<MemberBookHistory>
-      findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAsc(
+      findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
           Long memberId, LocalDateTime startAt, LocalDateTime endAt);
 }

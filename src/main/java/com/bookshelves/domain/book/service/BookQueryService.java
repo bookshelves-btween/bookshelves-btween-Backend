@@ -156,7 +156,7 @@ public class BookQueryService {
     try {
       List<MemberBookHistory> histories =
           memberBookHistoryRepository
-              .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAsc(
+              .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
                   memberId, startAt, endAt);
       return toMemberBookCalendarResDTO(yearMonth, histories);
     } catch (DataAccessException exception) {

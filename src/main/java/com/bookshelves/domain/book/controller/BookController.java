@@ -66,7 +66,7 @@ public class BookController implements BookControllerDocs {
   @Override
   @GetMapping("/api/v1/member-books/calendar")
   public ResponseEntity<ApiResponse<MemberBookCalendarResDTO>> getMemberBookCalendar(
-      @RequestParam String year, @RequestParam String month) {
+      @RequestParam(required = false) String year, @RequestParam(required = false) String month) {
     MemberBookCalendarResDTO response = bookQueryService.getMemberBookCalendar(year, month);
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_CALENDAR_FOUND, response));
