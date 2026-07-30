@@ -459,7 +459,7 @@ class BookQueryServiceTest {
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
     given(
             memberBookHistoryRepository
-                .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAsc(
+                .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
                     7L, monthStart, nextMonthStart))
         .willReturn(List.of(morningHistory, afternoonHistory, nextDayHistory));
     given(memberBook.getBook()).willReturn(book);
@@ -481,6 +481,10 @@ class BookQueryServiceTest {
     assertThat(result.days().getLast().date()).isEqualTo(LocalDate.of(2026, 7, 15));
     assertThat(result.days().getLast().coverImageUrl())
         .isEqualTo("https://image.example.com/almond.jpg");
+
+    verify(memberBookHistoryRepository)
+        .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
+            7L, monthStart, nextMonthStart);
   }
 
   @Test
@@ -497,6 +501,12 @@ class BookQueryServiceTest {
             exception ->
                 assertThat(((BookException) exception).getErrorCode())
                     .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST));
+    assertThatThrownBy(() -> bookQueryService.getMemberBookCalendar(null, "7"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST));
 
     verifyNoInteractions(authenticationFacade, memberBookHistoryRepository);
   }
@@ -506,7 +516,7 @@ class BookQueryServiceTest {
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
     given(
             memberBookHistoryRepository
-                .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAsc(
+                .findByMemberBookMemberIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAscIdAsc(
                     7L, LocalDateTime.of(2026, 7, 1, 0, 0), LocalDateTime.of(2026, 8, 1, 0, 0)))
         .willThrow(new DataAccessResourceFailureException("database unavailable"));
 

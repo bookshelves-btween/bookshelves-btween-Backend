@@ -55,7 +55,10 @@ public interface BookControllerDocs {
         description = "year 또는 month 값 오류"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
-        description = "인증 필요")
+        description = "인증 필요"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "500",
+        description = "독서 캘린더 조회 실패 (BOOK500_4)")
   })
   ResponseEntity<ApiResponse<MemberBookCalendarResDTO>> getMemberBookCalendar(
       @Parameter(description = "조회 연도", example = "2026", required = true) String year,
