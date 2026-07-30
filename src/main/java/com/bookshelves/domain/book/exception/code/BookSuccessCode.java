@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 @Getter
 @AllArgsConstructor
 public enum BookSuccessCode implements BaseSuccessCode {
+  MEMBER_BOOK_LIST_FOUND(HttpStatus.OK, "BOOK200_6", "내 서재 목록 조회에 성공했습니다."),
   BOOK_DETAIL_FOUND(HttpStatus.OK, "BOOK200_4", "책 상세 조회에 성공했습니다."),
   CATEGORY_LIST_FOUND(HttpStatus.OK, "BOOK200_1", "카테고리 목록 조회에 성공했습니다."),
   EXTERNAL_BOOK_SEARCHED(HttpStatus.OK, "BOOK200_2", "도서 검색에 성공했습니다."),
