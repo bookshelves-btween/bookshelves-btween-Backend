@@ -55,13 +55,7 @@ class GeminiClientTest {
                     + ":generateContent"))
         .andExpect(method(HttpMethod.POST))
         .andExpect(header("x-goog-api-key", "test-api-key"))
-        .andRespond(
-            withSuccess(
-                """
-                {"candidates":[{"content":{"parts":[{"text":%s}]}}]}
-                """
-                    .formatted(new ObjectMapper().valueToTree(modelText).toString()),
-                MediaType.APPLICATION_JSON));
+        .andRespond(withSuccess(GeminiTestResponses.wrap(modelText), MediaType.APPLICATION_JSON));
   }
 
   @Test

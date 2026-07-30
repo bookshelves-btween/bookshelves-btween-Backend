@@ -1,15 +1,11 @@
 package com.bookshelves.domain.ai.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.bookshelves.domain.book.entity.Book;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
@@ -45,15 +41,7 @@ class GeminiRecommendationClientTest {
   }
 
   private void respondWith(String modelText) {
-    mockServer
-        .expect(method(HttpMethod.POST))
-        .andRespond(
-            withSuccess(
-                """
-                {"candidates":[{"content":{"parts":[{"text":%s}]}}]}
-                """
-                    .formatted(new ObjectMapper().valueToTree(modelText).toString()),
-                MediaType.APPLICATION_JSON));
+    GeminiTestResponses.expectPost(mockServer, modelText);
   }
 
   @Test
