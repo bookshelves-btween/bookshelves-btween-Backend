@@ -1,9 +1,11 @@
 package com.bookshelves.domain.ai.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -132,6 +135,24 @@ class MeetingSummaryNotifierTest {
     notifier.notifySummaryDone(MEETING_ID);
 
     verify(notificationRepository, never()).saveAll(any());
+  }
+
+  @Test
+  void relaysConstraintViolationWhenTwoRunsRaceOnTheSameNotification() {
+    Meeting meeting = meeting();
+    given(meetingRepository.findWithBookById(MEETING_ID)).willReturn(Optional.of(meeting));
+    given(meetingParticipantRepository.findAllWithMemberByMeetingId(MEETING_ID))
+        .willReturn(List.of(MeetingParticipant.create(meeting, member(10L))));
+    // 두 실행이 동시에 아직 없다고 읽는 경합. 조회로는 못 막고 unique 제약이 최종 방어를 맡는다.
+    given(notificationRepository.existsByMember_IdAndTypeAndRelatedId(any(), any(), eq(MEETING_ID)))
+        .willReturn(false);
+    willThrow(new DataIntegrityViolationException("uk_notification_member_type_related"))
+        .given(notificationRepository)
+        .saveAll(any());
+
+    // 경합에서 진 쪽이 예외를 삼켜 조용히 넘어가면 알림 누락을 아무도 알 수 없다
+    assertThatCode(() -> notifier.notifySummaryDone(MEETING_ID)).doesNotThrowAnyException();
+    verify(notificationRepository).saveAll(any());
   }
 
   @Test

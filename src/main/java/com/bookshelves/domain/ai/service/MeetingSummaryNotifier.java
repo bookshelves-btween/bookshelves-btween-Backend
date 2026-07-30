@@ -56,7 +56,10 @@ public class MeetingSummaryNotifier {
   }
 
   // 중복 이벤트로 준비가 두 번 돌면 같은 회원에게 같은 알림이 두 건 쌓인다.
-  // Notification에는 이를 막는 unique 제약이 없어 생성 전에 존재를 확인한다.
+  //
+  // 이 조회는 흔한 중복(앞선 실행이 이미 알림을 만든 경우)을 값싸게 걸러낸다. 두 실행이 동시에
+  // 없다고 읽는 경합은 이것만으로 막지 못하므로 (member_id, type, related_id) unique 제약이
+  // 최종 방어를 맡는다. 경합에서 진 쪽은 커밋 시 실패하고 호출부가 로그를 남긴다.
   private boolean alreadyNotified(Member member, Long meetingId) {
     return notificationRepository.existsByMember_IdAndTypeAndRelatedId(
         member.getId(), NotificationType.MEETING_SUMMARY_DONE, meetingId);
