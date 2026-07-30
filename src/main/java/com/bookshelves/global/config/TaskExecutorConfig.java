@@ -12,11 +12,24 @@ public class TaskExecutorConfig {
 
   @Bean
   public ThreadPoolTaskExecutor aiQuestionTaskExecutor() {
+    return buildExecutor("ai-question-");
+  }
+
+  // 요약 생성 전용. 질문 생성과 큐를 나눠 한쪽이 밀려도 다른 쪽이 막히지 않게 한다.
+  // 요약은 대화 전체를 입력으로 넣어 호출이 길다.
+  @Bean
+  public ThreadPoolTaskExecutor meetingSummaryTaskExecutor() {
+    return buildExecutor("meeting-summary-");
+  }
+
+  // 두 실행기의 크기가 같은 것은 우연이 아니라 같은 성격의 작업이기 때문이다.
+  // 둘 다 LLM 호출 하나를 기다리는 일이라 동시 처리량보다 큐가 넘치지 않는 쪽이 중요하다.
+  private ThreadPoolTaskExecutor buildExecutor(String threadNamePrefix) {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
     executor.setCorePoolSize(2);
     executor.setMaxPoolSize(4);
     executor.setQueueCapacity(100);
-    executor.setThreadNamePrefix("ai-question-");
+    executor.setThreadNamePrefix(threadNamePrefix);
     executor.initialize();
     return executor;
   }
