@@ -6,6 +6,7 @@ import com.bookshelves.domain.book.dto.response.BookSearchResDTO;
 import com.bookshelves.domain.book.dto.response.CategoryListResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookCalendarResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookListResDTO;
+import com.bookshelves.domain.book.dto.response.MemberBookStatisticsResDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
 import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.global.apiPayload.ApiResponse;
@@ -22,6 +23,39 @@ import org.springframework.http.ResponseEntity;
 
 @Tag(name = "도서", description = "도서·내 서재 API")
 public interface BookControllerDocs {
+
+  @Operation(summary = "독서 통계 조회", description = "로그인한 회원의 완독 도서 수, 한줄평 작성 수, 평균 별점을 조회합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "독서 통계 조회 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_8",
+                              "message": "독서 통계 조회에 성공했습니다.",
+                              "result": {
+                                "completedBookCount": 24,
+                                "reviewCount": 17,
+                                "averageRating": 4.0
+                              }
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 필요"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "500",
+        description = "독서 통계 조회 실패 (BOOK500_5)")
+  })
+  ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics();
 
   @Operation(summary = "독서 캘린더 조회", description = "지정한 연·월의 실제 독서 진행 기록을 날짜별로 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
