@@ -15,6 +15,7 @@ import com.bookshelves.global.apiPayload.ApiResponse;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 class BookResponseSerializationTest {
@@ -48,7 +49,7 @@ class BookResponseSerializationTest {
                     1L, "9788936434595", "혼모노", null, null, null, null, null, "813", "문학"),
                 null)),
         "{\"book\":{");
-    assertResultStartsWith(
+    assertMemberBookListStructure(
         ApiResponse.onSuccess(
             BookSuccessCode.MEMBER_BOOK_LIST_FOUND,
             new MemberBookListResDTO(
@@ -60,8 +61,7 @@ class BookResponseSerializationTest {
                             2L, "9788936434595", "혼모노", null, null, null, "813", "문학"))),
                 1,
                 20,
-                false)),
-        "{\"memberBooks\":[{\"memberBook\":{");
+                false)));
     assertResultStartsWith(
         ApiResponse.onSuccess(
             BookSuccessCode.CATEGORY_LIST_FOUND,
@@ -87,6 +87,38 @@ class BookResponseSerializationTest {
         jsonMapper.writeValueAsString(
             ApiResponse.onSuccess(BookSuccessCode.MEMBER_BOOK_DELETED, null));
     assertThat(deleteResponse).contains("\"result\":null");
+  }
+
+  @Test
+  void memberBookListResponseContainsMemberBookAndBookObjects() {
+    ApiResponse<?> response =
+        ApiResponse.onSuccess(
+            BookSuccessCode.MEMBER_BOOK_LIST_FOUND,
+            new MemberBookListResDTO(
+                List.of(
+                    new MemberBookListResDTO.MemberBookInfo(
+                        new MemberBookListResDTO.MemberBookRecord(
+                            1L, 10, "READING", BigDecimal.ONE, null, null),
+                        new MemberBookListResDTO.BookInfo(
+                            2L, "9788936434595", "test", null, null, null, "813", "문학"))),
+                1,
+                20,
+                false));
+
+    assertMemberBookListStructure(response);
+  }
+
+  private void assertMemberBookListStructure(ApiResponse<?> response) {
+    JsonNode root = jsonMapper.readTree(jsonMapper.writeValueAsString(response));
+
+    assertThat(root.path("isSuccess").asBoolean()).isTrue();
+    assertThat(root.path("code").isTextual()).isTrue();
+    assertThat(root.path("message").isTextual()).isTrue();
+
+    JsonNode item = root.path("result").path("memberBooks").path(0);
+
+    assertThat(item.path("memberBook").isObject()).isTrue();
+    assertThat(item.path("book").isObject()).isTrue();
   }
 
   private void assertResultStartsWith(ApiResponse<?> response, String expectedResultPrefix) {
