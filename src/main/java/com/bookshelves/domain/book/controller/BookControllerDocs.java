@@ -180,14 +180,12 @@ public interface BookControllerDocs {
   })
   ResponseEntity<ApiResponse<CategoryListResDTO>> getCategories();
 
-  @Operation(
-      summary = "Member book list",
-      description = "Returns the authenticated member's reading records by most recently updated.")
+  @Operation(summary = "내 서재 목록 조회", description = "로그인한 회원의 독서 기록을 최근 수정 순으로 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",
-        description = "Member book list found",
+        description = "내 서재 목록 조회 성공",
         content =
             @Content(
                 mediaType = "application/json",
@@ -206,18 +204,18 @@ public interface BookControllerDocs {
                                     "progress": 70,
                                     "status": "READING",
                                     "rating": 4.5,
-                                    "memo": "A memorable book",
+                                    "memo": "기억에 남는 책입니다.",
                                     "updatedAt": "2026-07-14T04:30:00"
                                   },
                                   "book": {
                                     "id": 1,
                                     "isbn": "9788936434595",
-                                    "title": "Almond",
-                                    "author": "Sohn Won-pyung",
-                                    "publisher": "Changbi",
+                                    "title": "아몬드",
+                                    "author": "손원평",
+                                    "publisher": "창비",
                                     "coverImageUrl": "https://image.example.com/book.jpg",
                                     "kdcCode": "813",
-                                    "kdcName": "Literature"
+                                    "kdcName": "문학"
                                   }
                                 }],
                                 "page": 1,
@@ -228,10 +226,10 @@ public interface BookControllerDocs {
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "Invalid status, page, or size"),
+        description = "독서 상태, page 또는 size 값 오류"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
-        description = "Authentication required")
+        description = "인증 필요")
   })
   ResponseEntity<ApiResponse<MemberBookListResDTO>> getMemberBooks(
       @Parameter(description = "ALL, BEFORE_READING, READING, or FINISHED", example = "ALL")
