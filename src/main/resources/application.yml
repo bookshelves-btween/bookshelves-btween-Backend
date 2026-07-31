@@ -32,6 +32,10 @@ spring:
 
 # 외부 연동
 external:
+  # FCM 발송. 운영에서는 GOOGLE_APPLICATION_CREDENTIALS로 서비스 계정 인증 정보를 제공한다.
+  firebase:
+    enabled: ${FIREBASE_ENABLED:false}
+    project-id: ${FIREBASE_PROJECT_ID:}
   # 카카오 도서 API · 소셜 로그인 사용자 정보 조회
   kakao:
     rest-api-key: ${KAKAO_REST_API_KEY:}

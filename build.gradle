@@ -44,6 +44,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	// 실시간 채팅 (토론방)
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	// 저장된 알림을 iOS 기기에 시스템 푸시로 전달
+	implementation 'com.google.firebase:firebase-admin:9.8.0'
 
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
