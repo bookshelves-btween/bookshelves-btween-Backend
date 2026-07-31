@@ -19,15 +19,17 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
+import org.springframework.context.ApplicationEventPublisher;
 
 class NotificationCommandServiceTest {
 
   private final DeviceTokenRepository deviceTokenRepository = mock(DeviceTokenRepository.class);
   private final NotificationRepository notificationRepository = mock(NotificationRepository.class);
   private final MemberRepository memberRepository = mock(MemberRepository.class);
+  private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
   private final NotificationCommandService notificationCommandService =
       new NotificationCommandService(
-          deviceTokenRepository, notificationRepository, memberRepository);
+          deviceTokenRepository, notificationRepository, memberRepository, eventPublisher);
 
   @Test
   void registerFcmTokenUpsertsTokenAtomically() {
@@ -58,6 +60,7 @@ class NotificationCommandServiceTest {
     order.verify(memberRepository).findByIdForUpdate(1L);
     order.verify(memberRepository).findByIdForUpdate(2L);
     order.verify(notificationRepository).saveAllAndFlush(notifications);
+    verify(eventPublisher).publishEvent(NotificationPushEvent.from(notifications));
   }
 
   @Test
