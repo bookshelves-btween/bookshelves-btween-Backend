@@ -96,6 +96,7 @@ class AuthCommandServiceTest {
     when(savedMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
     when(memberCommandService.createSocialMember(Provider.KAKAO, "fake-tester-1"))
         .thenReturn(savedMember);
+    when(memberRepository.save(savedMember)).thenReturn(savedMember);
 
     SocialLoginResponse response =
         authCommandService.fakeSignUp(
@@ -107,6 +108,8 @@ class AuthCommandServiceTest {
     assertThat(response.getRefreshToken()).isNotNull();
     verify(savedMember).updateNickname("tester-1", "테스트", "계정");
     verify(savedMember).completeOnboarding();
+    // createSocialMember가 REQUIRES_NEW라 반환 엔티티가 준영속이다. merge해야 변경이 반영된다.
+    verify(memberRepository).save(savedMember);
     verify(redisTokenRepository).saveRefreshToken(eq(7L), any(), eq(Duration.ofSeconds(1209600)));
   }
 
@@ -138,6 +141,7 @@ class AuthCommandServiceTest {
     when(savedMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
     when(memberCommandService.createSocialMember(Provider.KAKAO, "fake-tester-2"))
         .thenReturn(savedMember);
+    when(memberRepository.save(savedMember)).thenReturn(savedMember);
 
     authCommandService.fakeSignUp(
         FakeSignUpRequest.builder().key("tester-2").secret(FAKE_SECRET).build());
