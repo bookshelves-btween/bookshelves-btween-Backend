@@ -17,36 +17,52 @@ public record HomeResDTO(
   @Schema(description = "회원 정보")
   public record MemberInfo(String nickname) {}
 
+  // 엔티티별로 객체를 나눈다. 각 객체의 PK 필드명은 id로 통일한다.
+  @Schema(description = "책 정보")
+  public record BookInfo(
+      Long id,
+      @Schema(description = "책 상세 조회와 서재 담기의 식별자", example = "9788936434595") String isbn,
+      String title,
+      String author,
+      String publisher,
+      String coverImageUrl,
+      String kdcCode,
+      String kdcName) {}
+
   @Schema(description = "오늘의 추천 도서")
   public record RecommendedBookInfo(
       @Schema(description = "한 줄 추천 멘트", example = "감정을 배우는 소년의 조용한 성장 기록")
           String recommendationMessage,
-      Long bookId,
-      String title,
-      String author,
-      String publisher,
-      String kdcName,
-      String coverImageUrl) {}
+      BookInfo book) {}
 
-  // status는 내려보내지 않는다. member_book에 그런 컬럼이 없고 진행률에서 파생되는 값이며,
-  // 이 화면은 진행률 자체를 그린다.
   @Schema(description = "최근 본 책")
-  public record RecentBookInfo(
-      Long bookId,
-      String title,
-      String author,
-      String publisher,
-      String coverImageUrl,
+  public record RecentBookInfo(MemberBookRecord memberBook, BookInfo book) {}
+
+  // status는 member_book에 컬럼이 없고 진행률에서 파생한다. 서재 목록과 같은 규칙을 쓰기 위해
+  // MemberBookStatus.from을 거친다.
+  // updatedAt은 최근 본 책을 고른 기준값이다. 어떤 기록이 언제 갱신돼 이 책이 뽑혔는지 드러낸다.
+  @Schema(description = "내 서재 기록")
+  public record MemberBookRecord(
+      Long id,
+      @Schema(description = "읽은 진행도 퍼센트", example = "70") Integer progress,
+      @Schema(description = "진행률에서 파생한 상태", example = "READING") String status,
       @Schema(description = "내가 기록한 별점. 기록 전이면 null", example = "4.5") BigDecimal rating,
-      @Schema(description = "읽은 진행도 퍼센트", example = "70") Integer progress) {}
+      @Schema(description = "기록을 마지막으로 수정한 시각") LocalDateTime updatedAt) {}
 
   // 요일은 startDate에서 클라이언트가 만든다. 서버가 문자열로 내려보내면 로케일 처리가 둘로 갈린다.
   @Schema(description = "모집중 모임")
-  public record MeetingInfo(
-      Long meetingId,
-      String title,
-      String coverImageUrl,
+  public record MeetingInfo(MeetingSummary meeting, MeetingBookInfo book) {}
+
+  @Schema(description = "모임 요약")
+  public record MeetingSummary(
+      Long id,
+      String status,
       LocalDateTime startDate,
       Integer currentParticipants,
-      Integer maxParticipants) {}
+      Integer maxParticipants,
+      @Schema(description = "진행 시간(분)", example = "30") Integer duration) {}
+
+  // 모임 카드는 모임 상세로만 이동하므로 책 식별자가 필요 없다. isbn을 담지 않는다.
+  @Schema(description = "모임 대상 책")
+  public record MeetingBookInfo(Long id, String title, String publisher, String coverImageUrl) {}
 }
