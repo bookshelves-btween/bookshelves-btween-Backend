@@ -22,6 +22,7 @@ import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.Category;
 import com.bookshelves.domain.book.entity.MemberBook;
 import com.bookshelves.domain.book.entity.MemberBookHistory;
+import com.bookshelves.domain.book.enums.MemberBookStatus;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
@@ -325,7 +326,7 @@ public class BookQueryService {
         new MemberBookRecord(
             memberBook.getId(),
             memberBook.getProgress(),
-            toMemberBookStatus(memberBook.getProgress()).name(),
+            MemberBookStatus.from(memberBook.getProgress()).name(),
             memberBook.getRating(),
             memberBook.getMemo(),
             memberBook.getUpdatedAt()),
@@ -360,16 +361,6 @@ public class BookQueryService {
     if (page < 1 || size < 1 || size > 50) {
       throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_LIST_REQUEST);
     }
-  }
-
-  private MemberBookStatus toMemberBookStatus(int progress) {
-    if (progress == 0) {
-      return MemberBookStatus.BEFORE_READING;
-    }
-    if (progress == 100) {
-      return MemberBookStatus.FINISHED;
-    }
-    return MemberBookStatus.READING;
   }
 
   public BookDetailResDTO getBookDetail(String rawIsbn) {
@@ -526,12 +517,5 @@ public class BookQueryService {
     } catch (RuntimeException exception) {
       log.warn("최근 도서 검색어 저장에 실패했습니다. memberId={}", memberId, exception);
     }
-  }
-
-  private enum MemberBookStatus {
-    ALL,
-    BEFORE_READING,
-    READING,
-    FINISHED
   }
 }
