@@ -117,11 +117,16 @@ class HomeQueryServiceTest {
 
     assertThat(result.member().nickname()).isEqualTo("책 먹는 여우");
     assertThat(result.recommendedAt()).isEqualTo(today);
-    assertThat(result.recommendedBook().bookId()).isEqualTo(10L);
-    assertThat(result.recommendedBook().title()).isEqualTo("아몬드");
-    assertThat(result.recommendedBook().author()).isEqualTo("손원평");
-    assertThat(result.recommendedBook().coverImageUrl()).isEqualTo("https://example.com/10.jpg");
     assertThat(result.recommendedBook().recommendationMessage()).isEqualTo("감정을 배우는 소년의 조용한 성장 기록");
+    HomeResDTO.BookInfo book = result.recommendedBook().book();
+    assertThat(book.id()).isEqualTo(10L);
+    // 책 상세 조회와 서재 담기가 isbn으로 이루어지므로 홈에서 isbn을 함께 내려보낸다
+    assertThat(book.isbn()).isEqualTo("isbn-10");
+    assertThat(book.title()).isEqualTo("아몬드");
+    assertThat(book.author()).isEqualTo("손원평");
+    assertThat(book.publisher()).isEqualTo("창비");
+    assertThat(book.kdcName()).isEqualTo("한국소설");
+    assertThat(book.coverImageUrl()).isEqualTo("https://example.com/10.jpg");
   }
 
   @Test
@@ -141,7 +146,7 @@ class HomeQueryServiceTest {
 
     // 언제 것인지 클라이언트가 구분할 수 있어야 한다
     assertThat(result.recommendedAt()).isEqualTo(yesterday);
-    assertThat(result.recommendedBook().bookId()).isEqualTo(10L);
+    assertThat(result.recommendedBook().book().id()).isEqualTo(10L);
   }
 
   @Test
@@ -178,11 +183,14 @@ class HomeQueryServiceTest {
 
     HomeResDTO result = homeQueryService.getHome();
 
-    assertThat(result.recentBook().bookId()).isEqualTo(20L);
-    assertThat(result.recentBook().title()).isEqualTo("혼모노");
-    assertThat(result.recentBook().rating()).isEqualByComparingTo("4.5");
-    assertThat(result.recentBook().progress()).isEqualTo(70);
-    assertThat(result.recentBook().coverImageUrl()).isEqualTo("https://example.com/20.jpg");
+    assertThat(result.recentBook().book().id()).isEqualTo(20L);
+    assertThat(result.recentBook().book().isbn()).isEqualTo("isbn-20");
+    assertThat(result.recentBook().book().title()).isEqualTo("혼모노");
+    assertThat(result.recentBook().book().coverImageUrl()).isEqualTo("https://example.com/20.jpg");
+    assertThat(result.recentBook().memberBook().rating()).isEqualByComparingTo("4.5");
+    assertThat(result.recentBook().memberBook().progress()).isEqualTo(70);
+    // status는 member_book에 컬럼이 없다. 서재 목록과 같은 규칙으로 진행률에서 파생한다.
+    assertThat(result.recentBook().memberBook().status()).isEqualTo("READING");
   }
 
   @Test
@@ -204,12 +212,15 @@ class HomeQueryServiceTest {
 
     assertThat(result.meetings()).hasSize(1);
     HomeResDTO.MeetingInfo info = result.meetings().get(0);
-    assertThat(info.meetingId()).isEqualTo(21L);
+    assertThat(info.meeting().id()).isEqualTo(21L);
+    assertThat(info.meeting().status()).isEqualTo("RECRUITING");
+    assertThat(info.meeting().startDate()).isEqualTo(startDate);
+    assertThat(info.meeting().currentParticipants()).isEqualTo(4);
+    assertThat(info.meeting().maxParticipants()).isEqualTo(6);
+    assertThat(info.meeting().duration()).isEqualTo(60);
     // 모임에는 이름 필드가 없어 책 제목을 카드 제목으로 쓴다
-    assertThat(info.title()).isEqualTo("혼모노");
-    assertThat(info.startDate()).isEqualTo(startDate);
-    assertThat(info.currentParticipants()).isEqualTo(4);
-    assertThat(info.maxParticipants()).isEqualTo(6);
+    assertThat(info.book().title()).isEqualTo("혼모노");
+    assertThat(info.book().publisher()).isEqualTo("창비");
   }
 
   @Test
