@@ -53,30 +53,52 @@ public interface HomeControllerDocs {
                   "recommendedAt": "2026-07-31",
                   "recommendedBook": {
                     "recommendationMessage": "감정을 배우는 소년의 조용한 성장 기록",
-                    "bookId": 1,
-                    "title": "아몬드",
-                    "author": "손원평",
-                    "publisher": "창비",
-                    "kdcName": "한국소설",
-                    "coverImageUrl": "https://example.com/almond.jpg"
+                    "book": {
+                      "id": 1,
+                      "isbn": "9788936434267",
+                      "title": "아몬드",
+                      "author": "손원평",
+                      "publisher": "창비",
+                      "coverImageUrl": "https://example.com/almond.jpg",
+                      "kdcCode": "813",
+                      "kdcName": "한국소설"
+                    }
                   },
                   "recentBook": {
-                    "bookId": 2,
-                    "title": "혼모노",
-                    "author": "성해나",
-                    "publisher": "창비",
-                    "coverImageUrl": "https://example.com/honmono.jpg",
-                    "rating": 4.5,
-                    "progress": 70
+                    "memberBook": {
+                      "id": 10,
+                      "progress": 70,
+                      "status": "READING",
+                      "rating": 4.5,
+                      "updatedAt": "2026-07-30T04:30:00"
+                    },
+                    "book": {
+                      "id": 2,
+                      "isbn": "9788936434595",
+                      "title": "혼모노",
+                      "author": "성해나",
+                      "publisher": "창비",
+                      "coverImageUrl": "https://example.com/honmono.jpg",
+                      "kdcCode": "813",
+                      "kdcName": "한국소설"
+                    }
                   },
                   "meetings": [
                     {
-                      "meetingId": 21,
-                      "title": "혼모노",
-                      "coverImageUrl": "https://example.com/honmono.jpg",
-                      "startDate": "2026-08-02T19:00:00",
-                      "currentParticipants": 4,
-                      "maxParticipants": 6
+                      "meeting": {
+                        "id": 21,
+                        "status": "RECRUITING",
+                        "startDate": "2026-08-02T19:00:00",
+                        "currentParticipants": 4,
+                        "maxParticipants": 6,
+                        "duration": 30
+                      },
+                      "book": {
+                        "id": 2,
+                        "title": "혼모노",
+                        "publisher": "창비",
+                        "coverImageUrl": "https://example.com/honmono.jpg"
+                      }
                     }
                   ]
                 }
