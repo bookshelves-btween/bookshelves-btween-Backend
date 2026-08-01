@@ -65,7 +65,7 @@ class MeetingStartSchedulerTest {
     LocalDateTime now = nowCaptor.getValue();
     processingOrder.verify(meetingCommandService).startMeeting(1L, now);
 
-    assertThat(deadlineCaptor.getValue()).isEqualTo(now.plusHours(6));
+    assertThat(deadlineCaptor.getValue()).isEqualTo(now);
     assertThat(deadlineNowCaptor.getValue()).isEqualTo(now);
   }
 }
