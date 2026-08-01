@@ -25,7 +25,10 @@ import lombok.NoArgsConstructor;
 public class Meeting extends BaseEntity {
 
   public static final int MIN_PARTICIPANTS = 3;
-  public static final int RECRUITMENT_CLOSE_HOURS_BEFORE_START = 6;
+
+  // 테스트용: 시작 6시간 전 사전 마감 판정을 없앤다. 모집 마감 = 시작 시각이 되므로
+  // 지금부터 몇 분 뒤 시작하는 모임을 만들어도 스케줄러가 미리 마감·삭제하지 않는다.
+  public static final int RECRUITMENT_CLOSE_HOURS_BEFORE_START = 0;
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -101,8 +104,10 @@ public class Meeting extends BaseEntity {
     this.status = MeetingStatus.RECRUIT_CLOSED;
   }
 
+  // 테스트용: 최소 인원 조건을 없앤다. 참여자 수와 무관하게 모임이 성립하므로
+  // 인원 미달로 모임이 삭제되는 경로를 타지 않는다.
   public boolean canStart() {
-    return this.curParticipants >= MIN_PARTICIPANTS;
+    return true;
   }
 
   public LocalDateTime getRecruitmentCloseDate() {
