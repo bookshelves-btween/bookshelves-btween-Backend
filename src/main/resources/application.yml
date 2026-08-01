@@ -49,6 +49,11 @@ external:
 server:
   port: 8080
 
+# 테스트용 토큰 발급 API 비밀값. 비어 있으면 해당 API는 모든 요청을 거부한다.
+# 저장소가 공개되어 있으므로 값은 서버 환경 변수로만 주입한다. 앱 공개 전에 이 설정과 API를 함께 제거한다.
+auth:
+  fake-sign-up-secret: ${FAKE_SIGNUP_SECRET:}
+
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:3600}
