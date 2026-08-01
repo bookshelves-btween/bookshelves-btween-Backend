@@ -1,6 +1,5 @@
 package com.bookshelves.domain.meeting.dto.request;
 
-import com.bookshelves.domain.meeting.entity.Meeting;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.FutureOrPresent;
@@ -27,7 +26,8 @@ public record MeetingCreateReqDTO(
         String startTime,
     @Schema(description = "최대 참여 인원", example = "4")
         @NotNull(message = "최대 참여 인원은 필수입니다.")
-        @Min(value = Meeting.MIN_PARTICIPANTS, message = "최대 참여 인원은 3명 이상이어야 합니다.")
+        // 테스트용: 적은 인원으로 모임을 만들 수 있도록 최소 정원을 1명으로 낮춘다.
+        @Min(value = 1, message = "최대 참여 인원은 1명 이상이어야 합니다.")
         Integer maxParticipants,
     @Schema(description = "모임 진행 시간(분)", example = "60")
         @NotNull(message = "진행 시간은 필수입니다.")
