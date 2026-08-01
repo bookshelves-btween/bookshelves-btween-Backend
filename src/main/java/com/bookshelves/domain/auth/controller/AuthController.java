@@ -1,5 +1,6 @@
 package com.bookshelves.domain.auth.controller;
 
+import com.bookshelves.domain.auth.dto.request.FakeSignUpRequest;
 import com.bookshelves.domain.auth.dto.request.ReissueRequest;
 import com.bookshelves.domain.auth.dto.request.RestoreRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
@@ -37,6 +38,14 @@ public class AuthController implements AuthControllerDocs {
 
     return ResponseEntity.status(successCode.getStatus())
         .body(ApiResponse.onSuccess(successCode, response));
+  }
+
+  @Override
+  public ResponseEntity<ApiResponse<SocialLoginResponse>> fakeSignUp(FakeSignUpRequest request) {
+    SocialLoginResponse response = authCommandService.fakeSignUp(request);
+
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(AuthSuccessCode.AUTH_FAKE_SIGN_UP_SUCCESS, response));
   }
 
   @Override

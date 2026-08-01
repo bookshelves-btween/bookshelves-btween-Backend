@@ -4,6 +4,7 @@ import com.bookshelves.domain.auth.client.ProviderTokenVerifier;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
 import com.bookshelves.domain.auth.converter.AuthConverter;
+import com.bookshelves.domain.auth.dto.request.FakeSignUpRequest;
 import com.bookshelves.domain.auth.dto.request.ReissueRequest;
 import com.bookshelves.domain.auth.dto.request.RestoreRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
@@ -13,15 +14,19 @@ import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.auth.exception.AuthException;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
+import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.service.MemberCommandService;
 import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.RedisTokenRepository;
 import com.bookshelves.global.security.TokenType;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,23 +35,31 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AuthCommandService {
 
+  // 테스트 회원은 provider_id에 접두사를 붙여 만든다. 카카오 실제 provider_id는 숫자라
+  // 이 접두사가 붙은 값과 겹치지 않으므로, 이 경로로 실제 회원의 토큰이 나가지는 않는다.
+  private static final Provider FAKE_PROVIDER = Provider.KAKAO;
+  private static final String FAKE_PROVIDER_ID_PREFIX = "fake-";
+
   private final ProviderTokenVerifierResolver providerTokenVerifierResolver;
   private final MemberRepository memberRepository;
   private final MemberCommandService memberCommandService;
   private final JwtTokenProvider jwtTokenProvider;
   private final RedisTokenRepository redisTokenRepository;
+  private final String fakeSignUpSecret;
 
   public AuthCommandService(
       ProviderTokenVerifierResolver providerTokenVerifierResolver,
       MemberRepository memberRepository,
       MemberCommandService memberCommandService,
       JwtTokenProvider jwtTokenProvider,
-      RedisTokenRepository redisTokenRepository) {
+      RedisTokenRepository redisTokenRepository,
+      @Value("${auth.fake-sign-up-secret:}") String fakeSignUpSecret) {
     this.providerTokenVerifierResolver = providerTokenVerifierResolver;
     this.memberRepository = memberRepository;
     this.memberCommandService = memberCommandService;
     this.jwtTokenProvider = jwtTokenProvider;
     this.redisTokenRepository = redisTokenRepository;
+    this.fakeSignUpSecret = fakeSignUpSecret;
   }
 
   public SocialLoginResponse socialLogin(SocialLoginRequest request) {
@@ -64,6 +77,50 @@ public class AuthCommandService {
     }
 
     return issueLoginTokens(member);
+  }
+
+  // 테스트용 토큰 발급이다. 소셜 인증 대신 서버에만 있는 비밀값으로 호출을 통제한다.
+  // Swagger에서 직접 호출해 받은 토큰을 시뮬레이터에 넣어 쓰는 용도이며, 앱은 이 API를 부르지 않는다.
+  //
+  // 임시 경로다. 앱 공개 전에 이 메서드와 엔드포인트, permitAll 등록을 모두 제거한다.
+  public SocialLoginResponse fakeSignUp(FakeSignUpRequest request) {
+    validateFakeSignUpSecret(request.getSecret());
+
+    String providerId = FAKE_PROVIDER_ID_PREFIX + request.getKey();
+
+    Member member =
+        memberRepository
+            .findByProviderAndProviderId(FAKE_PROVIDER, providerId)
+            .orElseGet(() -> createFakeMember(providerId, request.getKey()));
+
+    return issueLoginTokens(member);
+  }
+
+  // 비밀값이 설정되지 않은 환경에서는 전부 거부한다. 설정을 빠뜨렸을 때 열린 채로 남지 않게 한다.
+  private void validateFakeSignUpSecret(String secret) {
+    if (fakeSignUpSecret == null || fakeSignUpSecret.isBlank()) {
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+    }
+
+    // 길이 비교로 값이 새어 나가지 않도록 상수 시간 비교를 쓴다.
+    if (!MessageDigest.isEqual(
+        fakeSignUpSecret.getBytes(StandardCharsets.UTF_8),
+        secret.getBytes(StandardCharsets.UTF_8))) {
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+    }
+  }
+
+  // 온보딩을 건너뛰고 바로 쓸 수 있도록 닉네임까지 채운 뒤 ACTIVE로 만든다.
+  private Member createFakeMember(String providerId, String key) {
+    Member created = createSocialMember(FAKE_PROVIDER, providerId);
+    created.updateNickname(key, "테스트", "계정");
+    created.updateProfileBackgroundColor(ProfileBackgroundColor.GREEN);
+    created.completeOnboarding();
+
+    // createSocialMember는 REQUIRES_NEW로 별도 트랜잭션에서 커밋하므로 반환된 엔티티를
+    // 현재 영속성 컨텍스트가 추적하지 않는다. merge하지 않으면 위 변경이 DB에 반영되지 않아
+    // 응답은 ACTIVE인데 실제 회원은 닉네임 없이 PENDING_ONBOARDING으로 남는다.
+    return memberRepository.save(created);
   }
 
   public void logout(Long memberId) {

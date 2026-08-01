@@ -60,6 +60,8 @@ services:
       DATA4LIBRARY_AUTH_KEY: ${DATA4LIBRARY_AUTH_KEY:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
       APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:?APPLE_CLIENT_ID is required}
+      # 테스트용 토큰 발급 API 비밀값. 비워두면 해당 API가 모든 요청을 거부한다.
+      FAKE_SIGNUP_SECRET: ${FAKE_SIGNUP_SECRET:-}
       JAVA_TOOL_OPTIONS: >-
         -XX:+UseContainerSupport -Xms256m -Xmx768m
         -Duser.timezone=Asia/Seoul
