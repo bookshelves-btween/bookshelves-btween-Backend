@@ -39,7 +39,7 @@ class NotificationCommandServiceTest {
   }
 
   @Test
-  void saveAllLocksRecipientMembersInIdOrderBeforeAllocatingNotificationIds() {
+  void createNotificationsLocksRecipientMembersInIdOrderBeforeAllocatingNotificationIds() {
     Notification forSecondMember = mock(Notification.class);
     Notification forFirstMember = mock(Notification.class);
     Member firstMember = mock(Member.class);
@@ -53,7 +53,7 @@ class NotificationCommandServiceTest {
     List<Notification> notifications = List.of(forSecondMember, forFirstMember);
     when(notificationRepository.saveAllAndFlush(notifications)).thenReturn(notifications);
 
-    List<Notification> saved = notificationCommandService.saveAll(notifications);
+    List<Notification> saved = notificationCommandService.createNotifications(notifications);
 
     assertThat(saved).isSameAs(notifications);
     InOrder order = inOrder(memberRepository, notificationRepository);

@@ -32,7 +32,7 @@ public class NotificationCommandService {
   // 같은 회원의 알림은 Member 행 잠금을 획득한 트랜잭션만 INSERT할 수 있다.
   // IDENTITY ID 할당 순서와 커밋 순서를 일치시켜 ID 커서 폴링의 누락을 방지한다.
   // 여러 회원을 함께 처리할 때는 교착 상태를 막기 위해 회원 ID 오름차순으로 잠근다.
-  public List<Notification> saveAll(List<Notification> notifications) {
+  public List<Notification> createNotifications(List<Notification> notifications) {
     List<Long> memberIds =
         notifications.stream()
             .map(notification -> notification.getMember().getId())
