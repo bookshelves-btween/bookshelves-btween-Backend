@@ -8,6 +8,7 @@ import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.enums.NotificationType;
 import com.bookshelves.domain.notification.repository.NotificationRepository;
+import com.bookshelves.domain.notification.service.NotificationCommandService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,8 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 // 별도 빈으로 둔 이유가 둘이다. 요약 저장 트랜잭션과 분리해 알림 실패가 요약을 되돌리지 않게 하고,
 // 프록시를 거쳐야 REQUIRES_NEW가 실제로 새 트랜잭션을 연다. 같은 빈 안에서 자기 메서드를 호출하면
 // 프록시를 타지 않아 의도한 경계가 생기지 않는다.
-//
-// 여기서 만드는 것은 DB 알림 레코드이고 기기 푸시가 아니다. 저장소에 FCM 전송 클라이언트가 없다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -30,6 +29,7 @@ public class MeetingSummaryNotifier {
   private final MeetingRepository meetingRepository;
   private final MeetingParticipantRepository meetingParticipantRepository;
   private final NotificationRepository notificationRepository;
+  private final NotificationCommandService notificationCommandService;
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void notifySummaryDone(Long meetingId) {
@@ -47,7 +47,7 @@ public class MeetingSummaryNotifier {
               .toList();
 
       if (!notifications.isEmpty()) {
-        notificationRepository.saveAll(notifications);
+        notificationCommandService.createNotifications(notifications);
       }
     } catch (Exception e) {
       // 요약은 이미 저장됐고 사용자는 모임 상세에서 확인할 수 있다. 알림 실패로 요약을 되돌리지 않는다.
