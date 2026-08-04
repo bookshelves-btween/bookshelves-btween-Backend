@@ -104,8 +104,12 @@ public class RedisTokenRepository {
     return Optional.of(grace.substring(separatorIndex + 1));
   }
 
+  /**
+   * refreshToken과 그에 딸린 grace 키를 함께 원자적으로 삭제한다. grace 키를 같이 지우지 않으면, 로그아웃 직후에도 grace 유예 시간(최대 8초)
+   * 동안 방금 무효화한 refreshToken으로 새 토큰 쌍을 발급받을 수 있다.
+   */
   public void deleteRefreshToken(Long memberId) {
-    stringRedisTemplate.delete(getRefreshTokenKey(memberId));
+    stringRedisTemplate.delete(List.of(getRefreshTokenKey(memberId), getGraceKey(memberId)));
   }
 
   public void saveRestoreToken(Long memberId, String restoreToken, Duration ttl) {
@@ -124,9 +128,8 @@ public class RedisTokenRepository {
   }
 
   public void deleteAllTokens(Long memberId) {
-    stringRedisTemplate.delete(getRefreshTokenKey(memberId));
-    stringRedisTemplate.delete(getRestoreTokenKey(memberId));
-    stringRedisTemplate.delete(getGraceKey(memberId));
+    stringRedisTemplate.delete(
+        List.of(getRefreshTokenKey(memberId), getRestoreTokenKey(memberId), getGraceKey(memberId)));
   }
 
   private void saveToken(String key, String token, Duration ttl) {
