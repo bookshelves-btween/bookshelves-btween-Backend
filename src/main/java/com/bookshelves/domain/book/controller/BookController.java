@@ -66,6 +66,15 @@ public class BookController implements BookControllerDocs {
   }
 
   @Override
+  @DeleteMapping("/api/v1/books/search/recent")
+  public ResponseEntity<ApiResponse<Void>> deleteRecentBookSearch(
+      @RequestParam(required = false) String keyword) {
+    bookCommandService.deleteRecentBookSearch(keyword);
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(BookSuccessCode.RECENT_BOOK_SEARCH_DELETED, null));
+  }
+
+  @Override
   @GetMapping("/api/v1/member-books/calendar")
   public ResponseEntity<ApiResponse<MemberBookCalendarResDTO>> getMemberBookCalendar(
       @RequestParam(required = false) String year, @RequestParam(required = false) String month) {

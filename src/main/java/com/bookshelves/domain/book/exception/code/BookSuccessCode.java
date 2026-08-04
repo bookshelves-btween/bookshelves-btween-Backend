@@ -16,6 +16,7 @@ public enum BookSuccessCode implements BaseSuccessCode {
   CATEGORY_LIST_FOUND(HttpStatus.OK, "BOOK200_1", "카테고리 목록 조회에 성공했습니다."),
   EXTERNAL_BOOK_SEARCHED(HttpStatus.OK, "BOOK200_2", "도서 검색에 성공했습니다."),
   RECENT_BOOK_SEARCHES_FOUND(HttpStatus.OK, "BOOK200_3", "최근 검색어 조회에 성공했습니다."),
+  RECENT_BOOK_SEARCH_DELETED(HttpStatus.OK, "BOOK200_10", "최근 검색어 삭제에 성공했습니다."),
   MEMBER_BOOK_CREATED(HttpStatus.CREATED, "BOOK201_1", "독서 기록 저장에 성공했습니다."),
   MEMBER_BOOK_UPDATED(HttpStatus.OK, "BOOK200_5", "독서 기록 수정에 성공했습니다.");
 
