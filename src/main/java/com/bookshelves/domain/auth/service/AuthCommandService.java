@@ -194,16 +194,23 @@ public class AuthCommandService {
     TokenPair tokens = generateTokenPair(member.getId());
 
     // 검증(matches)과 회전(save) 사이 TOCTOU를 없애기 위해 Redis에서 원자적으로 비교 후 교체한다.
-    // 동시에 같은 refresh token으로 재발급이 들어오면 하나만 성공하고 나머지는 거부된다.
+    // accessToken 만료 순간 같은 refreshToken으로 여러 요청이 동시에 들어오면 CAS엔 하나만
+    // 성공하는데, 나머지("진" 요청)는 rotateRefreshToken이 grace에 남겨둔, 방금 발급된
+    // 동일한 토큰을 findRotationGracePayload로 그대로 돌려받는다. 그렇지 않으면 정상
+    // 사용자가 타이밍 때문에 무작위로 강제 로그아웃된다.
     boolean rotated =
         redisTokenRepository.rotateRefreshToken(
             member.getId(),
             oldRefreshToken,
             tokens.refreshToken(),
-            Duration.ofSeconds(tokens.refreshTokenExpiresIn()));
+            Duration.ofSeconds(tokens.refreshTokenExpiresIn()),
+            buildGracePayload(tokens));
 
     if (!rotated) {
-      throw new AuthException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+      return redisTokenRepository
+          .findRotationGracePayload(member.getId(), oldRefreshToken)
+          .map(this::parseGracePayload)
+          .orElseThrow(() -> new AuthException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN));
     }
 
     return AuthConverter.toReissueResponse(
@@ -211,6 +218,22 @@ public class AuthCommandService {
         tokens.refreshToken(),
         tokens.accessTokenExpiresIn(),
         tokens.refreshTokenExpiresIn());
+  }
+
+  private String buildGracePayload(TokenPair tokens) {
+    return tokens.accessToken()
+        + '|'
+        + tokens.refreshToken()
+        + '|'
+        + tokens.accessTokenExpiresIn()
+        + '|'
+        + tokens.refreshTokenExpiresIn();
+  }
+
+  private ReissueResponse parseGracePayload(String gracePayload) {
+    String[] parts = gracePayload.split("\\|", 4);
+    return AuthConverter.toReissueResponse(
+        parts[0], parts[1], Long.parseLong(parts[2]), Long.parseLong(parts[3]));
   }
 
   private Member createSocialMember(Provider provider, String providerId) {
