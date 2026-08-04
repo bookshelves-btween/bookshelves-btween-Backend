@@ -85,7 +85,7 @@ public class Data4LibraryBookDetailClient {
     requestFactory.setConnectTimeout(Duration.ofSeconds(5));
     requestFactory.setReadTimeout(Duration.ofSeconds(10));
 
-    return restClientBuilder.baseUrl(baseUrl).requestFactory(requestFactory).build();
+    return restClientBuilder.clone().baseUrl(baseUrl).requestFactory(requestFactory).build();
   }
 
   private String extractClassNumber(JsonNode response) {

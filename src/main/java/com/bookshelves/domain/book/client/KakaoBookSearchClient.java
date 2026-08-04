@@ -40,7 +40,7 @@ public class KakaoBookSearchClient {
     requestFactory.setConnectTimeout(Duration.ofSeconds(5));
     requestFactory.setReadTimeout(Duration.ofSeconds(10));
 
-    return restClientBuilder.baseUrl(bookSearchUri).requestFactory(requestFactory).build();
+    return restClientBuilder.clone().baseUrl(bookSearchUri).requestFactory(requestFactory).build();
   }
 
   public KakaoBookSearchResult search(String query, int page, int size) {
