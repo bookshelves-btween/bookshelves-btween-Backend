@@ -261,6 +261,23 @@ public interface MemberControllerDocs {
                 "message": "회원을 찾을 수 없습니다.",
                 "result": {}
               }
+              """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "탈퇴할 수 없는 회원 상태 (ACTIVE가 아님 — PENDING_ONBOARDING, WITHDRAWN 등)",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+              {
+                "isSuccess": false,
+                "code": "MEMBER409_2",
+                "message": "탈퇴할 수 없는 회원 상태입니다.",
+                "result": {}
+              }
               """)))
   })
   @DeleteMapping("/api/v1/members/me")
