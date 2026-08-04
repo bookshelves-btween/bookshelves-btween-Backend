@@ -22,6 +22,7 @@ import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
+import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.service.MemberCommandService;
@@ -91,12 +92,12 @@ class AuthCommandServiceTest {
   void fakeSignUpCreatesActiveMemberAndIssuesTokens() {
     when(memberRepository.findByProviderAndProviderId(Provider.KAKAO, "fake-tester-1"))
         .thenReturn(Optional.empty());
-    Member savedMember = mock(Member.class);
-    when(savedMember.getId()).thenReturn(7L);
-    when(savedMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
-    when(memberCommandService.createSocialMember(Provider.KAKAO, "fake-tester-1"))
-        .thenReturn(savedMember);
-    when(memberRepository.save(savedMember)).thenReturn(savedMember);
+    Member createdMember = mock(Member.class);
+    when(createdMember.getId()).thenReturn(7L);
+    when(createdMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
+    when(memberCommandService.createAndOnboardFakeMember(
+            Provider.KAKAO, "fake-tester-1", "tester-1", ProfileBackgroundColor.GREEN))
+        .thenReturn(createdMember);
 
     SocialLoginResponse response =
         authCommandService.fakeSignUp(
@@ -106,10 +107,9 @@ class AuthCommandServiceTest {
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     assertThat(response.getAccessToken()).isNotNull();
     assertThat(response.getRefreshToken()).isNotNull();
-    verify(savedMember).updateNickname("tester-1", "테스트", "계정");
-    verify(savedMember).completeOnboarding();
-    // createSocialMember가 REQUIRES_NEW라 반환 엔티티가 준영속이다. merge해야 변경이 반영된다.
-    verify(memberRepository).save(savedMember);
+    verify(memberCommandService)
+        .createAndOnboardFakeMember(
+            Provider.KAKAO, "fake-tester-1", "tester-1", ProfileBackgroundColor.GREEN);
     verify(redisTokenRepository).saveRefreshToken(eq(7L), any(), eq(Duration.ofSeconds(1209600)));
   }
 
@@ -127,7 +127,7 @@ class AuthCommandServiceTest {
 
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     // 같은 key는 회원을 새로 만들지 않는다 — 재로그인해도 참여한 모임이 유지되어야 한다
-    verify(memberCommandService, never()).createSocialMember(any(), any());
+    verify(memberCommandService, never()).createAndOnboardFakeMember(any(), any(), any(), any());
     verify(redisTokenRepository).saveRefreshToken(eq(7L), any(), eq(Duration.ofSeconds(1209600)));
   }
 
@@ -136,12 +136,12 @@ class AuthCommandServiceTest {
     // provider_id에 fake- 접두사가 붙으므로 실제 카카오 회원(숫자 provider_id)과 겹치지 않는다
     when(memberRepository.findByProviderAndProviderId(Provider.KAKAO, "fake-tester-2"))
         .thenReturn(Optional.empty());
-    Member savedMember = mock(Member.class);
-    when(savedMember.getId()).thenReturn(8L);
-    when(savedMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
-    when(memberCommandService.createSocialMember(Provider.KAKAO, "fake-tester-2"))
-        .thenReturn(savedMember);
-    when(memberRepository.save(savedMember)).thenReturn(savedMember);
+    Member createdMember = mock(Member.class);
+    when(createdMember.getId()).thenReturn(8L);
+    when(createdMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
+    when(memberCommandService.createAndOnboardFakeMember(
+            Provider.KAKAO, "fake-tester-2", "tester-2", ProfileBackgroundColor.GREEN))
+        .thenReturn(createdMember);
 
     authCommandService.fakeSignUp(
         FakeSignUpRequest.builder().key("tester-2").secret(FAKE_SECRET).build());
