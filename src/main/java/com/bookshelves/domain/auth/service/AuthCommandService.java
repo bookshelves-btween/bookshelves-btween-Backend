@@ -112,15 +112,8 @@ public class AuthCommandService {
 
   // 온보딩을 건너뛰고 바로 쓸 수 있도록 닉네임까지 채운 뒤 ACTIVE로 만든다.
   private Member createFakeMember(String providerId, String key) {
-    Member created = createSocialMember(FAKE_PROVIDER, providerId);
-    created.updateNickname(key, "테스트", "계정");
-    created.updateProfileBackgroundColor(ProfileBackgroundColor.GREEN);
-    created.completeOnboarding();
-
-    // createSocialMember는 REQUIRES_NEW로 별도 트랜잭션에서 커밋하므로 반환된 엔티티를
-    // 현재 영속성 컨텍스트가 추적하지 않는다. merge하지 않으면 위 변경이 DB에 반영되지 않아
-    // 응답은 ACTIVE인데 실제 회원은 닉네임 없이 PENDING_ONBOARDING으로 남는다.
-    return memberRepository.save(created);
+    return memberCommandService.createAndOnboardFakeMember(
+        FAKE_PROVIDER, providerId, key, ProfileBackgroundColor.GREEN);
   }
 
   public void logout(Long memberId) {
