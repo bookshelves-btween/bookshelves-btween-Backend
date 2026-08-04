@@ -140,12 +140,18 @@ class RedisTokenRepositoryTest {
   }
 
   @Test
-  void deleteAllTokensDeletesRefreshRestoreAndGraceTokens() {
+  void deleteAllTokensDeletesRefreshRestoreAndGraceTokensInOneCall() {
     redisTokenRepository.deleteAllTokens(1L);
 
-    verify(stringRedisTemplate).delete("auth:refresh:1");
-    verify(stringRedisTemplate).delete("auth:restore:1");
-    verify(stringRedisTemplate).delete("auth:refresh:grace:1");
+    verify(stringRedisTemplate)
+        .delete(List.of("auth:refresh:1", "auth:restore:1", "auth:refresh:grace:1"));
+  }
+
+  @Test
+  void deleteRefreshTokenDeletesRefreshAndGraceTokensInOneCall() {
+    redisTokenRepository.deleteRefreshToken(1L);
+
+    verify(stringRedisTemplate).delete(List.of("auth:refresh:1", "auth:refresh:grace:1"));
   }
 
   private String sha256(String value) {
