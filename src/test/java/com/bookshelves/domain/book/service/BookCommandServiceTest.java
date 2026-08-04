@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient;
 import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
@@ -21,6 +22,7 @@ import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 @ExtendWith(MockitoExtension.class)
 class BookCommandServiceTest {
@@ -47,10 +50,47 @@ class BookCommandServiceTest {
   @Mock private MemberBookRepository memberBookRepository;
   @Mock private MemberBookHistoryRepository memberBookHistoryRepository;
   @Mock private MemberRepository memberRepository;
+  @Mock private RecentBookSearchRepository recentBookSearchRepository;
   @Mock private AuthenticationFacade authenticationFacade;
   @Mock private KakaoBookSearchClient kakaoBookSearchClient;
   @Mock private Data4LibraryBookDetailClient data4LibraryBookDetailClient;
   @InjectMocks private BookCommandService bookCommandService;
+
+  @Test
+  void deleteRecentBookSearchDeletesStrippedKeywordForCurrentMember() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+
+    bookCommandService.deleteRecentBookSearch("\u2003혼모노\u3000");
+
+    verify(recentBookSearchRepository).delete(7L, "혼모노");
+  }
+
+  @Test
+  void deleteRecentBookSearchRejectsBlankKeywordBeforeAuthentication() {
+    assertThatThrownBy(() -> bookCommandService.deleteRecentBookSearch("  "))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_RECENT_BOOK_SEARCH_DELETE_REQUEST));
+
+    verifyNoInteractions(authenticationFacade, recentBookSearchRepository);
+  }
+
+  @Test
+  void deleteRecentBookSearchThrowsBookExceptionWhenRedisDeleteFails() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    org.mockito.Mockito.doThrow(new DataAccessResourceFailureException("redis unavailable"))
+        .when(recentBookSearchRepository)
+        .delete(7L, "혼모노");
+
+    assertThatThrownBy(() -> bookCommandService.deleteRecentBookSearch("혼모노"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.RECENT_BOOK_SEARCH_DELETE_FAILED));
+  }
 
   @Test
   void returnsSavedBookWithoutCallingKakaoApi() {
