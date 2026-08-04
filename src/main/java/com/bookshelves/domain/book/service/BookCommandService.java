@@ -62,13 +62,18 @@ public class BookCommandService {
   }
 
   public void deleteRecentBookSearch(String keyword) {
-    if (keyword == null || keyword.isBlank()) {
+    if (keyword == null) {
+      throw new BookException(BookErrorCode.INVALID_RECENT_BOOK_SEARCH_DELETE_REQUEST);
+    }
+
+    String normalizedKeyword = keyword.strip();
+    if (normalizedKeyword.isBlank()) {
       throw new BookException(BookErrorCode.INVALID_RECENT_BOOK_SEARCH_DELETE_REQUEST);
     }
 
     Long memberId = authenticationFacade.getCurrentMemberId();
     try {
-      recentBookSearchRepository.delete(memberId, keyword.trim());
+      recentBookSearchRepository.delete(memberId, normalizedKeyword);
     } catch (DataAccessException exception) {
       throw new BookException(BookErrorCode.RECENT_BOOK_SEARCH_DELETE_FAILED);
     }
