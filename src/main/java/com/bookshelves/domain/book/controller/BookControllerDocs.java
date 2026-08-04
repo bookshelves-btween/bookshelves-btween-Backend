@@ -406,6 +406,41 @@ public interface BookControllerDocs {
   })
   ResponseEntity<ApiResponse<RecentBookSearchResDTO>> getRecentBookSearches();
 
+  @Operation(
+      summary = "최근 검색어 삭제",
+      description = "로그인한 회원의 최근 검색어 중 keyword와 일치하는 항목을 삭제합니다. 항목이 없어도 성공합니다.")
+  @SecurityRequirement(name = "JWT TOKEN")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "최근 검색어 삭제 성공",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": true,
+                              "code": "BOOK200_10",
+                              "message": "최근 검색어 삭제에 성공했습니다.",
+                              "result": null
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "삭제할 검색어 누락 또는 공백 (BOOK400_7)"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "인증 필요"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "500",
+        description = "최근 검색어 삭제 실패 (BOOK500_6)")
+  })
+  ResponseEntity<ApiResponse<Void>> deleteRecentBookSearch(
+      @Parameter(description = "삭제할 최근 검색어", example = "혼모노", required = true) String keyword);
+
   @Operation(summary = "책 상세 조회", description = "ISBN으로 외부 도서 정보와 내 독서 기록을 함께 조회합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({

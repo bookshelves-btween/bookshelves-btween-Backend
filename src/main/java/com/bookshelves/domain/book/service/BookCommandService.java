@@ -15,12 +15,14 @@ import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +35,7 @@ public class BookCommandService {
   private final MemberBookRepository memberBookRepository;
   private final MemberBookHistoryRepository memberBookHistoryRepository;
   private final MemberRepository memberRepository;
+  private final RecentBookSearchRepository recentBookSearchRepository;
   private final AuthenticationFacade authenticationFacade;
   private final KakaoBookSearchClient kakaoBookSearchClient;
   private final Data4LibraryBookDetailClient data4LibraryBookDetailClient;
@@ -56,6 +59,24 @@ public class BookCommandService {
         .findByIdForUpdate(memberId)
         .map(lockedMember -> upsertLockedMemberBook(memberId, lockedMember, book, request))
         .orElseThrow(() -> new IllegalStateException("인증된 회원을 찾을 수 없습니다."));
+  }
+
+  public void deleteRecentBookSearch(String keyword) {
+    if (keyword == null) {
+      throw new BookException(BookErrorCode.INVALID_RECENT_BOOK_SEARCH_DELETE_REQUEST);
+    }
+
+    String normalizedKeyword = keyword.strip();
+    if (normalizedKeyword.isBlank()) {
+      throw new BookException(BookErrorCode.INVALID_RECENT_BOOK_SEARCH_DELETE_REQUEST);
+    }
+
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    try {
+      recentBookSearchRepository.delete(memberId, normalizedKeyword);
+    } catch (DataAccessException exception) {
+      throw new BookException(BookErrorCode.RECENT_BOOK_SEARCH_DELETE_FAILED);
+    }
   }
 
   public void deleteMemberBook(String rawIsbn) {
