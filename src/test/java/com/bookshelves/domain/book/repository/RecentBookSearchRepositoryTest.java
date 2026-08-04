@@ -70,6 +70,15 @@ class RecentBookSearchRepositoryTest {
     assertThat(recentBookSearchRepository.findAllByMemberId(7L)).isEmpty();
   }
 
+  @Test
+  void deleteRemovesOnlyKeywordFromMemberSearches() {
+    given(stringRedisTemplate.opsForZSet()).willReturn(zSetOperations);
+
+    recentBookSearchRepository.delete(7L, "혼모노");
+
+    verify(zSetOperations).remove("recent-searches:member:7", "혼모노");
+  }
+
   @SuppressWarnings("unchecked")
   private ZSetOperations.TypedTuple<String> recentSearchTuple(String keyword, double score) {
     ZSetOperations.TypedTuple<String> tuple = mock(ZSetOperations.TypedTuple.class);
