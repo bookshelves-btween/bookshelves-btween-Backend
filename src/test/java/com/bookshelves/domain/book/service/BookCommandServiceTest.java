@@ -57,10 +57,10 @@ class BookCommandServiceTest {
   @InjectMocks private BookCommandService bookCommandService;
 
   @Test
-  void deleteRecentBookSearchDeletesTrimmedKeywordForCurrentMember() {
+  void deleteRecentBookSearchDeletesStrippedKeywordForCurrentMember() {
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
 
-    bookCommandService.deleteRecentBookSearch("  혼모노  ");
+    bookCommandService.deleteRecentBookSearch("\u2003혼모노\u3000");
 
     verify(recentBookSearchRepository).delete(7L, "혼모노");
   }
