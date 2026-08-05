@@ -35,7 +35,8 @@ external:
   # 카카오 도서 API · 소셜 로그인 사용자 정보 조회
   kakao:
     rest-api-key: ${KAKAO_REST_API_KEY:}
-    user-info-uri: https://kapi.kakao.com/v2/user/me
+    app-id: ${KAKAO_APP_ID:}
+    access-token-info-uri: https://kapi.kakao.com/v1/user/access_token_info
     book-search-uri: https://dapi.kakao.com/v3/search/book
   # LLM API KEY
   gemini:
