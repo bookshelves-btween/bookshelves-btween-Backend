@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,11 +22,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
   private final JwtTokenProvider jwtTokenProvider;
   private final MemberRepository memberRepository;
+  private final RedisTokenRepository redisTokenRepository;
 
   public JwtAuthenticationFilter(
-      JwtTokenProvider jwtTokenProvider, MemberRepository memberRepository) {
+      JwtTokenProvider jwtTokenProvider,
+      MemberRepository memberRepository,
+      RedisTokenRepository redisTokenRepository) {
     this.jwtTokenProvider = jwtTokenProvider;
     this.memberRepository = memberRepository;
+    this.redisTokenRepository = redisTokenRepository;
   }
 
   @Override
@@ -37,7 +42,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     if (token != null && jwtTokenProvider.isValidToken(token, TokenType.ACCESS)) {
       Long memberId = jwtTokenProvider.getMemberId(token);
 
-      if (isActiveMember(memberId)) {
+      if (isActiveMember(memberId)
+          && !isRevokedByLogout(memberId, jwtTokenProvider.getIssuedAt(token))) {
         MemberPrincipal principal = new MemberPrincipal(memberId);
         UsernamePasswordAuthenticationToken authentication =
             new UsernamePasswordAuthenticationToken(principal, null, List.of());
@@ -54,6 +60,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     return memberRepository
         .findStatusById(memberId)
         .map(status -> status == MemberStatus.ACTIVE || status == MemberStatus.PENDING_ONBOARDING)
+        .orElse(false);
+  }
+
+  // JWT는 stateless라 로그아웃해도 access token 자체는 만료 전까지 서명이 유효하다. 로그아웃
+  // 시각보다 먼저 발급된 토큰은 여기서 걸러내, 로그아웃 이후에도 캡처된 토큰이 계속 통하는
+  // 것을 막는다.
+  private boolean isRevokedByLogout(Long memberId, Instant tokenIssuedAt) {
+    return redisTokenRepository
+        .findLogoutAt(memberId)
+        .map(logoutAt -> !tokenIssuedAt.isAfter(logoutAt))
         .orElse(false);
   }
 

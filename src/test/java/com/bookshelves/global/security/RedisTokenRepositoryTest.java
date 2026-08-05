@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -137,6 +138,42 @@ class RedisTokenRepositoryTest {
     boolean consumed = redisTokenRepository.consumeRestoreToken(1L, "restore-token");
 
     assertThat(consumed).isFalse();
+  }
+
+  @Test
+  void saveLogoutAtStoresEpochMillisWithGivenTtl() {
+    when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+    ArgumentCaptor<String> valueCaptor = ArgumentCaptor.forClass(String.class);
+
+    redisTokenRepository.saveLogoutAt(1L, Duration.ofSeconds(3600));
+
+    verify(valueOperations)
+        .set(eq("auth:logout-at:1"), valueCaptor.capture(), eq(Duration.ofSeconds(3600)));
+    assertThat(Long.parseLong(valueCaptor.getValue())).isPositive();
+  }
+
+  @Test
+  void findLogoutAtReturnsStoredInstant() {
+    when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+    // 저장 형식(epoch millis)에 맞춰 밀리초 정밀도로 truncate — 안 그러면 나노초 정밀도 손실로
+    // 왕복 비교가 어긋난다.
+    Instant logoutAt = Instant.ofEpochMilli(Instant.now().toEpochMilli());
+    when(valueOperations.get("auth:logout-at:1"))
+        .thenReturn(String.valueOf(logoutAt.toEpochMilli()));
+
+    Optional<Instant> result = redisTokenRepository.findLogoutAt(1L);
+
+    assertThat(result).contains(logoutAt);
+  }
+
+  @Test
+  void findLogoutAtReturnsEmptyWhenNeverLoggedOut() {
+    when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+    when(valueOperations.get("auth:logout-at:1")).thenReturn(null);
+
+    Optional<Instant> result = redisTokenRepository.findLogoutAt(1L);
+
+    assertThat(result).isEmpty();
   }
 
   @Test
