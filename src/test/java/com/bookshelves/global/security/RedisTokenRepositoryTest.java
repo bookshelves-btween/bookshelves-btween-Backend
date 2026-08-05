@@ -177,6 +177,31 @@ class RedisTokenRepositoryTest {
   }
 
   @Test
+  void consumeOidcIdTokenReturnsTrueOnFirstUse() {
+    when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+    when(valueOperations.setIfAbsent(
+            "auth:oidc-used:" + sha256("id-token"), "1", Duration.ofSeconds(60)))
+        .thenReturn(true);
+
+    boolean consumed = redisTokenRepository.consumeOidcIdToken("id-token", Duration.ofSeconds(60));
+
+    assertThat(consumed).isTrue();
+  }
+
+  @Test
+  void consumeOidcIdTokenReturnsFalseWhenAlreadyUsed() {
+    // 같은 ID 토큰이 재전송된 상황(replay) — 이미 소모된 토큰은 다시 통과시키면 안 된다.
+    when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+    when(valueOperations.setIfAbsent(
+            "auth:oidc-used:" + sha256("id-token"), "1", Duration.ofSeconds(60)))
+        .thenReturn(false);
+
+    boolean consumed = redisTokenRepository.consumeOidcIdToken("id-token", Duration.ofSeconds(60));
+
+    assertThat(consumed).isFalse();
+  }
+
+  @Test
   void deleteAllTokensDeletesRefreshRestoreAndGraceTokensInOneCall() {
     redisTokenRepository.deleteAllTokens(1L);
 
