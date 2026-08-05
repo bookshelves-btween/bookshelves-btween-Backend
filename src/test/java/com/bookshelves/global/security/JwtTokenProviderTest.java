@@ -6,7 +6,10 @@ import com.bookshelves.global.config.JwtProperties;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.Test;
@@ -64,14 +67,18 @@ class JwtTokenProviderTest {
   }
 
   @Test
-  void getIssuedAtReturnsTimeCloseToGeneration() {
-    Instant before = Instant.now();
-    String token = jwtTokenProvider.generateToken(1L, TokenType.ACCESS);
-    Instant after = Instant.now();
+  void getIssuedAtReturnsExactGenerationInstantWithMillisecondPrecision() {
+    // 넓은 허용 범위(예: ±1초)로 검증하면 iat이 초 단위로 잘리는 회귀가 나도 범위 안에 들어와
+    // 못 잡는다. 밀리초가 0이 아닌 시각을 고정해 정확히 일치하는지 확인해야 그 회귀를 잡는다.
+    Instant fixedInstant = Instant.now().truncatedTo(ChronoUnit.SECONDS).plusMillis(123);
+    JwtTokenProvider fixedClockTokenProvider =
+        new JwtTokenProvider(
+            new JwtProperties(SECRET, 3600, 1209600, 600),
+            Clock.fixed(fixedInstant, ZoneOffset.UTC));
 
-    Instant issuedAt = jwtTokenProvider.getIssuedAt(token);
+    String token = fixedClockTokenProvider.generateToken(1L, TokenType.ACCESS);
 
-    assertThat(issuedAt).isBetween(before.minusSeconds(1), after.plusSeconds(1));
+    assertThat(jwtTokenProvider.getIssuedAt(token)).isEqualTo(fixedInstant);
   }
 
   @Test
