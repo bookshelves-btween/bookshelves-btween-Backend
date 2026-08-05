@@ -6,6 +6,7 @@ import com.bookshelves.domain.chat.code.ChatErrorCode;
 import com.bookshelves.domain.chat.dto.ChatFrame;
 import com.bookshelves.domain.chat.exception.ChatException;
 import com.bookshelves.domain.chat.service.ChatSubscriptionValidator;
+import com.bookshelves.global.security.AccessTokenGuard;
 import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.MemberPrincipal;
 import com.bookshelves.global.security.TokenType;
@@ -38,6 +39,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
   private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
   private final JwtTokenProvider jwtTokenProvider;
+  private final AccessTokenGuard accessTokenGuard;
   private final ChatSubscriptionValidator chatSubscriptionValidator;
 
   @Override
@@ -68,6 +70,14 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     Long memberId = jwtTokenProvider.getMemberId(token);
+
+    // 서명만 보고 통과시키면 탈퇴·정지 회원과 로그아웃된 토큰이 웹소켓으로만 들어온다.
+    // HTTP 필터와 같은 판정을 쓴다. 거부 사유는 구분하지 않는다 — 계정이 정지된 것인지
+    // 토큰이 잘못된 것인지를 CONNECT 실패로 알려줄 이유가 없다.
+    if (!accessTokenGuard.grantsAccess(memberId, jwtTokenProvider.getIssuedAt(token))) {
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
+    }
+
     return new UsernamePasswordAuthenticationToken(new MemberPrincipal(memberId), null, List.of());
   }
 
