@@ -1,8 +1,12 @@
 package com.bookshelves.global.websocket;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,8 +17,10 @@ import com.bookshelves.domain.chat.code.ChatErrorCode;
 import com.bookshelves.domain.chat.exception.ChatException;
 import com.bookshelves.domain.chat.service.ChatSubscriptionValidator;
 import com.bookshelves.global.config.JwtProperties;
+import com.bookshelves.global.security.AccessTokenGuard;
 import com.bookshelves.global.security.JwtTokenProvider;
 import com.bookshelves.global.security.MemberPrincipal;
+import com.bookshelves.global.security.TokenType;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,10 +40,12 @@ class StompAuthChannelInterceptorTest {
   private final JwtTokenProvider jwtTokenProvider =
       new JwtTokenProvider(
           new JwtProperties("bookshelves-test-jwt-secret-key-value", 3600, 1209600, 600));
+  private final AccessTokenGuard accessTokenGuard = mock(AccessTokenGuard.class);
   private final ChatSubscriptionValidator chatSubscriptionValidator =
       mock(ChatSubscriptionValidator.class);
   private final StompAuthChannelInterceptor interceptor =
-      new StompAuthChannelInterceptor(jwtTokenProvider, chatSubscriptionValidator);
+      new StompAuthChannelInterceptor(
+          jwtTokenProvider, accessTokenGuard, chatSubscriptionValidator);
   private final MessageChannel channel = mock(MessageChannel.class);
 
   @Test
@@ -108,8 +116,47 @@ class StompAuthChannelInterceptorTest {
     verifyNoInteractions(chatSubscriptionValidator);
   }
 
+  @Test
+  void connectSetsPrincipalWhenGuardGrantsAccess() {
+    given(accessTokenGuard.grantsAccess(eq(MEMBER_ID), any())).willReturn(true);
+    Message<byte[]> message = connect(jwtTokenProvider.generateToken(MEMBER_ID, TokenType.ACCESS));
+
+    interceptor.preSend(message, channel);
+
+    Object principal =
+        ((Authentication) StompHeaderAccessor.wrap(message).getUser()).getPrincipal();
+    assertThat(principal).isEqualTo(new MemberPrincipal(MEMBER_ID));
+  }
+
+  // 탈퇴·정지 회원과 로그아웃된 토큰이 웹소켓으로만 들어오는 비대칭을 막는다.
+  // 서명이 유효해도 HTTP 필터와 같은 판정을 통과하지 못하면 CONNECT를 거부한다.
+  @Test
+  void connectIsRejectedWhenGuardDeniesAccess() {
+    given(accessTokenGuard.grantsAccess(eq(MEMBER_ID), any())).willReturn(false);
+    String token = jwtTokenProvider.generateToken(MEMBER_ID, TokenType.ACCESS);
+
+    assertThatThrownBy(() -> interceptor.preSend(connect(token), channel))
+        .isInstanceOf(AuthException.class);
+  }
+
+  @Test
+  void connectWithInvalidTokenIsRejectedWithoutConsultingGuard() {
+    assertThatThrownBy(() -> interceptor.preSend(connect("not-a-token"), channel))
+        .isInstanceOf(AuthException.class);
+
+    verifyNoInteractions(accessTokenGuard);
+  }
+
   private Authentication authenticated() {
     return new UsernamePasswordAuthenticationToken(new MemberPrincipal(MEMBER_ID), null, List.of());
+  }
+
+  private Message<byte[]> connect(String token) {
+    StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+    accessor.setSessionId("session-1");
+    accessor.setNativeHeader("Authorization", "Bearer " + token);
+    accessor.setLeaveMutable(true);
+    return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
   }
 
   private Message<byte[]> subscribe(String destination, Authentication user) {
