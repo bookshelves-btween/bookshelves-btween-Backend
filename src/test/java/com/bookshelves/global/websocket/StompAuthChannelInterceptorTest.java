@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.bookshelves.domain.auth.exception.AuthException;
+import com.bookshelves.domain.chat.code.ChatErrorCode;
 import com.bookshelves.domain.chat.exception.ChatException;
 import com.bookshelves.domain.chat.service.ChatSubscriptionValidator;
 import com.bookshelves.global.config.JwtProperties;
@@ -60,7 +61,8 @@ class StompAuthChannelInterceptorTest {
       })
   void patternDestinationIsRejectedWithoutReachingValidator(String destination) {
     assertThatThrownBy(() -> interceptor.preSend(subscribe(destination, authenticated()), channel))
-        .isInstanceOf(ChatException.class);
+        .isInstanceOf(ChatException.class)
+        .hasFieldOrPropertyWithValue("errorCode", ChatErrorCode.CHATROOM_NOT_FOUND);
 
     verify(chatSubscriptionValidator, never()).validate(anyLong(), anyLong());
   }
@@ -82,7 +84,8 @@ class StompAuthChannelInterceptorTest {
       })
   void malformedBrokerDestinationIsRejected(String destination) {
     assertThatThrownBy(() -> interceptor.preSend(subscribe(destination, authenticated()), channel))
-        .isInstanceOf(ChatException.class);
+        .isInstanceOf(ChatException.class)
+        .hasFieldOrPropertyWithValue("errorCode", ChatErrorCode.CHATROOM_NOT_FOUND);
 
     verify(chatSubscriptionValidator, never()).validate(anyLong(), anyLong());
   }
