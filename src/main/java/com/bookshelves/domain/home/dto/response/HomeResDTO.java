@@ -64,5 +64,6 @@ public record HomeResDTO(
 
   // 모임 카드는 모임 상세로만 이동하므로 책 식별자가 필요 없다. isbn을 담지 않는다.
   @Schema(description = "모임 대상 책")
-  public record MeetingBookInfo(Long id, String title, String publisher, String coverImageUrl) {}
+  public record MeetingBookInfo(
+      Long id, String title, String author, String publisher, String coverImageUrl) {}
 }

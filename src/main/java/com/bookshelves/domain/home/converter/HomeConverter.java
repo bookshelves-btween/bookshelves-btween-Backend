@@ -81,6 +81,10 @@ public class HomeConverter {
             meeting.getMaxParticipants(),
             meeting.getDuration()),
         new MeetingBookInfo(
-            book.getId(), book.getTitle(), book.getPublisher(), book.getCoverImageUrl()));
+            book.getId(),
+            book.getTitle(),
+            book.getAuthor(),
+            book.getPublisher(),
+            book.getCoverImageUrl()));
   }
 }
