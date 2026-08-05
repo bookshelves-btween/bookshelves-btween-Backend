@@ -26,11 +26,14 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @Transactional
 public class AuthCommandService {
@@ -200,10 +203,18 @@ public class AuthCommandService {
             buildGracePayload(tokens));
 
     if (!rotated) {
-      return redisTokenRepository
-          .findRotationGracePayload(member.getId(), oldRefreshToken)
-          .map(this::parseGracePayload)
-          .orElseThrow(() -> new AuthException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN));
+      Optional<String> gracePayload =
+          redisTokenRepository.findRotationGracePayload(member.getId(), oldRefreshToken);
+      if (gracePayload.isPresent()) {
+        return parseGracePayload(gracePayload.get());
+      }
+
+      // grace 유예 시간(8초) 안도 아니고 현재 값도 아닌 refreshToken이 들어왔다 — 정상적인 동시
+      // 요청이라면 절대 벌어질 수 없는 지연이다. 이미 탈취된 구 토큰의 재사용 시도로 간주하고,
+      // 공격자가 현재 유효한 토큰까지 확보했을 가능성에 대비해 현재 세션을 함께 무효화한다.
+      log.warn("회전된 refresh token 재사용 의심으로 세션을 무효화합니다. memberId={}", member.getId());
+      redisTokenRepository.deleteRefreshToken(member.getId());
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
     }
 
     return AuthConverter.toReissueResponse(
