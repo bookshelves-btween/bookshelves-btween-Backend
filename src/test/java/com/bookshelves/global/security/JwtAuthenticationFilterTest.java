@@ -35,7 +35,8 @@ class JwtAuthenticationFilterTest {
   private final MemberRepository memberRepository = mock(MemberRepository.class);
   private final RedisTokenRepository redisTokenRepository = mock(RedisTokenRepository.class);
   private final JwtAuthenticationFilter jwtAuthenticationFilter =
-      new JwtAuthenticationFilter(jwtTokenProvider, memberRepository, redisTokenRepository);
+      new JwtAuthenticationFilter(
+          jwtTokenProvider, new AccessTokenGuard(memberRepository, redisTokenRepository));
 
   @AfterEach
   void tearDown() {
