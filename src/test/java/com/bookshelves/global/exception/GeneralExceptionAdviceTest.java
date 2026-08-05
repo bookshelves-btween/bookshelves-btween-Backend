@@ -9,6 +9,7 @@ import com.bookshelves.global.apiPayload.ApiResponse;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,6 +17,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 class GeneralExceptionAdviceTest {
 
@@ -70,6 +72,20 @@ class GeneralExceptionAdviceTest {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     assertThat(response.getBody().getCode()).isEqualTo("COMMON415_1");
+    assertThat(response.getBody().getResult()).isEmpty();
+  }
+
+  @Test
+  void handleNoResourceFoundExceptionReturnsNotFound() {
+    NoResourceFoundException exception =
+        new NoResourceFoundException(
+            HttpMethod.POST, "api/v1/auth/fake-signup", "/api/v1/auth/fake-signup");
+
+    ResponseEntity<ApiResponse<Map<String, Object>>> response =
+        generalExceptionAdvice.handleNoResourceFoundException(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    assertThat(response.getBody().getCode()).isEqualTo("COMMON404_1");
     assertThat(response.getBody().getResult()).isEmpty();
   }
 
