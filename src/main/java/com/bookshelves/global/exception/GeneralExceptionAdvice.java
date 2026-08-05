@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -74,6 +75,14 @@ public class GeneralExceptionAdvice {
   public ResponseEntity<ApiResponse<Map<String, Object>>> handleHttpMediaTypeNotSupportedException(
       HttpMediaTypeNotSupportedException e) {
     return failureResponse(GeneralErrorCode.COMMON_UNSUPPORTED_MEDIA_TYPE);
+  }
+
+  // 매핑된 컨트롤러도, 정적 리소스도 없는 경로 요청. 프로파일에 따라 등록되지 않는
+  // 컨트롤러(예: prod의 fake-signup)로 오는 요청도 여기로 떨어진다.
+  @ExceptionHandler(NoResourceFoundException.class)
+  public ResponseEntity<ApiResponse<Map<String, Object>>> handleNoResourceFoundException(
+      NoResourceFoundException e) {
+    return failureResponse(GeneralErrorCode.COMMON_NOT_FOUND);
   }
 
   // 기타 예외 — 원인은 서버 로그로만 남기고, 클라이언트에는 내부 구현 정보를 노출하지 않는다.
