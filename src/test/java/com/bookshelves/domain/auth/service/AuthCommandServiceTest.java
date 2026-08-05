@@ -318,13 +318,14 @@ class AuthCommandServiceTest {
   }
 
   @Test
-  void reissueThrowsInvalidRefreshTokenWhenRotationLosesRaceAndNoGraceRecordExists() {
+  void
+      reissueThrowsInvalidRefreshTokenAndInvalidatesSessionWhenRotationLosesRaceAndNoGraceRecordExists() {
     String oldRefreshToken = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
     Member member = mock(Member.class);
     when(member.getId()).thenReturn(1L);
     when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-    // CAS에 진 상황을 재현하되, 그 구 토큰으로 방금 성공한 회전도 없었던(= 진짜 무효한 토큰) 경우
+    // CAS에도 지고, grace 유예 시간도 지난 뒤 재사용됨 — 이미 탈취된 구 토큰의 재사용 의심 상황
     when(redisTokenRepository.rotateRefreshToken(eq(1L), eq(oldRefreshToken), any(), any(), any()))
         .thenReturn(false);
     when(redisTokenRepository.findRotationGracePayload(1L, oldRefreshToken))
@@ -337,6 +338,8 @@ class AuthCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+    // 탈취 의심 시점에 현재 유효한 세션까지 강제로 끊어야 한다
+    verify(redisTokenRepository).deleteRefreshToken(1L);
   }
 
   @Test
@@ -360,6 +363,8 @@ class AuthCommandServiceTest {
     assertThat(response.getRefreshToken()).isEqualTo("winner-refresh-token");
     assertThat(response.getAccessTokenExpiresIn()).isEqualTo(3600);
     assertThat(response.getRefreshTokenExpiresIn()).isEqualTo(1209600);
+    // grace로 정상 처리된 동시 요청이므로 세션을 끊으면 안 된다
+    verify(redisTokenRepository, never()).deleteRefreshToken(any());
   }
 
   @Test
