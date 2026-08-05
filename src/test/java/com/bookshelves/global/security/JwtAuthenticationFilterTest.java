@@ -138,24 +138,21 @@ class JwtAuthenticationFilterTest {
     assertThat(principal).isEqualTo(new MemberPrincipal(1L));
   }
 
+  // 아래 세 테스트는 같은 초 안에서 발급 시각과 로그아웃 시각의 밀리초 단위 선후 관계만
+  // 다르게 재현한다(.900 이후 / .400 이전 / .500 동일). 만료 검사는 실제 벽시계 기준이라
+  // 임의의 과거/미래 날짜를 쓰면 안 되므로, 현재 초를 기준으로 밀리초만 고정한다.
+
   @Test
   void accessTokenIssuedInTheSameSecondAsLogoutButAfterItStillGetsAuthenticated()
       throws ServletException, IOException {
     when(memberRepository.findStatusById(1L)).thenReturn(Optional.of(MemberStatus.ACTIVE));
-    // 로그아웃(현재 초의 .500)과 재로그인(같은 초의 .900)이 같은 초 안에서 벌어진 상황을
-    // 밀리초 단위로 정밀하게 재현한다. 만료 검사는 실제 벽시계 기준이라 임의의 과거/미래
-    // 날짜를 쓰면 안 되므로, 현재 초를 기준으로 삼는다. iat을 초 단위로만 비교하면 .900에
-    // 발급된 이 토큰의 iat이 그 초의 시작(.000)으로 잘려 로그아웃 시각(.500)보다 이전으로
-    // 보이고, 방금 재로그인한 정상 토큰이 폐기된 토큰으로 오인된다.
+    // iat을 초 단위로만 비교하면 .900에 발급된 이 토큰의 iat이 그 초의 시작(.000)으로 잘려
+    // 로그아웃 시각(.500)보다 이전으로 보이고, 방금 재로그인한 정상 토큰이 폐기된 토큰으로
+    // 오인된다.
     Instant currentSecond = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-    Instant tokenIssuedAt = currentSecond.plusMillis(900);
-    Instant logoutAt = currentSecond.plusMillis(500);
-    JwtTokenProvider fixedClockTokenProvider =
-        new JwtTokenProvider(
-            new JwtProperties(SECRET, 3600, 1209600, 600),
-            Clock.fixed(tokenIssuedAt, ZoneOffset.UTC));
-    String token = fixedClockTokenProvider.generateToken(1L, TokenType.ACCESS);
-    when(redisTokenRepository.findLogoutAt(1L)).thenReturn(Optional.of(logoutAt));
+    String token = generateAccessTokenIssuedAt(currentSecond.plusMillis(900));
+    when(redisTokenRepository.findLogoutAt(1L))
+        .thenReturn(Optional.of(currentSecond.plusMillis(500)));
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.addHeader("Authorization", "Bearer " + token);
 
@@ -163,6 +160,48 @@ class JwtAuthenticationFilterTest {
 
     Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     assertThat(principal).isEqualTo(new MemberPrincipal(1L));
+  }
+
+  @Test
+  void accessTokenIssuedInTheSameSecondBeforeLogoutDoesNotGetAuthenticated()
+      throws ServletException, IOException {
+    when(memberRepository.findStatusById(1L)).thenReturn(Optional.of(MemberStatus.ACTIVE));
+    // 로그아웃(.500)보다 같은 초 안에서 먼저(.400) 발급된 토큰 — 로그아웃 이전 토큰이므로
+    // 거부돼야 한다.
+    Instant currentSecond = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    String token = generateAccessTokenIssuedAt(currentSecond.plusMillis(400));
+    when(redisTokenRepository.findLogoutAt(1L))
+        .thenReturn(Optional.of(currentSecond.plusMillis(500)));
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader("Authorization", "Bearer " + token);
+
+    jwtAuthenticationFilter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+
+    assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+  }
+
+  @Test
+  void accessTokenIssuedAtExactlyTheSameInstantAsLogoutDoesNotGetAuthenticated()
+      throws ServletException, IOException {
+    when(memberRepository.findStatusById(1L)).thenReturn(Optional.of(MemberStatus.ACTIVE));
+    // 발급 시각과 로그아웃 시각이 정확히 같은 경계값 — isRevokedByLogout은 !isAfter를 쓰므로
+    // 같은 시각도 "이후가 아님" = 거부 대상으로 처리돼야 한다.
+    Instant sameInstant = Instant.now().truncatedTo(ChronoUnit.SECONDS).plusMillis(500);
+    String token = generateAccessTokenIssuedAt(sameInstant);
+    when(redisTokenRepository.findLogoutAt(1L)).thenReturn(Optional.of(sameInstant));
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader("Authorization", "Bearer " + token);
+
+    jwtAuthenticationFilter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+
+    assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+  }
+
+  private String generateAccessTokenIssuedAt(Instant issuedAt) {
+    JwtTokenProvider fixedClockTokenProvider =
+        new JwtTokenProvider(
+            new JwtProperties(SECRET, 3600, 1209600, 600), Clock.fixed(issuedAt, ZoneOffset.UTC));
+    return fixedClockTokenProvider.generateToken(1L, TokenType.ACCESS);
   }
 
   @Test
