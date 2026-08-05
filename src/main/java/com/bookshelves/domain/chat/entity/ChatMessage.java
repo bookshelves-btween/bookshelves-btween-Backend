@@ -20,6 +20,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatMessage extends BaseEntity {
 
+  public static final int MAX_MESSAGE_LENGTH = 500;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -32,7 +34,9 @@ public class ChatMessage extends BaseEntity {
   @JoinColumn(name = "sender_member_id", nullable = false)
   private Member senderMember;
 
-  @Column(name = "message", nullable = false, columnDefinition = "TEXT")
+  // 길이는 ChatMessageRequest의 @Size(max = 500)와 같은 값이다. 한쪽만 바꾸면 ddl-auto=validate가
+  // 잡지 못하는 구간이 생긴다.
+  @Column(name = "message", nullable = false, length = MAX_MESSAGE_LENGTH)
   private String message;
 
   @Builder
