@@ -56,12 +56,12 @@ public class NotificationCommandService {
 
   public void deleteNotification(Long notificationId, Long memberId) {
     Notification notification = findOwnedNotification(notificationId, memberId);
-    notificationRepository.delete(notification);
+    notification.delete();
   }
 
   private Notification findOwnedNotification(Long notificationId, Long memberId) {
     return notificationRepository
-        .findByIdAndMember_Id(notificationId, memberId)
+        .findByIdAndMember_IdAndIsDeletedFalse(notificationId, memberId)
         .orElseThrow(() -> new NotificationException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
   }
 }

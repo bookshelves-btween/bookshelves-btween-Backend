@@ -27,7 +27,7 @@ public class NotificationQueryService {
         PageRequest.of(
             page - 1, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
     Page<Notification> notificationPage =
-        notificationRepository.findAllByMember_Id(memberId, pageRequest);
+        notificationRepository.findAllByMember_IdAndIsDeletedFalse(memberId, pageRequest);
 
     return NotificationConverter.toNotificationListResponse(notificationPage);
   }
@@ -36,7 +36,7 @@ public class NotificationQueryService {
   public NewNotificationResponse getNewNotifications(Long memberId, Long afterId, int size) {
     PageRequest pageRequest = PageRequest.of(0, size);
     Slice<Notification> notificationSlice =
-        notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+        notificationRepository.findAllByMember_IdAndIsDeletedFalseAndIdGreaterThanOrderByIdAsc(
             memberId, afterId, pageRequest);
     List<NotificationInfo> notifications =
         notificationSlice.stream().map(NotificationConverter::toNotificationInfo).toList();
