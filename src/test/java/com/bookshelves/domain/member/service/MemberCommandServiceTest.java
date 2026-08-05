@@ -58,6 +58,22 @@ class MemberCommandServiceTest {
           redisTokenRepository);
 
   @Test
+  void createAndOnboardFakeMemberCreatesActiveMemberWithNicknameInOneTransaction() {
+    when(memberRepository.save(any(Member.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    Member result =
+        memberCommandService.createAndOnboardFakeMember(
+            Provider.KAKAO, "fake-tester-1", "tester-1", ProfileBackgroundColor.GREEN);
+
+    assertThat(result.getNickname()).isEqualTo("tester-1 테스트 계정");
+    assertThat(result.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
+    assertThat(result.getStatus()).isEqualTo(MemberStatus.ACTIVE);
+    assertThat(result.getProvider()).isEqualTo(Provider.KAKAO);
+    assertThat(result.getProviderId()).isEqualTo("fake-tester-1");
+  }
+
+  @Test
   void updateMyInfoCombinesNicknamePartsAndSavesColor() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
