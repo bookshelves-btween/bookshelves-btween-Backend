@@ -257,10 +257,11 @@ class AuthCommandServiceTest {
   }
 
   @Test
-  void logoutDeletesRefreshToken() {
+  void logoutDeletesRefreshTokenAndSavesLogoutAt() {
     authCommandService.logout(1L);
 
     verify(redisTokenRepository).deleteRefreshToken(1L);
+    verify(redisTokenRepository).saveLogoutAt(1L, Duration.ofSeconds(3600));
   }
 
   @Test
