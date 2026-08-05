@@ -59,7 +59,10 @@ public class JwtTokenProvider {
   public boolean isValidToken(String token, TokenType expectedTokenType) {
     try {
       Claims claims = parseClaims(token);
-      return expectedTokenType.name().equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
+      // issuedAtMillis가 없는 토큰(이 클레임 도입 이전에 발급된 토큰 등)은 getIssuedAt()에서
+      // NPE로 이어지므로 여기서 미리 걸러 인증 실패로 처리한다.
+      return expectedTokenType.name().equals(claims.get(TOKEN_TYPE_CLAIM, String.class))
+          && claims.get(ISSUED_AT_MILLIS_CLAIM, Long.class) != null;
     } catch (RuntimeException e) {
       return false;
     }

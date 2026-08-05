@@ -7,13 +7,18 @@ import static org.mockito.Mockito.when;
 import com.bookshelves.domain.member.enums.MemberStatus;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.config.JwtProperties;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.ServletException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.Optional;
+import javax.crypto.SecretKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
@@ -23,9 +28,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 class JwtAuthenticationFilterTest {
 
+  private static final String SECRET = "bookshelves-test-jwt-secret-key-value";
+
   private final JwtTokenProvider jwtTokenProvider =
-      new JwtTokenProvider(
-          new JwtProperties("bookshelves-test-jwt-secret-key-value", 3600, 1209600, 600));
+      new JwtTokenProvider(new JwtProperties(SECRET, 3600, 1209600, 600));
   private final MemberRepository memberRepository = mock(MemberRepository.class);
   private final RedisTokenRepository redisTokenRepository = mock(RedisTokenRepository.class);
   private final JwtAuthenticationFilter jwtAuthenticationFilter =
@@ -146,7 +152,7 @@ class JwtAuthenticationFilterTest {
     Instant logoutAt = currentSecond.plusMillis(500);
     JwtTokenProvider fixedClockTokenProvider =
         new JwtTokenProvider(
-            new JwtProperties("bookshelves-test-jwt-secret-key-value", 3600, 1209600, 600),
+            new JwtProperties(SECRET, 3600, 1209600, 600),
             Clock.fixed(tokenIssuedAt, ZoneOffset.UTC));
     String token = fixedClockTokenProvider.generateToken(1L, TokenType.ACCESS);
     when(redisTokenRepository.findLogoutAt(1L)).thenReturn(Optional.of(logoutAt));
@@ -157,6 +163,31 @@ class JwtAuthenticationFilterTest {
 
     Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     assertThat(principal).isEqualTo(new MemberPrincipal(1L));
+  }
+
+  @Test
+  void legacyAccessTokenWithoutIssuedAtMillisClaimDoesNotAuthenticateAndDoesNotThrow()
+      throws ServletException, IOException {
+    when(memberRepository.findStatusById(1L)).thenReturn(Optional.of(MemberStatus.ACTIVE));
+    // issuedAtMillis 클레임 도입 이전에 발급된, 서명은 유효한 토큰을 흉내낸다. 이 클레임이
+    // 없으면 getIssuedAt()에서 NPE가 나 요청이 500으로 끝나던 문제를 검증한다 —
+    // isValidToken이 미리 걸러 예외 없이 401(미인증)로 처리돼야 한다.
+    SecretKey secretKey = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+    String legacyToken =
+        Jwts.builder()
+            .subject("1")
+            .claim("memberId", 1L)
+            .claim("tokenType", TokenType.ACCESS.name())
+            .issuedAt(Date.from(Instant.now()))
+            .expiration(Date.from(Instant.now().plusSeconds(3600)))
+            .signWith(secretKey)
+            .compact();
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader("Authorization", "Bearer " + legacyToken);
+
+    jwtAuthenticationFilter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+
+    assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
   }
 
   @Test
