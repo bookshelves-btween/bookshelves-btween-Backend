@@ -53,6 +53,10 @@ public class JwtTokenProvider {
     return parseClaims(token).get(MEMBER_ID_CLAIM, Long.class);
   }
 
+  public Instant getIssuedAt(String token) {
+    return parseClaims(token).getIssuedAt().toInstant();
+  }
+
   public long getExpirationSeconds(TokenType tokenType) {
     return switch (tokenType) {
       case ACCESS -> jwtProperties.accessTokenExpirationSeconds();

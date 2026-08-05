@@ -3,6 +3,7 @@ package com.bookshelves.global.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.bookshelves.global.config.JwtProperties;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 class JwtTokenProviderTest {
@@ -36,6 +37,17 @@ class JwtTokenProviderTest {
     assertThat(jwtTokenProvider.getExpirationSeconds(TokenType.ACCESS)).isEqualTo(3600);
     assertThat(jwtTokenProvider.getExpirationSeconds(TokenType.REFRESH)).isEqualTo(1209600);
     assertThat(jwtTokenProvider.getExpirationSeconds(TokenType.RESTORE)).isEqualTo(600);
+  }
+
+  @Test
+  void getIssuedAtReturnsTimeCloseToGeneration() {
+    Instant before = Instant.now();
+    String token = jwtTokenProvider.generateToken(1L, TokenType.ACCESS);
+    Instant after = Instant.now();
+
+    Instant issuedAt = jwtTokenProvider.getIssuedAt(token);
+
+    assertThat(issuedAt).isBetween(before.minusSeconds(1), after.plusSeconds(1));
   }
 
   @Test
