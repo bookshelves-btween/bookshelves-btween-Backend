@@ -71,4 +71,14 @@ public class NotificationController implements NotificationControllerDocs {
     return ResponseEntity.ok(
         ApiResponse.onSuccess(NotificationSuccessCode.NOTIFICATION_READ, response));
   }
+
+  @Override
+  public ResponseEntity<ApiResponse<Void>> deleteNotification(
+      @PathVariable(name = "notificationId") Long notificationId) {
+    notificationCommandService.deleteNotification(
+        notificationId, authenticationFacade.getCurrentMemberId());
+
+    return ResponseEntity.ok(
+        ApiResponse.onSuccess(NotificationSuccessCode.NOTIFICATION_DELETED, null));
+  }
 }

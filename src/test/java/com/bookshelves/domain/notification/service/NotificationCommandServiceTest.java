@@ -82,4 +82,25 @@ class NotificationCommandServiceTest {
         .extracting(exception -> ((NotificationException) exception).getErrorCode())
         .isEqualTo(NotificationErrorCode.NOTIFICATION_NOT_FOUND);
   }
+
+  @Test
+  void deleteNotificationDeletesOwnedNotification() {
+    Notification notification = mock(Notification.class);
+    when(notificationRepository.findByIdAndMember_Id(101L, 1L))
+        .thenReturn(Optional.of(notification));
+
+    notificationCommandService.deleteNotification(101L, 1L);
+
+    verify(notificationRepository).delete(notification);
+  }
+
+  @Test
+  void deleteNotificationThrowsNotFoundWhenNotificationIsMissingOrNotOwned() {
+    when(notificationRepository.findByIdAndMember_Id(101L, 1L)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> notificationCommandService.deleteNotification(101L, 1L))
+        .isInstanceOf(NotificationException.class)
+        .extracting(exception -> ((NotificationException) exception).getErrorCode())
+        .isEqualTo(NotificationErrorCode.NOTIFICATION_NOT_FOUND);
+  }
 }

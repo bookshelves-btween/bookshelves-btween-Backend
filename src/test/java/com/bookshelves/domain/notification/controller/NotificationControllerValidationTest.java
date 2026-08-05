@@ -3,6 +3,7 @@ package com.bookshelves.domain.notification.controller;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -123,6 +124,36 @@ class NotificationControllerValidationTest {
 
     mockMvc
         .perform(patch("/api/v1/notifications/101/read"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.isSuccess").value(false))
+        .andExpect(jsonPath("$.code").value("NOTI404_1"))
+        .andExpect(jsonPath("$.message").value("존재하지 않는 알림입니다."))
+        .andExpect(jsonPath("$.result").isMap());
+  }
+
+  @Test
+  void deleteNotificationReturnsBadRequestWhenNotificationIdIsLessThanOne() throws Exception {
+    mockMvc
+        .perform(delete("/api/v1/notifications/0"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.isSuccess").value(false))
+        .andExpect(jsonPath("$.code").value("COMMON400_1"))
+        .andExpect(jsonPath("$.message").value("잘못된 요청입니다."))
+        .andExpect(jsonPath("$.result").isMap());
+
+    verifyNoInteractions(notificationCommandService);
+  }
+
+  @Test
+  void deleteNotificationReturnsNotFoundWhenNotificationIsMissingOrNotOwned() throws Exception {
+    when(authenticationFacade.getCurrentMemberId()).thenReturn(1L);
+    org.mockito.Mockito.doThrow(
+            new NotificationException(NotificationErrorCode.NOTIFICATION_NOT_FOUND))
+        .when(notificationCommandService)
+        .deleteNotification(101L, 1L);
+
+    mockMvc
+        .perform(delete("/api/v1/notifications/101"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.isSuccess").value(false))
         .andExpect(jsonPath("$.code").value("NOTI404_1"))
