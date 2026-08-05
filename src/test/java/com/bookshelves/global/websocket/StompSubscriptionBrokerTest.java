@@ -35,6 +35,7 @@ class StompSubscriptionBrokerTest {
       new StompAuthChannelInterceptor(
           new JwtTokenProvider(
               new JwtProperties("bookshelves-test-jwt-secret-key-value", 3600, 1209600, 600)),
+          mock(com.bookshelves.global.security.AccessTokenGuard.class),
           chatSubscriptionValidator);
 
   private final ExecutorSubscribableChannel clientInbound = new ExecutorSubscribableChannel();
