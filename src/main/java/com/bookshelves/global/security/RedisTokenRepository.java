@@ -18,6 +18,7 @@ public class RedisTokenRepository {
   private static final String RESTORE_TOKEN_KEY_PREFIX = "auth:restore:";
   private static final String GRACE_TOKEN_KEY_PREFIX = "auth:refresh:grace:";
   private static final String LOGOUT_AT_KEY_PREFIX = "auth:logout-at:";
+  private static final String OIDC_ID_TOKEN_KEY_PREFIX = "auth:oidc-used:";
 
   // accessToken 만료 순간 같은 refreshToken으로 동시에 여러 요청이 들어오면 CAS엔 하나만
   // 성공하는데, 그 요청이 발급한 토큰을 grace 키에 짧게 남겨 나머지("진") 요청도 같은
@@ -149,6 +150,17 @@ public class RedisTokenRepository {
     return Optional.of(Instant.ofEpochMilli(Long.parseLong(value)));
   }
 
+  /**
+   * OIDC ID 토큰(구글/애플)을 1회용으로 소모한다. 이미 소모된 토큰이면 false를 반환한다. ID 토큰은 서명이 유효하고 만료 전이면 몇 번이든 재검증을
+   * 통과하므로, 로그·크래시 리포트 등으로 유출됐을 때의 재사용을 막기 위해 만료까지 남은 시간만큼만 기록해둔다. SET NX가 원자적이라 동시에 같은 토큰이 두 번 들어와도
+   * 하나만 성공한다.
+   */
+  public boolean consumeOidcIdToken(String idToken, Duration ttl) {
+    Boolean result =
+        stringRedisTemplate.opsForValue().setIfAbsent(getOidcIdTokenKey(idToken), "1", ttl);
+    return Boolean.TRUE.equals(result);
+  }
+
   public void deleteAllTokens(Long memberId) {
     stringRedisTemplate.delete(
         List.of(getRefreshTokenKey(memberId), getRestoreTokenKey(memberId), getGraceKey(memberId)));
@@ -172,6 +184,10 @@ public class RedisTokenRepository {
 
   private String getLogoutAtKey(Long memberId) {
     return LOGOUT_AT_KEY_PREFIX + memberId;
+  }
+
+  private String getOidcIdTokenKey(String idToken) {
+    return OIDC_ID_TOKEN_KEY_PREFIX + hash(idToken);
   }
 
   private String hash(String token) {
