@@ -9,7 +9,10 @@ import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.config.JwtProperties;
 import jakarta.servlet.ServletException;
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -120,6 +123,33 @@ class JwtAuthenticationFilterTest {
     when(redisTokenRepository.findLogoutAt(1L))
         .thenReturn(Optional.of(Instant.now().minusSeconds(60)));
     String token = jwtTokenProvider.generateToken(1L, TokenType.ACCESS);
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.addHeader("Authorization", "Bearer " + token);
+
+    jwtAuthenticationFilter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+
+    Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    assertThat(principal).isEqualTo(new MemberPrincipal(1L));
+  }
+
+  @Test
+  void accessTokenIssuedInTheSameSecondAsLogoutButAfterItStillGetsAuthenticated()
+      throws ServletException, IOException {
+    when(memberRepository.findStatusById(1L)).thenReturn(Optional.of(MemberStatus.ACTIVE));
+    // 로그아웃(현재 초의 .500)과 재로그인(같은 초의 .900)이 같은 초 안에서 벌어진 상황을
+    // 밀리초 단위로 정밀하게 재현한다. 만료 검사는 실제 벽시계 기준이라 임의의 과거/미래
+    // 날짜를 쓰면 안 되므로, 현재 초를 기준으로 삼는다. iat을 초 단위로만 비교하면 .900에
+    // 발급된 이 토큰의 iat이 그 초의 시작(.000)으로 잘려 로그아웃 시각(.500)보다 이전으로
+    // 보이고, 방금 재로그인한 정상 토큰이 폐기된 토큰으로 오인된다.
+    Instant currentSecond = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    Instant tokenIssuedAt = currentSecond.plusMillis(900);
+    Instant logoutAt = currentSecond.plusMillis(500);
+    JwtTokenProvider fixedClockTokenProvider =
+        new JwtTokenProvider(
+            new JwtProperties("bookshelves-test-jwt-secret-key-value", 3600, 1209600, 600),
+            Clock.fixed(tokenIssuedAt, ZoneOffset.UTC));
+    String token = fixedClockTokenProvider.generateToken(1L, TokenType.ACCESS);
+    when(redisTokenRepository.findLogoutAt(1L)).thenReturn(Optional.of(logoutAt));
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.addHeader("Authorization", "Bearer " + token);
 
