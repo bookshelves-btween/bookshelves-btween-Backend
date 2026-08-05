@@ -39,7 +39,7 @@ class NotificationQueryServiceTest {
 
     PageRequest pageRequest =
         PageRequest.of(0, 1, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
-    when(notificationRepository.findAllByMember_Id(1L, pageRequest))
+    when(notificationRepository.findAllByMember_IdAndIsDeletedFalse(1L, pageRequest))
         .thenReturn(new PageImpl<>(List.of(notification), pageRequest, 2));
 
     NotificationListResponse response = notificationQueryService.getNotifications(1L, 1, 1);
@@ -53,14 +53,14 @@ class NotificationQueryServiceTest {
         .isEqualTo(NotificationType.MEETING_STARTED);
     assertThat(response.notifications().getFirst().targetId()).isEqualTo(12L);
     assertThat(response.notifications().getFirst().createdAt()).isEqualTo(createdAt);
-    verify(notificationRepository).findAllByMember_Id(1L, pageRequest);
+    verify(notificationRepository).findAllByMember_IdAndIsDeletedFalse(1L, pageRequest);
   }
 
   @Test
   void getNotificationsReturnsEmptyListWhenMemberHasNoNotifications() {
     PageRequest pageRequest =
         PageRequest.of(0, 20, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
-    when(notificationRepository.findAllByMember_Id(1L, pageRequest))
+    when(notificationRepository.findAllByMember_IdAndIsDeletedFalse(1L, pageRequest))
         .thenReturn(new PageImpl<>(List.of(), pageRequest, 0));
 
     NotificationListResponse response = notificationQueryService.getNotifications(1L, 1, 20);
@@ -78,7 +78,7 @@ class NotificationQueryServiceTest {
     when(second.getId()).thenReturn(102L);
     when(second.getType()).thenReturn(NotificationType.SYSTEM);
     PageRequest pageRequest = PageRequest.of(0, 2);
-    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+    when(notificationRepository.findAllByMember_IdAndIsDeletedFalseAndIdGreaterThanOrderByIdAsc(
             1L, 100L, pageRequest))
         .thenReturn(new SliceImpl<>(List.of(first, second), pageRequest, true));
 
@@ -93,13 +93,13 @@ class NotificationQueryServiceTest {
     assertThat(response.nextCursor()).isEqualTo(102L);
     assertThat(response.hasNext()).isTrue();
     verify(notificationRepository)
-        .findAllByMember_IdAndIdGreaterThanOrderByIdAsc(1L, 100L, pageRequest);
+        .findAllByMember_IdAndIsDeletedFalseAndIdGreaterThanOrderByIdAsc(1L, 100L, pageRequest);
   }
 
   @Test
   void getNewNotificationsKeepsCursorWhenNoNotificationWasCreatedAfterId() {
     PageRequest pageRequest = PageRequest.of(0, 20);
-    when(notificationRepository.findAllByMember_IdAndIdGreaterThanOrderByIdAsc(
+    when(notificationRepository.findAllByMember_IdAndIsDeletedFalseAndIdGreaterThanOrderByIdAsc(
             1L, 100L, pageRequest))
         .thenReturn(new SliceImpl<>(List.of(), pageRequest, false));
 

@@ -57,6 +57,9 @@ public class Notification extends BaseEntity {
   @Column(name = "is_read", nullable = false)
   private Boolean isRead = false;
 
+  @Column(name = "is_deleted", nullable = false)
+  private Boolean isDeleted = false;
+
   @Column(name = "related_id")
   private Long relatedId;
 
@@ -102,5 +105,9 @@ public class Notification extends BaseEntity {
 
   public void markAsRead() {
     this.isRead = true;
+  }
+
+  public void delete() {
+    this.isDeleted = true;
   }
 }
