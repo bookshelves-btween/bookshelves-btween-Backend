@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -16,6 +17,7 @@ public class RedisTokenRepository {
   private static final String REFRESH_TOKEN_KEY_PREFIX = "auth:refresh:";
   private static final String RESTORE_TOKEN_KEY_PREFIX = "auth:restore:";
   private static final String GRACE_TOKEN_KEY_PREFIX = "auth:refresh:grace:";
+  private static final String LOGOUT_AT_KEY_PREFIX = "auth:logout-at:";
 
   // accessToken 만료 순간 같은 refreshToken으로 동시에 여러 요청이 들어오면 CAS엔 하나만
   // 성공하는데, 그 요청이 발급한 토큰을 grace 키에 짧게 남겨 나머지("진") 요청도 같은
@@ -127,6 +129,26 @@ public class RedisTokenRepository {
     return result != null && result == 1L;
   }
 
+  /**
+   * 로그아웃 시각을 accessToken 최대 수명만큼의 TTL로 저장한다. JwtAuthenticationFilter가 이 시각보다 먼저 발급된 accessToken을
+   * 걸러내는 데 쓴다. TTL이 지나면 그 시점 이전에 발급된 토큰은 어차피 자연 만료되므로 더 기억할 필요가 없다.
+   */
+  public void saveLogoutAt(Long memberId, Duration accessTokenTtl) {
+    stringRedisTemplate
+        .opsForValue()
+        .set(
+            getLogoutAtKey(memberId), String.valueOf(Instant.now().toEpochMilli()), accessTokenTtl);
+  }
+
+  public Optional<Instant> findLogoutAt(Long memberId) {
+    String value = stringRedisTemplate.opsForValue().get(getLogoutAtKey(memberId));
+    if (value == null) {
+      return Optional.empty();
+    }
+
+    return Optional.of(Instant.ofEpochMilli(Long.parseLong(value)));
+  }
+
   public void deleteAllTokens(Long memberId) {
     stringRedisTemplate.delete(
         List.of(getRefreshTokenKey(memberId), getRestoreTokenKey(memberId), getGraceKey(memberId)));
@@ -146,6 +168,10 @@ public class RedisTokenRepository {
 
   private String getGraceKey(Long memberId) {
     return GRACE_TOKEN_KEY_PREFIX + memberId;
+  }
+
+  private String getLogoutAtKey(Long memberId) {
+    return LOGOUT_AT_KEY_PREFIX + memberId;
   }
 
   private String hash(String token) {

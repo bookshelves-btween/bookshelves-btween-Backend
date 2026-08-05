@@ -121,6 +121,8 @@ public class AuthCommandService {
 
   public void logout(Long memberId) {
     redisTokenRepository.deleteRefreshToken(memberId);
+    redisTokenRepository.saveLogoutAt(
+        memberId, Duration.ofSeconds(jwtTokenProvider.getExpirationSeconds(TokenType.ACCESS)));
   }
 
   public ReissueResponse reissue(ReissueRequest request) {
