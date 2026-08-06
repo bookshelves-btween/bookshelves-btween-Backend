@@ -101,6 +101,11 @@ public class Meeting extends BaseEntity {
     this.status = MeetingStatus.RECRUIT_CLOSED;
   }
 
+  // 시작 시각이 아니라 상태로 판단한다 — MeetingStartScheduler가 올려준 상태를 단일 기준으로 삼는다.
+  public boolean hasStarted() {
+    return this.status == MeetingStatus.IN_PROGRESS || this.status == MeetingStatus.COMPLETED;
+  }
+
   public boolean canStart() {
     return this.curParticipants >= MIN_PARTICIPANTS;
   }

@@ -63,6 +63,40 @@ class MeetingTest {
   }
 
   @Test
+  void hasNotStartedWhileRecruiting() {
+    Meeting meeting = meetingWithMaxParticipants(4);
+
+    assertThat(meeting.hasStarted()).isFalse();
+  }
+
+  @Test
+  void hasNotStartedAfterRecruitmentCloses() {
+    Meeting meeting = meetingWithMaxParticipants(4);
+
+    meeting.closeRecruitment();
+
+    assertThat(meeting.hasStarted()).isFalse();
+  }
+
+  @Test
+  void hasStartedWhileInProgress() {
+    Meeting meeting = meetingWithMaxParticipants(4);
+
+    meeting.start();
+
+    assertThat(meeting.hasStarted()).isTrue();
+  }
+
+  @Test
+  void hasStartedAfterCompletion() {
+    Meeting meeting = meetingWithMaxParticipants(4);
+
+    meeting.complete();
+
+    assertThat(meeting.hasStarted()).isTrue();
+  }
+
+  @Test
   void calculatesRecruitmentCloseDateSixHoursBeforeStart() {
     LocalDateTime startDate = LocalDateTime.of(2026, 8, 1, 20, 0);
     Meeting meeting =
@@ -90,5 +124,14 @@ class MeetingTest {
     assertThat(meeting.isRecruitmentClosedAt(startDate.minusHours(6).minusNanos(1))).isFalse();
     assertThat(meeting.isRecruitmentClosedAt(startDate.minusHours(6))).isTrue();
     assertThat(meeting.isRecruitmentClosedAt(startDate.minusHours(5))).isTrue();
+  }
+
+  private Meeting meetingWithMaxParticipants(int maxParticipants) {
+    return Meeting.builder()
+        .book(org.mockito.Mockito.mock(Book.class))
+        .startDate(LocalDateTime.now().plusDays(1))
+        .duration(60)
+        .maxParticipants(maxParticipants)
+        .build();
   }
 }
