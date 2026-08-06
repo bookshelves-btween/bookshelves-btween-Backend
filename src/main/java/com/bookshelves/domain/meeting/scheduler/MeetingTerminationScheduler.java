@@ -4,6 +4,7 @@ import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.domain.meeting.service.MeetingTerminationService;
+import com.bookshelves.global.util.ServiceTime;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +25,7 @@ public class MeetingTerminationScheduler {
 
   @Scheduled(fixedRate = 60_000)
   public void terminateEndedMeetings() {
-    LocalDateTime now = LocalDateTime.now();
+    LocalDateTime now = ServiceTime.now();
 
     List<Meeting> candidates = meetingRepository.findAllByStatus(MeetingStatus.IN_PROGRESS);
     for (Meeting meeting : candidates) {

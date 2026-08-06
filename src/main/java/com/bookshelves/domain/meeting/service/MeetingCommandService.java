@@ -24,6 +24,7 @@ import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.service.NotificationCommandService;
 import com.bookshelves.domain.report.repository.ReportRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
+import com.bookshelves.global.util.ServiceTime;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -76,7 +77,7 @@ public class MeetingCommandService {
         || meeting.getCurParticipants() >= meeting.getMaxParticipants()) {
       throw new MeetingException(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
     }
-    if (meeting.isRecruitmentClosedAt(LocalDateTime.now())) {
+    if (meeting.isRecruitmentClosedAt(ServiceTime.now())) {
       completeRecruitmentDeadline(meetingId, meeting);
       throw new MeetingException(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
     }
