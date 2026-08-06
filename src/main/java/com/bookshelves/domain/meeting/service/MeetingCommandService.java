@@ -22,6 +22,7 @@ import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.service.NotificationCommandService;
+import com.bookshelves.domain.report.repository.ReportRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,6 +44,7 @@ public class MeetingCommandService {
   private final MemberRepository memberRepository;
   private final AuthenticationFacade authenticationFacade;
   private final AIQuestionRepository aiQuestionRepository;
+  private final ReportRepository reportRepository;
   private final AIQuestionPreparationService aiQuestionPreparationService;
   private final ApplicationEventPublisher eventPublisher;
 
@@ -154,6 +156,8 @@ public class MeetingCommandService {
 
     // 모집 마감 시점에 AI 질문이 준비됐을 수 있다 — meeting_id FK가 걸려 있어 모임보다 먼저 지운다
     aiQuestionRepository.deleteAllByMeetingId(meetingId);
+    // 신고가 채팅방을 참조하므로 FK 의존 순서에 따라 채팅방보다 먼저 지운다.
+    reportRepository.deleteAllByMeetingId(meetingId);
     chatRoomRepository.deleteAllByMeetingId(meetingId);
     meetingParticipantRepository.deleteAllByMeetingId(meetingId);
     meetingRepository.delete(meeting);
