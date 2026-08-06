@@ -3,6 +3,7 @@ package com.bookshelves.domain.book.converter;
 import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookItem;
 import com.bookshelves.domain.book.entity.Book;
+import com.bookshelves.global.util.TextTruncator;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 
@@ -13,8 +14,8 @@ public final class BookConverter {
   public static Book toEntity(KakaoBookItem item, String isbn, KdcInfo kdcInfo) {
     return Book.builder()
         .isbn(isbn)
-        .title(item.title())
-        .author(toAuthor(item))
+        .title(TextTruncator.truncate(item.title(), Book.MAX_TITLE_LENGTH))
+        .author(TextTruncator.truncate(toAuthor(item), Book.MAX_AUTHOR_LENGTH))
         .publisher(item.publisher())
         .publishedDate(parsePublishedDate(item.datetime()))
         .description(item.contents())
