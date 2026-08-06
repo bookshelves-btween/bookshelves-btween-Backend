@@ -16,8 +16,10 @@ public interface ReportControllerDocs {
       summary = "채팅방 신고",
       description =
           "채팅방을 신고한다. 신고자는 accessToken으로 식별하고 요청 본문에는 chatroomId만 받는다. "
+              + "모임 참여자가 모임 시작 이후에만 신고할 수 있다. "
               + "에러: 404 존재하지 않는 채팅방(REPORT404_1) · 403 비참여자(REPORT403_1) · "
-              + "409 중복 신고(REPORT409_1, (신고자, chatroomId) 조합 기준)")
+              + "409 중복 신고(REPORT409_1, (신고자, chatroomId) 조합 기준) · "
+              + "409 시작 전 모임(REPORT409_2)")
   ResponseEntity<ApiResponse<ReportCreateResponse>> createReport(
       @Valid @RequestBody ReportCreateRequest request);
 }

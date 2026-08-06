@@ -47,6 +47,7 @@ class ReportCommandServiceTest {
     given(meeting.getId()).willReturn(1L);
     given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
     given(meetingParticipantRepository.existsByMeetingIdAndMemberId(1L, 2L)).willReturn(true);
+    given(meeting.hasStarted()).willReturn(true);
     given(memberRepository.getReferenceById(2L)).willReturn(reporter);
     given(reportRepository.save(any(Report.class)))
         .willAnswer(invocation -> invocation.getArgument(0));
@@ -57,6 +58,44 @@ class ReportCommandServiceTest {
     order.verify(chatRoomRepository).findById(10L);
     order.verify(meetingRepository).findByIdForUpdate(1L);
     order.verify(reportRepository).save(any(Report.class));
+  }
+
+  @Test
+  void rejectsReportBeforeMeetingStarts() {
+    ChatRoom chatRoom = mock(ChatRoom.class);
+    Meeting meeting = mock(Meeting.class);
+    given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
+    given(chatRoom.getMeeting()).willReturn(meeting);
+    given(meeting.getId()).willReturn(1L);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meetingParticipantRepository.existsByMeetingIdAndMemberId(1L, 2L)).willReturn(true);
+    given(meeting.hasStarted()).willReturn(false);
+
+    assertThatThrownBy(() -> reportCommandService.createReport(10L, 2L))
+        .isInstanceOf(ReportException.class)
+        .extracting("errorCode")
+        .isEqualTo(ReportErrorCode.MEETING_NOT_STARTED);
+
+    verify(reportRepository, never()).save(any());
+  }
+
+  // 비참여자에게는 그 모임이 시작했는지조차 알려주지 않는다 — 참여자 확인이 상태 확인보다 앞선다.
+  @Test
+  void hidesMeetingStatusFromNonParticipant() {
+    ChatRoom chatRoom = mock(ChatRoom.class);
+    Meeting meeting = mock(Meeting.class);
+    given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
+    given(chatRoom.getMeeting()).willReturn(meeting);
+    given(meeting.getId()).willReturn(1L);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meetingParticipantRepository.existsByMeetingIdAndMemberId(1L, 2L)).willReturn(false);
+
+    assertThatThrownBy(() -> reportCommandService.createReport(10L, 2L))
+        .isInstanceOf(ReportException.class)
+        .extracting("errorCode")
+        .isEqualTo(ReportErrorCode.NOT_PARTICIPANT);
+
+    verify(meeting, never()).hasStarted();
   }
 
   @Test
