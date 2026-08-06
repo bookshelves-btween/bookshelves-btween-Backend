@@ -52,37 +52,53 @@ public class ChatPresenceService {
   // chatroomId → (memberId → LEFT 유예 타이머). 활성 구독이 0이지만 아직 접속자로 세는 회원.
   private final Map<Long, Map<Long, ScheduledFuture<?>>> pendingLeaveByChatroom = new HashMap<>();
 
+  // 구독 등록과 JOINED 전파를 두 단계로 나눈다.
+  //
+  // 등록은 어떤 DB 호출보다 먼저 끝내야 한다. 등록이 조회 뒤로 밀리면, 그 사이 소켓이 끊겨
+  // disconnect가 먼저 돌 때 지울 상태가 없어 그냥 반환하고, 뒤늦은 등록이 이미 닫힌 세션을
+  // 남긴다. 그 세션에는 다시 올 해제 이벤트가 없어 회원이 영구히 접속자로 세어지고 정족수도
+  // 그만큼 높은 채로 굳는다.
+  //
+  // 닉네임 조회는 두 단계 사이, 락 밖에서 한다. 이 모니터는 채팅방별이 아니라 싱글턴 전체를
+  // 잠그므로 안에서 DB를 기다리면 무관한 채팅방의 입장·퇴장·접속자 조회까지 멈춘다.
+  // 조회는 실제로 전파할 때만 하므로 중복 SUBSCRIBE는 DB를 타지 않는다.
   public void join(Long chatroomId, Long memberId, String sessionId, String subscriptionId) {
-    // 닉네임 조회는 락 밖에서 끝낸다. 아래 모니터는 채팅방별이 아니라 이 싱글턴 전체를 잠그므로,
-    // 그 안에서 DB 응답을 기다리면 무관한 채팅방의 입장·퇴장·접속자 조회까지 함께 멈춘다.
-    // 중복 SUBSCRIBE에도 한 번 조회하게 되지만, SUBSCRIBE는 드물고 이미 구독 검증에서 DB를 타는
-    // 경로다. 전송은 락 안에 남겨야 JOINED와 LEFT의 순서가 뒤집히지 않는다.
+    if (!register(chatroomId, memberId, sessionId, subscriptionId)) {
+      return;
+    }
+
     String nickname = findNickname(memberId);
 
+    // 카운트 계산과 전송은 다시 락 안에서 한 덩어리로 한다 — 따로 두면 동시 입장 시
+    // "2명 프레임 뒤에 1명 프레임"처럼 접속자 수가 역행하는 전송이 나간다
     synchronized (this) {
-      Map<String, Subscription> sessionSubscriptions =
-          subscriptionsBySession.computeIfAbsent(sessionId, k -> new HashMap<>());
-
-      // 같은 (sessionId, subscriptionId) 중복 SUBSCRIBE는 멱등 처리 — 덮어쓰면서 카운트만 올리면
-      // 이후 해제로 상쇄되지 않아 phantom presence(과대 집계)가 영구히 남는다
-      if (sessionSubscriptions.containsKey(subscriptionId)) {
-        return;
-      }
-      sessionSubscriptions.put(subscriptionId, new Subscription(chatroomId, memberId));
-
-      // 유예 중이던 회원의 재접속이면 타이머를 취소한다
-      boolean wasPendingLeave = cancelPendingLeave(chatroomId, memberId);
-
-      int subscriptionCount =
-          memberSubscriptionsByChatroom
-              .computeIfAbsent(chatroomId, k -> new HashMap<>())
-              .merge(memberId, 1, Integer::sum);
-
-      // 유예 중이던 회원은 이미 접속자로 세고 있었으므로 JOINED를 다시 쏘지 않는다(깜빡임 방지)
-      if (subscriptionCount == 1 && !wasPendingLeave) {
-        broadcastParticipant(chatroomId, nickname, EVENT_JOINED);
-      }
+      broadcastParticipant(chatroomId, nickname, EVENT_JOINED);
     }
+  }
+
+  /** 구독을 등록하고 JOINED를 전파해야 하는지 알려준다. */
+  private synchronized boolean register(
+      Long chatroomId, Long memberId, String sessionId, String subscriptionId) {
+    Map<String, Subscription> sessionSubscriptions =
+        subscriptionsBySession.computeIfAbsent(sessionId, k -> new HashMap<>());
+
+    // 같은 (sessionId, subscriptionId) 중복 SUBSCRIBE는 멱등 처리 — 덮어쓰면서 카운트만 올리면
+    // 이후 해제로 상쇄되지 않아 phantom presence(과대 집계)가 영구히 남는다
+    if (sessionSubscriptions.containsKey(subscriptionId)) {
+      return false;
+    }
+    sessionSubscriptions.put(subscriptionId, new Subscription(chatroomId, memberId));
+
+    // 유예 중이던 회원의 재접속이면 타이머를 취소한다
+    boolean wasPendingLeave = cancelPendingLeave(chatroomId, memberId);
+
+    int subscriptionCount =
+        memberSubscriptionsByChatroom
+            .computeIfAbsent(chatroomId, k -> new HashMap<>())
+            .merge(memberId, 1, Integer::sum);
+
+    // 유예 중이던 회원은 이미 접속자로 세고 있었으므로 JOINED를 다시 쏘지 않는다(깜빡임 방지)
+    return subscriptionCount == 1 && !wasPendingLeave;
   }
 
   public synchronized void unsubscribe(String sessionId, String subscriptionId) {

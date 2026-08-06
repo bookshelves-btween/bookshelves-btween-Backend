@@ -5,13 +5,17 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.bookshelves.domain.ai.service.QuestionRevealService;
 import com.bookshelves.domain.ai.service.QuestionVoteStore;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.QueryTimeoutException;
@@ -43,6 +47,35 @@ class ChatPresenceServiceTest {
         .doesNotThrowAnyException();
 
     assertThat(presenceService.countConnected(CHATROOM_ID)).isEqualTo(1);
+  }
+
+  // 등록이 닉네임 조회 뒤로 밀리면, 그 사이 소켓이 끊겨 disconnect가 먼저 도는 순간 지울 상태가
+  // 없어 그냥 반환하고 뒤늦은 등록이 이미 닫힌 세션을 남긴다. 그 세션에는 다시 올 해제 이벤트가
+  // 없어 회원이 영구히 접속자로 세어진다. 조회 시점에 이미 등록이 끝나 있어야 한다.
+  @Test
+  void subscriptionIsRegisteredBeforeNicknameLookup() {
+    AtomicInteger connectedDuringLookup = new AtomicInteger(-1);
+    given(memberRepository.findById(MEMBER_ID))
+        .willAnswer(
+            invocation -> {
+              connectedDuringLookup.set(presenceService.countConnected(CHATROOM_ID));
+              return Optional.empty();
+            });
+
+    presenceService.join(CHATROOM_ID, MEMBER_ID, "session-1", "sub-1");
+
+    assertThat(connectedDuringLookup).hasValue(1);
+  }
+
+  // 중복 SUBSCRIBE는 전파할 것이 없으므로 DB까지 갈 이유가 없다
+  @Test
+  void duplicateSubscribeDoesNotHitTheDatabase() {
+    presenceService.join(CHATROOM_ID, MEMBER_ID, "session-1", "sub-1");
+    clearInvocations(memberRepository);
+
+    presenceService.join(CHATROOM_ID, MEMBER_ID, "session-1", "sub-1");
+
+    verifyNoInteractions(memberRepository);
   }
 
   // 조회 실패가 락 앞에서 터져 나가면 pending 항목이 남아 떠난 회원이 영영 접속자로 세어진다.
