@@ -67,15 +67,11 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
   @Query("select meeting from Meeting meeting where meeting.id = :id")
   Optional<Meeting> findByIdForUpdate(@Param("id") Long id);
 
-  // 종료 배치 대상 후보 — 종료 시각(startDate+duration분)은 DB 종속 함수를 피해 Java에서 필터한다.
-  // 진행 중 모임은 "현재 열려 있는 것"뿐이라 수가 적어 전량 로딩해도 부담이 없다.
-  List<Meeting> findAllByStatus(MeetingStatus status);
-
   List<Meeting> findAllByStatusAndStartDateLessThanEqual(
-      MeetingStatus status, LocalDateTime startDate);
+      MeetingStatus status, LocalDateTime startDate, Pageable pageable);
 
   List<Meeting> findAllByStatusInAndStartDateLessThanEqual(
-      List<MeetingStatus> statuses, LocalDateTime startDate);
+      List<MeetingStatus> statuses, LocalDateTime startDate, Pageable pageable);
 
   @EntityGraph(attributePaths = "book")
   @Query(

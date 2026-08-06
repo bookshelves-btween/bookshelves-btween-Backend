@@ -9,6 +9,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +23,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MeetingTerminationScheduler {
 
+  private static final int BATCH_SIZE = 100;
+  private static final Pageable OLDEST_FIRST_BATCH =
+      PageRequest.of(0, BATCH_SIZE, Sort.by(Sort.Order.asc("startDate"), Sort.Order.asc("id")));
+
   private final MeetingRepository meetingRepository;
   private final MeetingTerminationService meetingTerminationService;
 
@@ -27,7 +34,9 @@ public class MeetingTerminationScheduler {
   public void terminateEndedMeetings() {
     LocalDateTime now = ServiceTime.now();
 
-    List<Meeting> candidates = meetingRepository.findAllByStatus(MeetingStatus.IN_PROGRESS);
+    List<Meeting> candidates =
+        meetingRepository.findAllByStatusAndStartDateLessThanEqual(
+            MeetingStatus.IN_PROGRESS, now, OLDEST_FIRST_BATCH);
     for (Meeting meeting : candidates) {
       if (meeting.getEndDate().isAfter(now)) {
         continue; // 아직 종료 시각 전
