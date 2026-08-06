@@ -46,7 +46,8 @@ class GeminiSummaryLiveTest {
                 .build(),
             new ObjectMapper(),
             System.getenv("GEMINI_API_KEY"),
-            GeminiClient.DEFAULT_MODEL));
+            GeminiClient.DEFAULT_MODEL),
+        new ObjectMapper());
   }
 
   private Book almond() {

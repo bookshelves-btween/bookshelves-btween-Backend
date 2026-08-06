@@ -4,6 +4,7 @@ import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.notification.enums.NotificationType;
 import com.bookshelves.global.entity.BaseEntity;
+import com.bookshelves.global.util.TextTruncator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -36,6 +37,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Notification extends BaseEntity {
 
+  public static final int MAX_TITLE_LENGTH = 255;
+
+  private static final String MEETING_STARTED_TITLE_SUFFIX = " 독서 모임이 시작되었어요";
+  private static final String MEETING_SUMMARY_DONE_TITLE_SUFFIX = " 모임 요약이 준비되었어요";
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -44,7 +50,7 @@ public class Notification extends BaseEntity {
   @JoinColumn(name = "member_id", nullable = false)
   private Member member;
 
-  @Column(name = "title", nullable = false)
+  @Column(name = "title", nullable = false, length = MAX_TITLE_LENGTH)
   private String title;
 
   @Column(name = "content", length = 500)
@@ -56,6 +62,9 @@ public class Notification extends BaseEntity {
 
   @Column(name = "is_read", nullable = false)
   private Boolean isRead = false;
+
+  @Column(name = "is_deleted", nullable = false)
+  private Boolean isDeleted = false;
 
   @Column(name = "related_id")
   private Long relatedId;
@@ -83,7 +92,7 @@ public class Notification extends BaseEntity {
   public static Notification meetingStarted(Member member, Meeting meeting) {
     Notification notification = new Notification();
     notification.member = member;
-    notification.title = "%s 독서 모임이 시작되었어요".formatted(meeting.getBook().getTitle());
+    notification.title = withBookTitle(meeting.getBook().getTitle(), MEETING_STARTED_TITLE_SUFFIX);
     notification.content = "지금 모임에 참여해보세요";
     notification.type = NotificationType.MEETING_STARTED;
     notification.relatedId = meeting.getId();
@@ -93,14 +102,25 @@ public class Notification extends BaseEntity {
   public static Notification meetingSummaryDone(Member member, Meeting meeting) {
     Notification notification = new Notification();
     notification.member = member;
-    notification.title = "%s 모임 요약이 준비되었어요".formatted(meeting.getBook().getTitle());
+    notification.title =
+        withBookTitle(meeting.getBook().getTitle(), MEETING_SUMMARY_DONE_TITLE_SUFFIX);
     notification.content = "모임에서 나눈 이야기를 확인해보세요";
     notification.type = NotificationType.MEETING_SUMMARY_DONE;
     notification.relatedId = meeting.getId();
     return notification;
   }
 
+  private static String withBookTitle(String bookTitle, String suffix) {
+    int suffixLength = suffix.codePointCount(0, suffix.length());
+    String truncatedBookTitle = TextTruncator.truncate(bookTitle, MAX_TITLE_LENGTH - suffixLength);
+    return truncatedBookTitle + suffix;
+  }
+
   public void markAsRead() {
     this.isRead = true;
+  }
+
+  public void delete() {
+    this.isDeleted = true;
   }
 }

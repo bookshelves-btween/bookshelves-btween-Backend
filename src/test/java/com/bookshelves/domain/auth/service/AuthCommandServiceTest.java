@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifier;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
+import com.bookshelves.domain.auth.dto.request.FakeSignUpRequest;
 import com.bookshelves.domain.auth.dto.request.ReissueRequest;
 import com.bookshelves.domain.auth.dto.request.RestoreRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
@@ -21,6 +22,7 @@ import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
+import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.service.MemberCommandService;
@@ -40,6 +42,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 class AuthCommandServiceTest {
 
+  private static final String FAKE_SECRET = "fake-sign-up-secret-for-test";
+
   private final ProviderTokenVerifierResolver providerTokenVerifierResolver =
       mock(ProviderTokenVerifierResolver.class);
   private final MemberRepository memberRepository = mock(MemberRepository.class);
@@ -54,7 +58,8 @@ class AuthCommandServiceTest {
           memberRepository,
           memberCommandService,
           jwtTokenProvider,
-          redisTokenRepository);
+          redisTokenRepository,
+          FAKE_SECRET);
 
   @ParameterizedTest
   @EnumSource(Provider.class)
@@ -81,6 +86,105 @@ class AuthCommandServiceTest {
     assertThat(response.getRestoreToken()).isNull();
     verify(memberCommandService).createSocialMember(provider, providerId);
     verify(redisTokenRepository).saveRefreshToken(eq(1L), any(), eq(Duration.ofSeconds(1209600)));
+  }
+
+  @Test
+  void fakeSignUpCreatesActiveMemberAndIssuesTokens() {
+    when(memberRepository.findByProviderAndProviderId(Provider.KAKAO, "fake-tester-1"))
+        .thenReturn(Optional.empty());
+    Member createdMember = mock(Member.class);
+    when(createdMember.getId()).thenReturn(7L);
+    when(createdMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
+    when(memberCommandService.createAndOnboardFakeMember(
+            Provider.KAKAO, "fake-tester-1", "tester-1", ProfileBackgroundColor.GREEN))
+        .thenReturn(createdMember);
+
+    SocialLoginResponse response =
+        authCommandService.fakeSignUp(
+            FakeSignUpRequest.builder().key("tester-1").secret(FAKE_SECRET).build());
+
+    // 온보딩을 건너뛰고 바로 쓸 수 있어야 한다
+    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
+    assertThat(response.getAccessToken()).isNotNull();
+    assertThat(response.getRefreshToken()).isNotNull();
+    verify(memberCommandService)
+        .createAndOnboardFakeMember(
+            Provider.KAKAO, "fake-tester-1", "tester-1", ProfileBackgroundColor.GREEN);
+    verify(redisTokenRepository).saveRefreshToken(eq(7L), any(), eq(Duration.ofSeconds(1209600)));
+  }
+
+  @Test
+  void fakeSignUpWithSameKeyLogsInAsTheSameMember() {
+    Member existingMember = mock(Member.class);
+    when(existingMember.getId()).thenReturn(7L);
+    when(existingMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
+    when(memberRepository.findByProviderAndProviderId(Provider.KAKAO, "fake-tester-1"))
+        .thenReturn(Optional.of(existingMember));
+
+    SocialLoginResponse response =
+        authCommandService.fakeSignUp(
+            FakeSignUpRequest.builder().key("tester-1").secret(FAKE_SECRET).build());
+
+    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
+    // 같은 key는 회원을 새로 만들지 않는다 — 재로그인해도 참여한 모임이 유지되어야 한다
+    verify(memberCommandService, never()).createAndOnboardFakeMember(any(), any(), any(), any());
+    verify(redisTokenRepository).saveRefreshToken(eq(7L), any(), eq(Duration.ofSeconds(1209600)));
+  }
+
+  @Test
+  void fakeSignUpNeverReachesRealSocialMembers() {
+    // provider_id에 fake- 접두사가 붙으므로 실제 카카오 회원(숫자 provider_id)과 겹치지 않는다
+    when(memberRepository.findByProviderAndProviderId(Provider.KAKAO, "fake-tester-2"))
+        .thenReturn(Optional.empty());
+    Member createdMember = mock(Member.class);
+    when(createdMember.getId()).thenReturn(8L);
+    when(createdMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
+    when(memberCommandService.createAndOnboardFakeMember(
+            Provider.KAKAO, "fake-tester-2", "tester-2", ProfileBackgroundColor.GREEN))
+        .thenReturn(createdMember);
+
+    authCommandService.fakeSignUp(
+        FakeSignUpRequest.builder().key("tester-2").secret(FAKE_SECRET).build());
+
+    verify(memberRepository).findByProviderAndProviderId(Provider.KAKAO, "fake-tester-2");
+    verify(memberRepository, never()).findByProviderAndProviderId(Provider.KAKAO, "tester-2");
+  }
+
+  @Test
+  void fakeSignUpRejectsWrongSecretWithoutTouchingMembers() {
+    assertThatThrownBy(
+            () ->
+                authCommandService.fakeSignUp(
+                    FakeSignUpRequest.builder().key("tester-1").secret("wrong-secret").build()))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+
+    verify(memberRepository, never()).findByProviderAndProviderId(any(), any());
+    verify(memberCommandService, never()).createSocialMember(any(), any());
+  }
+
+  @Test
+  void fakeSignUpIsClosedWhenServerHasNoSecretConfigured() {
+    // 설정을 빠뜨린 환경에서 열린 채로 남지 않아야 한다
+    AuthCommandService serviceWithoutSecret =
+        new AuthCommandService(
+            providerTokenVerifierResolver,
+            memberRepository,
+            memberCommandService,
+            jwtTokenProvider,
+            redisTokenRepository,
+            "");
+
+    assertThatThrownBy(
+            () ->
+                serviceWithoutSecret.fakeSignUp(
+                    FakeSignUpRequest.builder().key("tester-1").secret("anything").build()))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+
+    verify(memberRepository, never()).findByProviderAndProviderId(any(), any());
   }
 
   @Test
@@ -153,10 +257,11 @@ class AuthCommandServiceTest {
   }
 
   @Test
-  void logoutDeletesRefreshToken() {
+  void logoutDeletesRefreshTokenAndSavesLogoutAt() {
     authCommandService.logout(1L);
 
     verify(redisTokenRepository).deleteRefreshToken(1L);
+    verify(redisTokenRepository).saveLogoutAt(1L, Duration.ofSeconds(3600));
   }
 
   @Test
@@ -177,7 +282,7 @@ class AuthCommandServiceTest {
     when(member.getId()).thenReturn(1L);
     when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-    when(redisTokenRepository.rotateRefreshToken(eq(1L), eq(oldRefreshToken), any(), any()))
+    when(redisTokenRepository.rotateRefreshToken(eq(1L), eq(oldRefreshToken), any(), any(), any()))
         .thenReturn(true);
 
     ReissueResponse response =
@@ -194,7 +299,8 @@ class AuthCommandServiceTest {
             eq(1L),
             eq(oldRefreshToken),
             eq(response.getRefreshToken()),
-            eq(Duration.ofSeconds(1209600)));
+            eq(Duration.ofSeconds(1209600)),
+            any());
   }
 
   @Test
@@ -209,19 +315,22 @@ class AuthCommandServiceTest {
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
     verify(memberRepository, never()).findById(any());
-    verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any());
+    verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any(), any());
   }
 
   @Test
-  void reissueThrowsInvalidRefreshTokenWhenRotationLosesRace() {
+  void
+      reissueThrowsInvalidRefreshTokenAndInvalidatesSessionWhenRotationLosesRaceAndNoGraceRecordExists() {
     String oldRefreshToken = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
     Member member = mock(Member.class);
     when(member.getId()).thenReturn(1L);
     when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
     when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-    // 동시에 같은 refresh token으로 다른 요청이 먼저 원자적으로 회전시킨 상황(CAS 실패)을 재현
-    when(redisTokenRepository.rotateRefreshToken(eq(1L), eq(oldRefreshToken), any(), any()))
+    // CAS에도 지고, grace 유예 시간도 지난 뒤 재사용됨 — 이미 탈취된 구 토큰의 재사용 의심 상황
+    when(redisTokenRepository.rotateRefreshToken(eq(1L), eq(oldRefreshToken), any(), any(), any()))
         .thenReturn(false);
+    when(redisTokenRepository.findRotationGracePayload(1L, oldRefreshToken))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(
             () ->
@@ -230,6 +339,33 @@ class AuthCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
+    // 탈취 의심 시점에 현재 유효한 세션까지 강제로 끊어야 한다
+    verify(redisTokenRepository).deleteRefreshToken(1L);
+  }
+
+  @Test
+  void reissueReturnsWinnersTokensWhenRotationLosesRaceButGraceRecordMatches() {
+    String oldRefreshToken = jwtTokenProvider.generateToken(1L, TokenType.REFRESH);
+    Member member = mock(Member.class);
+    when(member.getId()).thenReturn(1L);
+    when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
+    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    // 동시에 같은 refresh token으로 다른 요청이 먼저 원자적으로 회전에 성공한 상황(CAS 실패).
+    // 이때는 그 요청이 grace에 남겨둔 동일한 토큰을 그대로 돌려받아야지, 401로 튕기면 안 된다.
+    when(redisTokenRepository.rotateRefreshToken(eq(1L), eq(oldRefreshToken), any(), any(), any()))
+        .thenReturn(false);
+    when(redisTokenRepository.findRotationGracePayload(1L, oldRefreshToken))
+        .thenReturn(Optional.of("winner-access-token|winner-refresh-token|3600|1209600"));
+
+    ReissueResponse response =
+        authCommandService.reissue(ReissueRequest.builder().refreshToken(oldRefreshToken).build());
+
+    assertThat(response.getAccessToken()).isEqualTo("winner-access-token");
+    assertThat(response.getRefreshToken()).isEqualTo("winner-refresh-token");
+    assertThat(response.getAccessTokenExpiresIn()).isEqualTo(3600);
+    assertThat(response.getRefreshTokenExpiresIn()).isEqualTo(1209600);
+    // grace로 정상 처리된 동시 요청이므로 세션을 끊으면 안 된다
+    verify(redisTokenRepository, never()).deleteRefreshToken(any());
   }
 
   @Test
@@ -244,7 +380,7 @@ class AuthCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);
-    verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any());
+    verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any(), any());
   }
 
   @Test
@@ -261,7 +397,7 @@ class AuthCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(AuthErrorCode.AUTH_UNREISSUABLE_MEMBER_STATUS);
-    verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any());
+    verify(redisTokenRepository, never()).rotateRefreshToken(any(), any(), any(), any(), any());
   }
 
   @Test

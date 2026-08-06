@@ -2,6 +2,7 @@ package com.bookshelves.domain.book.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
@@ -22,6 +23,17 @@ class BookControllerTest {
   private final BookCommandService bookCommandService = mock(BookCommandService.class);
   private final BookController bookController =
       new BookController(bookQueryService, bookCommandService);
+
+  @Test
+  void deleteRecentBookSearchReturnsOk() {
+    ResponseEntity<ApiResponse<Void>> response = bookController.deleteRecentBookSearch("혼모노");
+
+    verify(bookCommandService).deleteRecentBookSearch("혼모노");
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().getCode()).isEqualTo("BOOK200_10");
+    assertThat(response.getBody().getResult()).isNull();
+  }
 
   @Test
   void upsertMemberBookReturnsCreatedWhenMemberBookIsNew() {
