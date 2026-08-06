@@ -90,4 +90,26 @@ class KakaoBookSearchClientTest {
                 assertThat(((BookException) exception).getErrorCode())
                     .isEqualTo(BookErrorCode.EXTERNAL_BOOK_API_FAILED));
   }
+
+  @Test
+  void searchEncodesBracesAsQueryParameterValue() {
+    mockServer
+        .expect(requestTo(BOOK_SEARCH_URI + "?query=%7Btest%7D&page=1&size=15"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(
+            withSuccess(
+                """
+                {
+                  "meta": { "is_end": true },
+                  "documents": []
+                }
+                """,
+                MediaType.APPLICATION_JSON));
+
+    KakaoBookSearchResult result = kakaoBookSearchClient.search("{test}", 1, 15);
+
+    assertThat(result.books()).isEmpty();
+    assertThat(result.isEnd()).isTrue();
+    mockServer.verify();
+  }
 }
