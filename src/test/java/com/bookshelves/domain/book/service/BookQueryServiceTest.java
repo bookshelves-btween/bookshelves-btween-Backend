@@ -349,6 +349,31 @@ class BookQueryServiceTest {
   }
 
   @Test
+  void getBookDetailNormalizesExternalIsbn10ForKdcLookupAndResponse() {
+    KakaoBookItem externalBook =
+        new KakaoBookItem(
+            "8936434594",
+            "혼모노",
+            List.of("성해나"),
+            "창비",
+            "2024-03-29T00:00:00.000+09:00",
+            "도서 설명",
+            "https://example.com/book.jpg");
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(bookRepository.findByIsbn("9788936434595")).willReturn(Optional.empty());
+    given(kakaoBookSearchClient.searchByIsbn("8936434594"))
+        .willReturn(new KakaoBookSearchResult(List.of(externalBook), true));
+    given(data4LibraryBookDetailClient.findKdcByIsbn("9788936434595"))
+        .willReturn(new KdcInfo("813", "문학"));
+
+    BookDetailResDTO result = bookQueryService.getBookDetail("8936434594");
+
+    assertThat(result.book().isbn()).isEqualTo("9788936434595");
+    verify(data4LibraryBookDetailClient).findKdcByIsbn("9788936434595");
+  }
+
+  @Test
   void getBookDetailRejectsInvalidIsbnBeforeAuthenticationAndExternalCall() {
     assertThatThrownBy(() -> bookQueryService.getBookDetail("invalid-isbn"))
         .isInstanceOf(BookException.class)

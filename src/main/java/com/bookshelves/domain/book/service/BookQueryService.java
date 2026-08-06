@@ -386,11 +386,12 @@ public class BookQueryService {
         kakaoBookSearchClient.searchByIsbn(requestedIsbn).books().stream()
             .findFirst()
             .orElseThrow(() -> new BookException(BookErrorCode.BOOK_NOT_FOUND));
-    String normalizedIsbn = IsbnNormalizer.normalize(externalBook.isbn()).orElse(requestedIsbn);
-    KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(normalizedIsbn);
+    String externalIsbn = IsbnNormalizer.normalize(externalBook.isbn()).orElse(requestedIsbn);
+    String canonicalExternalIsbn = IsbnNormalizer.toIsbn13(externalIsbn);
+    KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(canonicalExternalIsbn);
 
     return new BookDetailResDTO(
-        toExternalBookDetailInfo(externalBook, normalizedIsbn, kdcInfo), null);
+        toExternalBookDetailInfo(externalBook, canonicalExternalIsbn, kdcInfo), null);
   }
 
   private BookDetailResDTO.BookInfo toExternalBookDetailInfo(
