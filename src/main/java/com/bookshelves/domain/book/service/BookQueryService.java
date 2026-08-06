@@ -228,20 +228,27 @@ public class BookQueryService {
 
   private List<MemberBookStatisticsResDTO.CategoryStatistic> calculateCategoryStatistics(
       List<MemberBook> monthlyCompletedMemberBooks) {
-    List<MemberBook> completedMemberBooks = monthlyCompletedMemberBooks;
-    if (completedMemberBooks.isEmpty()) {
+    if (monthlyCompletedMemberBooks.isEmpty()) {
       return List.of();
     }
 
     Map<String, Long> categoryCounts = new LinkedHashMap<>();
-    long unclassifiedCount = 0;
-    for (MemberBook memberBook : completedMemberBooks) {
-      String kdcName = memberBook.getBook().getKdcName();
-      if (kdcName == null || kdcName.isBlank()) {
-        unclassifiedCount++;
+    for (MemberBook memberBook : monthlyCompletedMemberBooks) {
+      Book book = memberBook.getBook();
+      String kdcCode = book.getKdcCode();
+      String kdcName = book.getKdcName();
+      if (kdcCode == null
+          || !kdcCode.matches("\\d{3}")
+          || kdcName == null
+          || kdcName.isBlank()
+          || kdcName.equals("미분류")) {
         continue;
       }
       categoryCounts.merge(kdcName, 1L, Long::sum);
+    }
+    int classifiedBookCount = categoryCounts.values().stream().mapToInt(Long::intValue).sum();
+    if (classifiedBookCount == 0) {
+      return List.of();
     }
 
     List<Map.Entry<String, Long>> sortedCategories =
@@ -258,15 +265,14 @@ public class BookQueryService {
             category ->
                 statistics.add(
                     toCategoryStatistic(
-                        category.getKey(), category.getValue(), completedMemberBooks.size())));
+                        category.getKey(), category.getValue(), classifiedBookCount)));
 
     long otherCount =
-        unclassifiedCount
-            + (hasMoreThanThreeCategories
-                ? sortedCategories.stream().skip(3).mapToLong(Map.Entry::getValue).sum()
-                : 0);
+        hasMoreThanThreeCategories
+            ? sortedCategories.stream().skip(3).mapToLong(Map.Entry::getValue).sum()
+            : 0;
     if (otherCount > 0) {
-      statistics.add(toCategoryStatistic("기타", otherCount, completedMemberBooks.size()));
+      statistics.add(toCategoryStatistic("기타", otherCount, classifiedBookCount));
     }
     return List.copyOf(statistics);
   }
@@ -317,10 +323,6 @@ public class BookQueryService {
 
   private MemberBookListResDTO.MemberBookInfo toMemberBookListInfo(MemberBook memberBook) {
     Book book = memberBook.getBook();
-    String kdcName = book.getKdcName();
-    if (kdcName == null || kdcName.isBlank()) {
-      kdcName = "미분류";
-    }
 
     return new MemberBookListResDTO.MemberBookInfo(
         new MemberBookRecord(
@@ -338,7 +340,7 @@ public class BookQueryService {
             book.getPublisher(),
             book.getCoverImageUrl(),
             book.getKdcCode(),
-            kdcName));
+            book.getKdcName()));
   }
 
   private MemberBookStatus parseMemberBookStatus(String value) {
@@ -410,11 +412,6 @@ public class BookQueryService {
   }
 
   private BookDetailResDTO.BookInfo toSavedBookDetailInfo(Book book) {
-    String kdcName = book.getKdcName();
-    if (kdcName == null || kdcName.isBlank()) {
-      kdcName = "미분류";
-    }
-
     return new BookDetailResDTO.BookInfo(
         book.getId(),
         book.getIsbn(),
@@ -425,7 +422,7 @@ public class BookQueryService {
         truncateDescription(book.getDescription()),
         book.getCoverImageUrl(),
         book.getKdcCode(),
-        kdcName);
+        book.getKdcName());
   }
 
   private MemberBookInfo toMemberBookInfo(MemberBook memberBook) {

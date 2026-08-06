@@ -281,7 +281,7 @@ class BookQueryServiceTest {
   }
 
   @Test
-  void getBookDetailReturnsNullMemberBookWhenSavedBookHasNoReadingRecord() {
+  void getBookDetailReturnsNullKdcWithoutDisplayValueConversion() {
     Book savedBook = mock(Book.class);
 
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
@@ -289,13 +289,16 @@ class BookQueryServiceTest {
     given(savedBook.getId()).willReturn(10L);
     given(savedBook.getIsbn()).willReturn("9788936434595");
     given(savedBook.getTitle()).willReturn("혼모노");
-    given(savedBook.getKdcName()).willReturn("문학");
+    given(savedBook.getKdcCode()).willReturn(null);
+    given(savedBook.getKdcName()).willReturn(null);
     given(memberBookRepository.findByMemberIdAndBookId(7L, 10L)).willReturn(Optional.empty());
 
     BookDetailResDTO result = bookQueryService.getBookDetail("9788936434595");
 
     assertThat(result.book().id()).isEqualTo(10L);
     assertThat(result.book().title()).isEqualTo("혼모노");
+    assertThat(result.book().kdcCode()).isNull();
+    assertThat(result.book().kdcName()).isNull();
     assertThat(result.memberBook()).isNull();
     verifyNoInteractions(kakaoBookSearchClient, data4LibraryBookDetailClient);
   }
@@ -320,7 +323,7 @@ class BookQueryServiceTest {
   }
 
   @Test
-  void getBookDetailReturnsNullMemberBookAndUnclassifiedWhenBookIsNotSaved() {
+  void getBookDetailReturnsExternalBookWhenBookIsNotSaved() {
     KakaoBookItem externalBook =
         new KakaoBookItem(
             "9788936434595",
@@ -374,6 +377,24 @@ class BookQueryServiceTest {
   }
 
   @Test
+  void getBookDetailReturnsNullKdcWhenExternalClassificationIsUnavailable() {
+    KakaoBookItem externalBook =
+        new KakaoBookItem("9788936434595", "혼모노", List.of("성해나"), "창비", null, null, null);
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(bookRepository.findByIsbn("9788936434595")).willReturn(Optional.empty());
+    given(kakaoBookSearchClient.searchByIsbn("9788936434595"))
+        .willReturn(new KakaoBookSearchResult(List.of(externalBook), true));
+    given(data4LibraryBookDetailClient.findKdcByIsbn("9788936434595"))
+        .willReturn(KdcInfo.unavailable());
+
+    BookDetailResDTO result = bookQueryService.getBookDetail("9788936434595");
+
+    assertThat(result.book().kdcCode()).isNull();
+    assertThat(result.book().kdcName()).isNull();
+  }
+
+  @Test
   void getBookDetailRejectsInvalidIsbnBeforeAuthenticationAndExternalCall() {
     assertThatThrownBy(() -> bookQueryService.getBookDetail("invalid-isbn"))
         .isInstanceOf(BookException.class)
@@ -406,7 +427,7 @@ class BookQueryServiceTest {
   }
 
   @Test
-  void getMemberBooksReturnsOwnReadingRecordsWithDerivedStatusAndUnclassifiedKdc() {
+  void getMemberBooksReturnsNullKdcWithoutDisplayValueConversion() {
     Book book = mock(Book.class);
     MemberBook memberBook = mock(MemberBook.class);
     Pageable pageable =
@@ -437,7 +458,7 @@ class BookQueryServiceTest {
     assertThat(result.memberBooks().getFirst().memberBook().updatedAt())
         .isEqualTo(LocalDateTime.of(2026, 7, 14, 4, 30));
     assertThat(result.memberBooks().getFirst().book().kdcCode()).isNull();
-    assertThat(result.memberBooks().getFirst().book().kdcName()).isEqualTo("미분류");
+    assertThat(result.memberBooks().getFirst().book().kdcName()).isNull();
     assertThat(result.page()).isEqualTo(1);
     assertThat(result.size()).isEqualTo(20);
     assertThat(result.hasNext()).isFalse();
@@ -596,11 +617,14 @@ class BookQueryServiceTest {
         .containsExactly("한국 문학", "심리학", "역사", "기타");
     assertThat(result.categoryStatistics())
         .extracting(MemberBookStatisticsResDTO.CategoryStatistic::count)
-        .containsExactly(2L, 1L, 1L, 2L);
+        .containsExactly(2L, 1L, 1L, 1L);
+    assertThat(result.categoryStatistics())
+        .extracting(MemberBookStatisticsResDTO.CategoryStatistic::percentage)
+        .containsExactly(40, 20, 20, 20);
   }
 
   @Test
-  void getMemberBookStatisticsIncludesUnclassifiedBookAsOtherWhenThreeOrFewerCategories() {
+  void getMemberBookStatisticsExcludesUnclassifiedBookFromCategories() {
     MemberBook literature = memberBook("문학", null, null);
     MemberBook psychology = memberBook("심리학", null, null);
     MemberBook unclassified = memberBook(null, null, null);
@@ -620,7 +644,10 @@ class BookQueryServiceTest {
 
     assertThat(result.categoryStatistics())
         .extracting(MemberBookStatisticsResDTO.CategoryStatistic::name)
-        .containsExactly("문학", "심리학", "기타");
+        .containsExactly("문학", "심리학");
+    assertThat(result.categoryStatistics())
+        .extracting(MemberBookStatisticsResDTO.CategoryStatistic::percentage)
+        .containsExactly(50, 50);
     assertThat(result.averageRating()).isEqualByComparingTo("0.0");
   }
 
@@ -718,6 +745,7 @@ class BookQueryServiceTest {
     given(memberBook.getBook()).willReturn(book);
     lenient().when(memberBook.getRating()).thenReturn(rating);
     lenient().when(memberBook.getMemo()).thenReturn(memo);
+    given(book.getKdcCode()).willReturn(kdcName == null ? null : "800");
     given(book.getKdcName()).willReturn(kdcName);
     return memberBook;
   }
