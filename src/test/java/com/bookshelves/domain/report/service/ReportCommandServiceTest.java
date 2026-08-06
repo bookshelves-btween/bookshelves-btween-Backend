@@ -26,6 +26,7 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class ReportCommandServiceTest {
@@ -49,7 +50,7 @@ class ReportCommandServiceTest {
     given(meetingParticipantRepository.existsByMeetingIdAndMemberId(1L, 2L)).willReturn(true);
     given(meeting.hasStarted()).willReturn(true);
     given(memberRepository.getReferenceById(2L)).willReturn(reporter);
-    given(reportRepository.save(any(Report.class)))
+    given(reportRepository.saveAndFlush(any(Report.class)))
         .willAnswer(invocation -> invocation.getArgument(0));
 
     reportCommandService.createReport(10L, 2L);
@@ -57,7 +58,7 @@ class ReportCommandServiceTest {
     InOrder order = inOrder(chatRoomRepository, meetingRepository, reportRepository);
     order.verify(chatRoomRepository).findById(10L);
     order.verify(meetingRepository).findByIdForUpdate(1L);
-    order.verify(reportRepository).save(any(Report.class));
+    order.verify(reportRepository).saveAndFlush(any(Report.class));
   }
 
   @Test
@@ -76,7 +77,7 @@ class ReportCommandServiceTest {
         .extracting("errorCode")
         .isEqualTo(ReportErrorCode.MEETING_NOT_STARTED);
 
-    verify(reportRepository, never()).save(any());
+    verify(reportRepository, never()).saveAndFlush(any());
   }
 
   // 비참여자에게는 그 모임이 시작했는지조차 알려주지 않는다 — 참여자 확인이 상태 확인보다 앞선다.
@@ -98,6 +99,29 @@ class ReportCommandServiceTest {
     verify(meeting, never()).hasStarted();
   }
 
+  // existsBy와 저장 사이의 동시 요청은 유니크 제약이 막는다. 그 위반을 500이 아니라 409로 돌려준다.
+  @Test
+  void translatesDuplicateKeyViolationIntoConflict() {
+    ChatRoom chatRoom = mock(ChatRoom.class);
+    Meeting meeting = mock(Meeting.class);
+    Member reporter = mock(Member.class);
+    given(chatRoomRepository.findById(10L)).willReturn(Optional.of(chatRoom));
+    given(chatRoom.getMeeting()).willReturn(meeting);
+    given(meeting.getId()).willReturn(1L);
+    given(meetingRepository.findByIdForUpdate(1L)).willReturn(Optional.of(meeting));
+    given(meetingParticipantRepository.existsByMeetingIdAndMemberId(1L, 2L)).willReturn(true);
+    given(meeting.hasStarted()).willReturn(true);
+    given(reportRepository.existsByReporterMemberIdAndChatRoomId(2L, 10L)).willReturn(false);
+    given(memberRepository.getReferenceById(2L)).willReturn(reporter);
+    given(reportRepository.saveAndFlush(any(Report.class)))
+        .willThrow(new DataIntegrityViolationException("uk_report_reporter_chatroom"));
+
+    assertThatThrownBy(() -> reportCommandService.createReport(10L, 2L))
+        .isInstanceOf(ReportException.class)
+        .extracting("errorCode")
+        .isEqualTo(ReportErrorCode.ALREADY_REPORTED);
+  }
+
   @Test
   void rejectsReportWhenMeetingWasDeletedWhileWaitingForLock() {
     ChatRoom chatRoom = mock(ChatRoom.class);
@@ -113,6 +137,6 @@ class ReportCommandServiceTest {
         .isEqualTo(ReportErrorCode.CHATROOM_NOT_FOUND);
 
     verify(meetingParticipantRepository, never()).existsByMeetingIdAndMemberId(any(), any());
-    verify(reportRepository, never()).save(any());
+    verify(reportRepository, never()).saveAndFlush(any());
   }
 }
