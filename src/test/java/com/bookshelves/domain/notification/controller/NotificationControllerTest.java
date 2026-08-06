@@ -114,4 +114,19 @@ class NotificationControllerTest {
     assertThat(response.getBody().getResult()).isSameAs(result);
     verify(notificationCommandService).readNotification(101L, 1L);
   }
+
+  @Test
+  void deleteNotificationReturnsSpecifiedSuccessResponse() {
+    when(authenticationFacade.getCurrentMemberId()).thenReturn(1L);
+
+    ResponseEntity<ApiResponse<Void>> response = notificationController.deleteNotification(101L);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().isSuccess()).isTrue();
+    assertThat(response.getBody().getCode()).isEqualTo("NOTI200_5");
+    assertThat(response.getBody().getMessage()).isEqualTo("알림을 삭제했습니다.");
+    assertThat(response.getBody().getResult()).isNull();
+    verify(notificationCommandService).deleteNotification(101L, 1L);
+  }
 }
