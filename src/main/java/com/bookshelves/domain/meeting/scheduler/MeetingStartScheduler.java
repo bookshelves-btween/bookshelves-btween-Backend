@@ -7,9 +7,11 @@ import com.bookshelves.domain.meeting.service.MeetingCommandService;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class MeetingStartScheduler {
@@ -24,8 +26,16 @@ public class MeetingStartScheduler {
   @Scheduled(fixedRate = 60_000)
   public void startScheduledMeetings() {
     LocalDateTime now = LocalDateTime.now();
-    closeRecruitment(now);
-    startMeetings(now);
+    try {
+      closeRecruitment(now);
+    } catch (Exception e) {
+      log.error("모집 마감 대상 조회 실패", e);
+    }
+    try {
+      startMeetings(now);
+    } catch (Exception e) {
+      log.error("모임 시작 대상 조회 실패", e);
+    }
   }
 
   private void closeRecruitment(LocalDateTime now) {
@@ -34,7 +44,11 @@ public class MeetingStartScheduler {
         meetingRepository.findAllByStatusAndStartDateLessThanEqual(
             MeetingStatus.RECRUITING, recruitmentDeadline);
     for (Meeting meeting : candidates) {
-      meetingCommandService.processRecruitmentDeadline(meeting.getId(), now);
+      try {
+        meetingCommandService.processRecruitmentDeadline(meeting.getId(), now);
+      } catch (Exception e) {
+        log.error("모집 마감 처리 실패: meetingId={}", meeting.getId(), e);
+      }
     }
   }
 
@@ -42,7 +56,11 @@ public class MeetingStartScheduler {
     List<Meeting> candidates =
         meetingRepository.findAllByStatusInAndStartDateLessThanEqual(BEFORE_START_STATUSES, now);
     for (Meeting meeting : candidates) {
-      meetingCommandService.startMeeting(meeting.getId(), now);
+      try {
+        meetingCommandService.startMeeting(meeting.getId(), now);
+      } catch (Exception e) {
+        log.error("모임 시작 처리 실패: meetingId={}", meeting.getId(), e);
+      }
     }
   }
 }

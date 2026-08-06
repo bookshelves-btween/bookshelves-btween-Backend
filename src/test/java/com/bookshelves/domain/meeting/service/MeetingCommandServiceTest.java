@@ -31,6 +31,7 @@ import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.enums.NotificationType;
 import com.bookshelves.domain.notification.service.NotificationCommandService;
+import com.bookshelves.domain.report.repository.ReportRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
@@ -61,6 +62,7 @@ class MeetingCommandServiceTest {
   @Mock private MemberRepository memberRepository;
   @Mock private AuthenticationFacade authenticationFacade;
   @Mock private AIQuestionRepository aiQuestionRepository;
+  @Mock private ReportRepository reportRepository;
   @Mock private AIQuestionPreparationService aiQuestionPreparationService;
   @Mock private ApplicationEventPublisher eventPublisher;
   @InjectMocks private MeetingCommandService meetingCommandService;
@@ -267,6 +269,7 @@ class MeetingCommandServiceTest {
         .isEqualTo(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
 
     verify(notificationCommandService).saveAll(any());
+    verify(reportRepository).deleteAllByMeetingId(1L);
     verify(chatRoomRepository).deleteAllByMeetingId(1L);
     verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
     verify(meetingRepository).delete(meeting);
@@ -318,10 +321,12 @@ class MeetingCommandServiceTest {
     InOrder deletionOrder =
         inOrder(
             notificationCommandService,
+            reportRepository,
             chatRoomRepository,
             meetingParticipantRepository,
             meetingRepository);
     deletionOrder.verify(notificationCommandService).saveAll(any());
+    deletionOrder.verify(reportRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingRepository).delete(meeting);
@@ -336,6 +341,7 @@ class MeetingCommandServiceTest {
 
     assertThat(deleted).isFalse();
     verify(meetingParticipantRepository, never()).deleteAllByMeetingId(any());
+    verify(reportRepository, never()).deleteAllByMeetingId(any());
     verify(chatRoomRepository, never()).deleteAllByMeetingId(any());
     verify(meetingRepository, never()).delete(any());
   }
