@@ -11,6 +11,7 @@ import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.domain.meeting.service.MeetingTerminationService;
+import com.bookshelves.global.util.ServiceTime;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -30,8 +31,9 @@ class MeetingTerminationSchedulerTest {
 
   @Test
   void limitsCandidatesAndTerminatesOnlyEndedMeetings() {
-    Meeting endedMeeting = meeting(1L, LocalDateTime.now().minusMinutes(1));
-    Meeting ongoingMeeting = meeting(null, LocalDateTime.now().plusMinutes(1));
+    LocalDateTime now = ServiceTime.now();
+    Meeting endedMeeting = meeting(1L, now.minusMinutes(1));
+    Meeting ongoingMeeting = meeting(null, now.plusMinutes(1));
     given(
             meetingRepository.findAllByStatusAndStartDateLessThanEqual(
                 eq(MeetingStatus.IN_PROGRESS), any(LocalDateTime.class), any(Pageable.class)))
