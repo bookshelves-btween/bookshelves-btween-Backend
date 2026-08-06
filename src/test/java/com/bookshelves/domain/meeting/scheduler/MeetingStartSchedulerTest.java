@@ -129,8 +129,13 @@ class MeetingStartSchedulerTest {
   }
 
   private void assertOldestFirstBatch(Pageable pageable) {
+    assertThat(pageable.getPageNumber()).isZero();
     assertThat(pageable.getPageSize()).isEqualTo(100);
-    assertThat(pageable.getSort().getOrderFor("startDate")).isNotNull();
-    assertThat(pageable.getSort().getOrderFor("id")).isNotNull();
+    assertThat(pageable.getSort().getOrderFor("startDate"))
+        .isNotNull()
+        .satisfies(order -> assertThat(order.isAscending()).isTrue());
+    assertThat(pageable.getSort().getOrderFor("id"))
+        .isNotNull()
+        .satisfies(order -> assertThat(order.isAscending()).isTrue());
   }
 }

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
@@ -43,11 +44,17 @@ class MeetingTerminationSchedulerTest {
         .findAllByStatusAndStartDateLessThanEqual(
             eq(MeetingStatus.IN_PROGRESS), any(LocalDateTime.class), pageableCaptor.capture());
     verify(meetingTerminationService).terminate(1L);
+    verifyNoMoreInteractions(meetingTerminationService);
 
     Pageable pageable = pageableCaptor.getValue();
+    assertThat(pageable.getPageNumber()).isZero();
     assertThat(pageable.getPageSize()).isEqualTo(100);
-    assertThat(pageable.getSort().getOrderFor("startDate")).isNotNull();
-    assertThat(pageable.getSort().getOrderFor("id")).isNotNull();
+    assertThat(pageable.getSort().getOrderFor("startDate"))
+        .isNotNull()
+        .satisfies(order -> assertThat(order.isAscending()).isTrue());
+    assertThat(pageable.getSort().getOrderFor("id"))
+        .isNotNull()
+        .satisfies(order -> assertThat(order.isAscending()).isTrue());
   }
 
   private Meeting meeting(Long id, LocalDateTime endDate) {
