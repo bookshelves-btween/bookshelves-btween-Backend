@@ -3,6 +3,7 @@ package com.bookshelves.domain.report.service;
 import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.repository.MeetingParticipantRepository;
+import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.report.code.ReportErrorCode;
@@ -22,6 +23,7 @@ public class ReportCommandService {
 
   private final ReportRepository reportRepository;
   private final ChatRoomRepository chatRoomRepository;
+  private final MeetingRepository meetingRepository;
   private final MeetingParticipantRepository meetingParticipantRepository;
   private final MemberRepository memberRepository;
 
@@ -31,9 +33,15 @@ public class ReportCommandService {
         chatRoomRepository
             .findById(chatroomId)
             .orElseThrow(() -> new ReportException(ReportErrorCode.CHATROOM_NOT_FOUND));
+    Long meetingId = chatRoom.getMeeting().getId();
 
-    if (!meetingParticipantRepository.existsByMeetingIdAndMemberId(
-        chatRoom.getMeeting().getId(), reporterId)) {
+    // 인원 미달 모임 삭제도 같은 meeting 행을 잠근다. 신고 저장과 삭제를 직렬화해
+    // report 벌크 삭제 직후 새 신고가 삽입되는 FK 경쟁 조건을 막는다.
+    meetingRepository
+        .findByIdForUpdate(meetingId)
+        .orElseThrow(() -> new ReportException(ReportErrorCode.CHATROOM_NOT_FOUND));
+
+    if (!meetingParticipantRepository.existsByMeetingIdAndMemberId(meetingId, reporterId)) {
       throw new ReportException(ReportErrorCode.NOT_PARTICIPANT);
     }
     // 흔한 중복은 여기서 걸러 친절한 409를 준다. 최종 무결성은 Report의
