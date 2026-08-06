@@ -87,7 +87,7 @@ public class MemberCommandService {
 
     Member member =
         memberRepository
-            .findById(memberId)
+            .findByIdForUpdate(memberId)
             .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     if (hasAllNicknameParts(request)) {
@@ -110,7 +110,7 @@ public class MemberCommandService {
   public MemberInfoResponse completeOnboarding(Long memberId, OnboardingRequest request) {
     Member member =
         memberRepository
-            .findById(memberId)
+            .findByIdForUpdate(memberId)
             .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     if (member.getStatus() != MemberStatus.PENDING_ONBOARDING) {
