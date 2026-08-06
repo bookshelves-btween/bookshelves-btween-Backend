@@ -31,6 +31,7 @@ import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.MemberBookRepository.CumulativeStatistics;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.global.security.AuthenticationFacade;
@@ -587,8 +588,8 @@ class BookQueryServiceTest {
     MemberBook history = memberBook("역사", null, null);
     MemberBook unclassified = memberBook(null, null, null);
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
-        .willReturn(List.of(koreanLiteratureOne, koreanLiteratureTwo));
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(2L, 1L, 4.15));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -629,8 +630,8 @@ class BookQueryServiceTest {
     MemberBook psychology = memberBook("심리학", null, null);
     MemberBook unclassified = memberBook(null, null, null);
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
-        .willReturn(List.of(literature, psychology, unclassified));
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(3L, 0L, null));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -655,7 +656,8 @@ class BookQueryServiceTest {
   void getMemberBookStatisticsUsesCurrentSeoulMonthWhenYearAndMonthAreOmitted() {
     YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(0L, 0L, null));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -676,7 +678,8 @@ class BookQueryServiceTest {
   void getMemberBookStatisticsUsesCurrentSeoulYearWhenYearIsOmitted() {
     YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(0L, 0L, null));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -696,7 +699,8 @@ class BookQueryServiceTest {
   void getMemberBookStatisticsUsesCurrentSeoulMonthWhenMonthIsOmitted() {
     YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(0L, 0L, null));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -716,7 +720,7 @@ class BookQueryServiceTest {
   @Test
   void getMemberBookStatisticsThrowsBookExceptionWhenDatabaseLookupFails() {
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
         .willThrow(new DataAccessResourceFailureException("database unavailable"));
 
     assertThatThrownBy(() -> bookQueryService.getMemberBookStatistics("2026", "6"))
@@ -748,6 +752,26 @@ class BookQueryServiceTest {
     given(book.getKdcCode()).willReturn(kdcName == null ? null : "800");
     given(book.getKdcName()).willReturn(kdcName);
     return memberBook;
+  }
+
+  private CumulativeStatistics cumulativeStatistics(
+      long completedBookCount, long reviewCount, Double averageRating) {
+    return new CumulativeStatistics() {
+      @Override
+      public long getCompletedBookCount() {
+        return completedBookCount;
+      }
+
+      @Override
+      public long getReviewCount() {
+        return reviewCount;
+      }
+
+      @Override
+      public Double getAverageRating() {
+        return averageRating;
+      }
+    };
   }
 
   private Category category(Long id, String kdcCode, String name) {
