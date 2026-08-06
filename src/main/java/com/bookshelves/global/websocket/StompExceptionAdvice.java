@@ -5,6 +5,7 @@ import com.bookshelves.global.apiPayload.code.GeneralErrorCode;
 import com.bookshelves.global.exception.ProjectException;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.converter.MessageConversionException;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException;
 import org.springframework.messaging.simp.annotation.SendToUser;
@@ -34,11 +35,17 @@ public class StompExceptionAdvice {
     return ApiResponse.onFailure(e.getErrorCode(), Map.of());
   }
 
-  // @Valid 페이로드 검증 실패 — 메시징 계층은 웹 MVC와 다른 MethodArgumentNotValidException을 던진다
-  @MessageExceptionHandler(MethodArgumentNotValidException.class)
+  // 잘못된 페이로드 — 둘 다 클라이언트가 고칠 수 있는 입력 오류다.
+  //
+  // MethodArgumentNotValidException은 @Valid 검증 실패이고, MessageConversionException은
+  // 그보다 앞선 역직렬화 실패다. 깨진 JSON은 @Valid까지 가지도 못하므로 후자를 함께 잡지 않으면
+  // catch-all로 떨어져 500으로 나가고, 클라이언트가 자기 요청 문제와 서버 장애를 구분하지 못한다.
+  @MessageExceptionHandler({
+    MethodArgumentNotValidException.class,
+    MessageConversionException.class
+  })
   @SendToUser(destinations = StompDestinations.ERROR_SUB_DESTINATION, broadcast = false)
-  public ApiResponse<Map<String, Object>> handleValidationException(
-      MethodArgumentNotValidException e) {
+  public ApiResponse<Map<String, Object>> handleBadPayloadException(Exception e) {
     return ApiResponse.onFailure(GeneralErrorCode.COMMON_BAD_REQUEST, Map.of());
   }
 

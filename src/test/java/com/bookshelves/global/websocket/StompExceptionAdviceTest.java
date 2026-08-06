@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.bookshelves.domain.chat.code.ChatErrorCode;
 import com.bookshelves.domain.chat.exception.ChatException;
+import com.bookshelves.global.apiPayload.code.GeneralErrorCode;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.converter.JacksonJsonMessageConverter;
+import org.springframework.messaging.converter.MessageConversionException;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageType;
@@ -108,12 +110,28 @@ class StompExceptionAdviceTest {
     assertThat(delivery.getSessionIds()).containsExactly(SESSION_ID);
   }
 
+  // 깨진 페이로드는 @Valid까지 가지도 못하고 역직렬화에서 터진다. 클라이언트가 고칠 수 있는
+  // 입력 오류이므로 서버 장애(500)와 구분되어야 한다.
+  @Test
+  void malformedPayloadIsReportedAsBadRequest() {
+    clientInbound.send(send("/pub/malformed"));
+
+    assertThat(new String((byte[]) toBroker.get(0).getPayload(), StandardCharsets.UTF_8))
+        .contains(GeneralErrorCode.COMMON_BAD_REQUEST.getCode())
+        .doesNotContain(GeneralErrorCode.COMMON_INTERNAL_SERVER_ERROR.getCode());
+  }
+
   @Controller
   static class ThrowingController {
 
     @MessageMapping("/boom")
     public void boom() {
       throw new ChatException(ChatErrorCode.CHATROOM_FORBIDDEN);
+    }
+
+    @MessageMapping("/malformed")
+    public void malformed() {
+      throw new MessageConversionException("역직렬화 실패");
     }
   }
 
