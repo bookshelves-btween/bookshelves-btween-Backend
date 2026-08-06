@@ -4,6 +4,7 @@ import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.domain.meeting.service.MeetingCommandService;
+import com.bookshelves.global.util.ServiceTime;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,7 @@ public class MeetingStartScheduler {
 
   @Scheduled(fixedRate = 60_000)
   public void startScheduledMeetings() {
-    LocalDateTime now = LocalDateTime.now();
+    LocalDateTime now = ServiceTime.now();
     try {
       closeRecruitment(now);
     } catch (Exception e) {
