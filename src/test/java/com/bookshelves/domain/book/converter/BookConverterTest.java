@@ -32,4 +32,20 @@ class BookConverterTest {
     assertThat(book.getAuthor().codePointCount(0, book.getAuthor().length()))
         .isEqualTo(Book.MAX_AUTHOR_LENGTH);
   }
+
+  @Test
+  void storesBothKdcFieldsAsNullWhenKdcCodeIsUnavailable() {
+    KakaoBookItem item =
+        new KakaoBookItem("9788936434595", "혼모노", List.of("성해나"), "창비", null, null, null);
+
+    Book bookWithMissingCode =
+        BookConverter.toEntity(item, "9788936434595", new KdcInfo(null, "미분류"));
+    Book bookWithMissingName =
+        BookConverter.toEntity(item, "9788936434595", new KdcInfo("813", null));
+
+    assertThat(bookWithMissingCode.getKdcCode()).isNull();
+    assertThat(bookWithMissingCode.getKdcName()).isNull();
+    assertThat(bookWithMissingName.getKdcCode()).isNull();
+    assertThat(bookWithMissingName.getKdcName()).isNull();
+  }
 }

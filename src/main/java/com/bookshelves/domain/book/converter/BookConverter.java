@@ -12,6 +12,15 @@ public final class BookConverter {
   private BookConverter() {}
 
   public static Book toEntity(KakaoBookItem item, String isbn, KdcInfo kdcInfo) {
+    boolean hasValidKdc =
+        kdcInfo != null
+            && kdcInfo.code() != null
+            && kdcInfo.code().matches("\\d{3}")
+            && kdcInfo.name() != null
+            && !kdcInfo.name().isBlank();
+    String kdcCode = hasValidKdc ? kdcInfo.code() : null;
+    String kdcName = hasValidKdc ? kdcInfo.name() : null;
+
     return Book.builder()
         .isbn(isbn)
         .title(TextTruncator.truncate(item.title(), Book.MAX_TITLE_LENGTH))
@@ -20,8 +29,8 @@ public final class BookConverter {
         .publishedDate(parsePublishedDate(item.datetime()))
         .description(item.contents())
         .coverImageUrl(item.thumbnail())
-        .kdcCode(kdcInfo.code())
-        .kdcName(kdcInfo.name())
+        .kdcCode(kdcCode)
+        .kdcName(kdcName)
         .build();
   }
 

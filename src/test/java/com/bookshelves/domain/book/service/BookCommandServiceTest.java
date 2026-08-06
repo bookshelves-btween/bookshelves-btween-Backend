@@ -199,7 +199,7 @@ class BookCommandServiceTest {
             });
     given(kakaoBookSearchClient.searchByIsbn(ISBN))
         .willReturn(new KakaoBookSearchResult(List.of(item), true));
-    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(new KdcInfo(null, "미분류"));
+    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(KdcInfo.unavailable());
     given(bookRepository.findByIsbnForUpdate(ISBN)).willReturn(Optional.of(winningBook));
 
     CompletableFuture<Book> first =
