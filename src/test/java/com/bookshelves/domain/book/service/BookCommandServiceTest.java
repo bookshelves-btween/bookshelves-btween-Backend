@@ -2,10 +2,15 @@ package com.bookshelves.domain.book.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient;
 import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
@@ -21,6 +26,7 @@ import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
@@ -32,11 +38,18 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class BookCommandServiceTest {
@@ -47,10 +60,60 @@ class BookCommandServiceTest {
   @Mock private MemberBookRepository memberBookRepository;
   @Mock private MemberBookHistoryRepository memberBookHistoryRepository;
   @Mock private MemberRepository memberRepository;
+  @Mock private RecentBookSearchRepository recentBookSearchRepository;
   @Mock private AuthenticationFacade authenticationFacade;
   @Mock private KakaoBookSearchClient kakaoBookSearchClient;
   @Mock private Data4LibraryBookDetailClient data4LibraryBookDetailClient;
+  @Mock private TransactionTemplate transactionTemplate;
   @InjectMocks private BookCommandService bookCommandService;
+
+  @BeforeEach
+  void executeTransactionsInline() {
+    lenient()
+        .when(transactionTemplate.execute(any()))
+        .thenAnswer(
+            invocation -> {
+              TransactionCallback<?> callback = invocation.getArgument(0);
+              return callback.doInTransaction(
+                  mock(org.springframework.transaction.TransactionStatus.class));
+            });
+  }
+
+  @Test
+  void deleteRecentBookSearchDeletesStrippedKeywordForCurrentMember() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+
+    bookCommandService.deleteRecentBookSearch("\u2003혼모노\u3000");
+
+    verify(recentBookSearchRepository).delete(7L, "혼모노");
+  }
+
+  @Test
+  void deleteRecentBookSearchRejectsBlankKeywordBeforeAuthentication() {
+    assertThatThrownBy(() -> bookCommandService.deleteRecentBookSearch("  "))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_RECENT_BOOK_SEARCH_DELETE_REQUEST));
+
+    verifyNoInteractions(authenticationFacade, recentBookSearchRepository);
+  }
+
+  @Test
+  void deleteRecentBookSearchThrowsBookExceptionWhenRedisDeleteFails() {
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    org.mockito.Mockito.doThrow(new DataAccessResourceFailureException("redis unavailable"))
+        .when(recentBookSearchRepository)
+        .delete(7L, "혼모노");
+
+    assertThatThrownBy(() -> bookCommandService.deleteRecentBookSearch("혼모노"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.RECENT_BOOK_SEARCH_DELETE_FAILED));
+  }
 
   @Test
   void returnsSavedBookWithoutCallingKakaoApi() {
@@ -119,6 +182,44 @@ class BookCommandServiceTest {
   }
 
   @Test
+  void fetchesExternalBookBeforeStartingMemberBookTransaction() {
+    KakaoBookItem item = new KakaoBookItem(ISBN, "아몬드", List.of("손원평"), "창비", null, null, null);
+    Book savedBook = Book.builder().isbn(ISBN).title("아몬드").build();
+    org.springframework.test.util.ReflectionTestUtils.setField(savedBook, "id", 100L);
+    Member member = Member.createSocialMember(null, "provider-id");
+
+    given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.empty());
+    given(kakaoBookSearchClient.searchByIsbn(ISBN))
+        .willReturn(new KakaoBookSearchResult(List.of(item), true));
+    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(KdcInfo.unavailable());
+    given(bookRepository.findByIsbnForUpdate(ISBN)).willReturn(Optional.of(savedBook));
+    given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
+    given(memberRepository.findByIdForUpdate(1L)).willReturn(Optional.of(member));
+    given(memberBookRepository.findByMemberIdAndBookId(1L, 100L)).willReturn(Optional.empty());
+    given(memberBookRepository.save(any(MemberBook.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+
+    BookCommandService.MemberBookUpsertResult result =
+        bookCommandService.upsertMemberBook(ISBN, new MemberBookUpsertReqDTO(0, null, "읽을 예정"));
+
+    InOrder order =
+        inOrder(
+            bookRepository,
+            kakaoBookSearchClient,
+            data4LibraryBookDetailClient,
+            transactionTemplate,
+            memberRepository);
+    order.verify(bookRepository).findByIsbn(ISBN);
+    order.verify(kakaoBookSearchClient).searchByIsbn(ISBN);
+    order.verify(data4LibraryBookDetailClient).findKdcByIsbn(ISBN);
+    order.verify(transactionTemplate).execute(any());
+    order.verify(bookRepository).upsert(ISBN, "아몬드", "손원평", "창비", null, null, null, null, null);
+    order.verify(bookRepository).findByIsbnForUpdate(ISBN);
+    order.verify(memberRepository).findByIdForUpdate(1L);
+    assertThat(result.created()).isTrue();
+  }
+
+  @Test
   void throwsBookNotFoundWhenKakaoApiReturnsNoBook() {
     given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.empty());
     given(kakaoBookSearchClient.searchByIsbn(ISBN))
@@ -159,7 +260,7 @@ class BookCommandServiceTest {
             });
     given(kakaoBookSearchClient.searchByIsbn(ISBN))
         .willReturn(new KakaoBookSearchResult(List.of(item), true));
-    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(new KdcInfo(null, "미분류"));
+    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(KdcInfo.unavailable());
     given(bookRepository.findByIsbnForUpdate(ISBN)).willReturn(Optional.of(winningBook));
 
     CompletableFuture<Book> first =
@@ -345,5 +446,32 @@ class BookCommandServiceTest {
     memberBook.update(100, new BigDecimal("4.5"), "평점 수정");
 
     assertThat(memberBook.getFinishedAt()).isEqualTo(completedAt);
+  }
+
+  @Test
+  void separatesExternalLookupFromDatabaseTransactions() throws Exception {
+    assertThat(BookCommandService.class.getAnnotation(Transactional.class)).isNull();
+
+    Transactional getOrCreateTransaction =
+        BookCommandService.class
+            .getMethod("getOrCreateByIsbn", String.class)
+            .getAnnotation(Transactional.class);
+    Transactional upsertTransaction =
+        BookCommandService.class
+            .getMethod("upsertMemberBook", String.class, MemberBookUpsertReqDTO.class)
+            .getAnnotation(Transactional.class);
+    Transactional prepareTransaction =
+        BookCommandService.class
+            .getMethod("prepareBook", String.class)
+            .getAnnotation(Transactional.class);
+    Transactional persistTransaction =
+        BookCommandService.class
+            .getMethod("persistPreparedBook", BookCommandService.PreparedBook.class)
+            .getAnnotation(Transactional.class);
+
+    assertThat(getOrCreateTransaction.propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
+    assertThat(upsertTransaction.propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
+    assertThat(prepareTransaction.propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
+    assertThat(persistTransaction.propagation()).isEqualTo(Propagation.MANDATORY);
   }
 }

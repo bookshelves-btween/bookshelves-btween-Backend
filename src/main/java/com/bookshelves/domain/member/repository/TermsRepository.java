@@ -6,5 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TermsRepository extends JpaRepository<Terms, Long> {
 
-  List<Terms> findByIsRequiredTrue();
+  List<Terms> findByIsActiveTrue();
+
+  List<Terms> findByIsActiveTrueAndIsRequiredTrue();
 }

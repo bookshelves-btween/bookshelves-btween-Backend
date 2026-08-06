@@ -1,9 +1,8 @@
 package com.bookshelves.domain.book.client;
 
-import com.bookshelves.domain.book.exception.BookException;
-import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import java.time.Duration;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -13,6 +12,7 @@ import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 
 @Component
+@Slf4j
 public class Data4LibraryBookDetailClient {
 
   private static final Map<Character, String> KDC_NAMES =
@@ -46,7 +46,8 @@ public class Data4LibraryBookDetailClient {
 
   public KdcInfo findKdcByIsbn(String isbn) {
     if (authKey == null || authKey.isBlank()) {
-      throw new BookException(BookErrorCode.EXTERNAL_BOOK_API_FAILED);
+      log.warn("정보나루 인증 키가 없어 KDC 정보를 조회하지 않습니다.");
+      return KdcInfo.unavailable();
     }
 
     try {
@@ -66,17 +67,21 @@ public class Data4LibraryBookDetailClient {
 
       String classNumber = extractClassNumber(response);
       if (classNumber == null) {
-        return new KdcInfo(null, "미분류");
+        return KdcInfo.unavailable();
       }
 
       String kdcCode = normalizeKdcCode(classNumber);
-      if (kdcCode.isBlank()) {
-        return new KdcInfo(null, "미분류");
+      if (kdcCode == null) {
+        return KdcInfo.unavailable();
       }
-      String kdcName = KDC_NAMES.getOrDefault(kdcCode.charAt(0), "미분류");
+      String kdcName = KDC_NAMES.get(kdcCode.charAt(0));
+      if (kdcName == null) {
+        return KdcInfo.unavailable();
+      }
       return new KdcInfo(kdcCode, kdcName);
     } catch (RestClientException exception) {
-      throw new BookException(BookErrorCode.EXTERNAL_BOOK_API_FAILED);
+      log.warn("정보나루 KDC 조회에 실패했습니다. isbn={}", isbn, exception);
+      return KdcInfo.unavailable();
     }
   }
 
@@ -85,7 +90,7 @@ public class Data4LibraryBookDetailClient {
     requestFactory.setConnectTimeout(Duration.ofSeconds(5));
     requestFactory.setReadTimeout(Duration.ofSeconds(10));
 
-    return restClientBuilder.baseUrl(baseUrl).requestFactory(requestFactory).build();
+    return restClientBuilder.clone().baseUrl(baseUrl).requestFactory(requestFactory).build();
   }
 
   private String extractClassNumber(JsonNode response) {
@@ -104,8 +109,13 @@ public class Data4LibraryBookDetailClient {
 
   private String normalizeKdcCode(String classNumber) {
     String digits = classNumber.replaceAll("\\D", "");
-    return digits.length() >= 3 ? digits.substring(0, 3) : digits;
+    return digits.length() >= 3 ? digits.substring(0, 3) : null;
   }
 
-  public record KdcInfo(String code, String name) {}
+  public record KdcInfo(String code, String name) {
+
+    public static KdcInfo unavailable() {
+      return new KdcInfo(null, null);
+    }
+  }
 }

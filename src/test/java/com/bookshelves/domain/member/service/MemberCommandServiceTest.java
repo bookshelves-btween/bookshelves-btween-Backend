@@ -58,9 +58,25 @@ class MemberCommandServiceTest {
           redisTokenRepository);
 
   @Test
+  void createAndOnboardFakeMemberCreatesActiveMemberWithNicknameInOneTransaction() {
+    when(memberRepository.save(any(Member.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    Member result =
+        memberCommandService.createAndOnboardFakeMember(
+            Provider.KAKAO, "fake-tester-1", "tester-1", ProfileBackgroundColor.GREEN);
+
+    assertThat(result.getNickname()).isEqualTo("tester-1 테스트 계정");
+    assertThat(result.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
+    assertThat(result.getStatus()).isEqualTo(MemberStatus.ACTIVE);
+    assertThat(result.getProvider()).isEqualTo(Provider.KAKAO);
+    assertThat(result.getProviderId()).isEqualTo("fake-tester-1");
+  }
+
+  @Test
   void updateMyInfoCombinesNicknamePartsAndSavesColor() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
     when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
 
     MemberUpdateRequest request =
@@ -79,12 +95,16 @@ class MemberCommandServiceTest {
     assertThat(response.getNicknameAnimal()).isEqualTo("토끼");
     assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.GREEN);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
+    // 동시에 두 번 요청이 와도 카테고리 unique 제약 위반으로 500이 나지 않도록, 회원 조회는
+    // 비관적 락(findByIdForUpdate)으로 직렬화해야 한다.
+    verify(memberRepository).findByIdForUpdate(1L);
+    verify(memberRepository, never()).findById(1L);
   }
 
   @Test
   void updateMyInfoUpdatesColorOnlyWithoutTouchingNicknameOrCategories() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
     when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
 
     MemberUpdateRequest request =
@@ -100,7 +120,7 @@ class MemberCommandServiceTest {
   @Test
   void updateMyInfoReplacesCategoriesFully() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     Category selfHelp = mock(Category.class);
     when(selfHelp.getId()).thenReturn(3L);
@@ -121,7 +141,7 @@ class MemberCommandServiceTest {
   @Test
   void updateMyInfoDeduplicatesCategoryIdsBeforeValidating() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     Category selfHelp = mock(Category.class);
     when(selfHelp.getId()).thenReturn(3L);
@@ -141,7 +161,7 @@ class MemberCommandServiceTest {
   @Test
   void updateMyInfoClearsCategoriesWhenEmptyListProvided() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
     when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
 
     MemberUpdateRequest request = MemberUpdateRequest.builder().categoryIds(List.of()).build();
@@ -210,7 +230,7 @@ class MemberCommandServiceTest {
   @Test
   void updateMyInfoThrowsInvalidRequestWhenCategoryIdDoesNotExist() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
     when(categoryRepository.findAllById(List.of(999L))).thenReturn(List.of());
 
     MemberUpdateRequest request = MemberUpdateRequest.builder().categoryIds(List.of(999L)).build();
@@ -225,7 +245,7 @@ class MemberCommandServiceTest {
   @Test
   void updateMyInfoThrowsInvalidRequestWhenCategoryIdsContainsNull() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     MemberUpdateRequest request =
         MemberUpdateRequest.builder().categoryIds(Arrays.asList(1L, null, 3L)).build();
@@ -240,7 +260,7 @@ class MemberCommandServiceTest {
 
   @Test
   void updateMyInfoThrowsMemberNotFoundWhenMemberDoesNotExist() {
-    when(memberRepository.findById(1L)).thenReturn(Optional.empty());
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
 
     MemberUpdateRequest request =
         MemberUpdateRequest.builder().profileBackgroundColor(ProfileBackgroundColor.RED).build();
@@ -254,7 +274,7 @@ class MemberCommandServiceTest {
   @Test
   void completeOnboardingActivatesMemberWithoutCategories() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
     when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
 
     OnboardingRequest request =
@@ -271,12 +291,16 @@ class MemberCommandServiceTest {
     assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.RED);
     assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
+    // 온보딩 버튼 더블탭처럼 동시 요청이 와도 뒤에 커밋하는 쪽이 unique 제약 위반으로 500이
+    // 나지 않도록, 회원 조회는 비관적 락(findByIdForUpdate)으로 직렬화해야 한다.
+    verify(memberRepository).findByIdForUpdate(1L);
+    verify(memberRepository, never()).findById(1L);
   }
 
   @Test
   void completeOnboardingSetsCategoriesWhenProvided() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     Category novel = mock(Category.class);
     when(novel.getId()).thenReturn(1L);
@@ -304,7 +328,7 @@ class MemberCommandServiceTest {
   void completeOnboardingThrowsAlreadyOnboardedWhenStatusIsNotPendingOnboarding() {
     Member member = mock(Member.class);
     when(member.getStatus()).thenReturn(MemberStatus.ACTIVE);
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -323,7 +347,7 @@ class MemberCommandServiceTest {
 
   @Test
   void completeOnboardingThrowsMemberNotFoundWhenMemberDoesNotExist() {
-    when(memberRepository.findById(1L)).thenReturn(Optional.empty());
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -342,7 +366,7 @@ class MemberCommandServiceTest {
   @Test
   void completeOnboardingThrowsInvalidRequestWhenNicknamePartExceedsMaxLength() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -361,7 +385,7 @@ class MemberCommandServiceTest {
   @Test
   void completeOnboardingThrowsInvalidRequestWhenCategoryIdDoesNotExist() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
     when(categoryRepository.findAllById(List.of(999L))).thenReturn(List.of());
 
     OnboardingRequest request =
@@ -384,12 +408,12 @@ class MemberCommandServiceTest {
   @SuppressWarnings("unchecked")
   void completeOnboardingSavesAgreedTermsWhenRequiredTermsAreSatisfied() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
     when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
 
     Terms requiredTerms = mock(Terms.class);
     when(requiredTerms.getId()).thenReturn(1L);
-    when(termsRepository.findByIsRequiredTrue()).thenReturn(List.of(requiredTerms));
+    when(termsRepository.findByIsActiveTrueAndIsRequiredTrue()).thenReturn(List.of(requiredTerms));
     when(termsRepository.findAllById(Set.of(1L))).thenReturn(List.of(requiredTerms));
 
     OnboardingRequest request =
@@ -415,11 +439,11 @@ class MemberCommandServiceTest {
   @Test
   void completeOnboardingThrowsRequiredTermsNotAgreedWhenMissingRequiredTerms() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     Terms requiredTerms = mock(Terms.class);
     when(requiredTerms.getId()).thenReturn(1L);
-    when(termsRepository.findByIsRequiredTrue()).thenReturn(List.of(requiredTerms));
+    when(termsRepository.findByIsActiveTrueAndIsRequiredTrue()).thenReturn(List.of(requiredTerms));
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -437,9 +461,39 @@ class MemberCommandServiceTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  void completeOnboardingIgnoresInactiveRequiredTermsFromEarlierVersions() {
+    // 약관 개정으로 구버전(비활성) 필수 약관이 남아있어도, 검증은 활성 버전만 대상으로 해야
+    // 최신 버전에만 동의한 온보딩이 정상 처리된다.
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
+    when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
+
+    Terms activeRequiredTerms = mock(Terms.class);
+    when(activeRequiredTerms.getId()).thenReturn(2L);
+    when(termsRepository.findByIsActiveTrueAndIsRequiredTrue())
+        .thenReturn(List.of(activeRequiredTerms));
+    when(termsRepository.findAllById(Set.of(2L))).thenReturn(List.of(activeRequiredTerms));
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("토끼")
+            .profileBackgroundColor(ProfileBackgroundColor.RED)
+            .agreedTermsIds(List.of(2L))
+            .build();
+
+    MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
+
+    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
+    verify(termsRepository).findByIsActiveTrueAndIsRequiredTrue();
+  }
+
+  @Test
   void completeOnboardingThrowsInvalidRequestWhenAgreedTermsIdDoesNotExist() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
     when(termsRepository.findAllById(Set.of(999L))).thenReturn(List.of());
 
     OnboardingRequest request =
@@ -618,7 +672,7 @@ class MemberCommandServiceTest {
   @Test
   void completeOnboardingThrowsInvalidRequestWhenNicknameNounNotInAllowedList() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -637,7 +691,7 @@ class MemberCommandServiceTest {
   @Test
   void completeOnboardingThrowsInvalidRequestWhenNicknameModifierNotInAllowedList() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -656,7 +710,7 @@ class MemberCommandServiceTest {
   @Test
   void completeOnboardingThrowsInvalidRequestWhenNicknameAnimalNotInAllowedList() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -675,7 +729,7 @@ class MemberCommandServiceTest {
   @Test
   void completeOnboardingThrowsInvalidRequestWhenAnimalColorMismatch() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -694,7 +748,7 @@ class MemberCommandServiceTest {
   @Test
   void updateMyInfoAllowsAnimalColorMismatch() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
     when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
 
     MemberUpdateRequest request =

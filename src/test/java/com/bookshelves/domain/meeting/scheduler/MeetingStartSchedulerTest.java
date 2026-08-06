@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
@@ -65,7 +67,53 @@ class MeetingStartSchedulerTest {
     LocalDateTime now = nowCaptor.getValue();
     processingOrder.verify(meetingCommandService).startMeeting(1L, now);
 
-    assertThat(deadlineCaptor.getValue()).isEqualTo(now);
+    assertThat(deadlineCaptor.getValue()).isEqualTo(now.plusHours(6));
     assertThat(deadlineNowCaptor.getValue()).isEqualTo(now);
+  }
+
+  @Test
+  void continuesProcessingWhenOneRecruitmentDeadlineFails() {
+    Meeting failedMeeting = mock(Meeting.class);
+    Meeting nextMeeting = mock(Meeting.class);
+    Meeting startingMeeting = mock(Meeting.class);
+    given(failedMeeting.getId()).willReturn(1L);
+    given(nextMeeting.getId()).willReturn(2L);
+    given(startingMeeting.getId()).willReturn(3L);
+    given(
+            meetingRepository.findAllByStatusAndStartDateLessThanEqual(
+                eq(MeetingStatus.RECRUITING), any(LocalDateTime.class)))
+        .willReturn(List.of(failedMeeting, nextMeeting));
+    given(
+            meetingRepository.findAllByStatusInAndStartDateLessThanEqual(
+                eq(List.of(MeetingStatus.RECRUITING, MeetingStatus.RECRUIT_CLOSED)),
+                any(LocalDateTime.class)))
+        .willReturn(List.of(startingMeeting));
+    doThrow(new RuntimeException("FK constraint violation"))
+        .when(meetingCommandService)
+        .processRecruitmentDeadline(eq(1L), any(LocalDateTime.class));
+
+    meetingStartScheduler.startScheduledMeetings();
+
+    verify(meetingCommandService).processRecruitmentDeadline(eq(2L), any(LocalDateTime.class));
+    verify(meetingCommandService).startMeeting(eq(3L), any(LocalDateTime.class));
+  }
+
+  @Test
+  void startsMeetingsEvenWhenRecruitmentCandidateQueryFails() {
+    Meeting startingMeeting = mock(Meeting.class);
+    given(startingMeeting.getId()).willReturn(3L);
+    given(
+            meetingRepository.findAllByStatusAndStartDateLessThanEqual(
+                eq(MeetingStatus.RECRUITING), any(LocalDateTime.class)))
+        .willThrow(new RuntimeException("query failed"));
+    given(
+            meetingRepository.findAllByStatusInAndStartDateLessThanEqual(
+                eq(List.of(MeetingStatus.RECRUITING, MeetingStatus.RECRUIT_CLOSED)),
+                any(LocalDateTime.class)))
+        .willReturn(List.of(startingMeeting));
+
+    meetingStartScheduler.startScheduledMeetings();
+
+    verify(meetingCommandService).startMeeting(eq(3L), any(LocalDateTime.class));
   }
 }

@@ -67,13 +67,27 @@ public class MemberCommandService {
     return memberRepository.save(Member.createSocialMember(provider, providerId));
   }
 
+  // fake-signup 전용. REQUIRES_NEW 없이 생성부터 온보딩 완료까지 한 트랜잭션에서 끝낸다.
+  // REQUIRES_NEW로 만든 엔티티를 바깥 트랜잭션에서 다시 save(merge)하면, MySQL의
+  // REPEATABLE_READ 스냅샷이 그 사이 커밋된 row를 못 봐서 StaleObjectStateException이
+  // 난다. 이 경로는 socialLogin()과 달리 동시 가입 경쟁을 방어할 필요가 없으므로
+  // REQUIRES_NEW 없이 단일 트랜잭션으로 처리해 이 문제를 피한다.
+  public Member createAndOnboardFakeMember(
+      Provider provider, String providerId, String key, ProfileBackgroundColor color) {
+    Member member = memberRepository.save(Member.createSocialMember(provider, providerId));
+    member.updateNickname(key, "테스트", "계정");
+    member.updateProfileBackgroundColor(color);
+    member.completeOnboarding();
+    return member;
+  }
+
   public MemberInfoResponse updateMyInfo(Long memberId, MemberUpdateRequest request) {
     validateHasAtLeastOneField(request);
     validateNicknamePartsAllOrNone(request);
 
     Member member =
         memberRepository
-            .findById(memberId)
+            .findByIdForUpdate(memberId)
             .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     if (hasAllNicknameParts(request)) {
@@ -96,7 +110,7 @@ public class MemberCommandService {
   public MemberInfoResponse completeOnboarding(Long memberId, OnboardingRequest request) {
     Member member =
         memberRepository
-            .findById(memberId)
+            .findByIdForUpdate(memberId)
             .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     if (member.getStatus() != MemberStatus.PENDING_ONBOARDING) {
@@ -170,7 +184,7 @@ public class MemberCommandService {
   private void validateRequiredTermsAgreed(List<Long> agreedTermsIds) {
     List<Long> agreed = agreedTermsIds == null ? List.of() : agreedTermsIds;
     List<Long> requiredTermsIds =
-        termsRepository.findByIsRequiredTrue().stream().map(Terms::getId).toList();
+        termsRepository.findByIsActiveTrueAndIsRequiredTrue().stream().map(Terms::getId).toList();
 
     if (!agreed.containsAll(requiredTermsIds)) {
       throw new MemberException(TermsErrorCode.TERMS_REQUIRED_NOT_AGREED);

@@ -17,6 +17,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Book extends BaseEntity {
 
+  public static final int MAX_TITLE_LENGTH = 255;
+  public static final int MAX_AUTHOR_LENGTH = 255;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -24,10 +27,10 @@ public class Book extends BaseEntity {
   @Column(name = "isbn", nullable = false, unique = true, length = 20)
   private String isbn;
 
-  @Column(name = "title", nullable = false)
+  @Column(name = "title", nullable = false, length = MAX_TITLE_LENGTH)
   private String title;
 
-  @Column(name = "author")
+  @Column(name = "author", length = MAX_AUTHOR_LENGTH)
   private String author;
 
   @Column(name = "publisher")

@@ -29,6 +29,7 @@ import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.MemberBookRepository.CumulativeStatistics;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
@@ -176,8 +177,8 @@ public class BookQueryService {
     LocalDateTime endAt = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
 
     try {
-      List<MemberBook> completedMemberBooks =
-          memberBookRepository.findByMemberIdAndProgress(memberId, 100);
+      CumulativeStatistics cumulativeStatistics =
+          memberBookRepository.findCumulativeStatistics(memberId, 100);
       List<MemberBook> monthlyCompletedMemberBooks =
           memberBookRepository
               .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -185,9 +186,9 @@ public class BookQueryService {
       return new MemberBookStatisticsResDTO(
           yearMonth.getYear(),
           yearMonth.getMonthValue(),
-          completedMemberBooks.size(),
-          countReviews(completedMemberBooks),
-          calculateAverageRating(completedMemberBooks),
+          cumulativeStatistics.getCompletedBookCount(),
+          cumulativeStatistics.getReviewCount(),
+          toAverageRating(cumulativeStatistics.getAverageRating()),
           calculateCategoryStatistics(monthlyCompletedMemberBooks));
     } catch (DataAccessException exception) {
       throw new BookException(BookErrorCode.MEMBER_BOOK_STATISTICS_FAILED);
@@ -205,43 +206,36 @@ public class BookQueryService {
     }
   }
 
-  private long countReviews(List<MemberBook> completedMemberBooks) {
-    return completedMemberBooks.stream()
-        .map(MemberBook::getMemo)
-        .filter(memo -> memo != null && !memo.isBlank())
-        .count();
-  }
-
-  private BigDecimal calculateAverageRating(List<MemberBook> completedMemberBooks) {
-    List<BigDecimal> ratings =
-        completedMemberBooks.stream()
-            .map(MemberBook::getRating)
-            .filter(java.util.Objects::nonNull)
-            .toList();
-    if (ratings.isEmpty()) {
+  private BigDecimal toAverageRating(Double averageRating) {
+    if (averageRating == null) {
       return BigDecimal.ZERO.setScale(1);
     }
-    return ratings.stream()
-        .reduce(BigDecimal.ZERO, BigDecimal::add)
-        .divide(BigDecimal.valueOf(ratings.size()), 1, RoundingMode.DOWN);
+    return BigDecimal.valueOf(averageRating).setScale(1, RoundingMode.DOWN);
   }
 
   private List<MemberBookStatisticsResDTO.CategoryStatistic> calculateCategoryStatistics(
       List<MemberBook> monthlyCompletedMemberBooks) {
-    List<MemberBook> completedMemberBooks = monthlyCompletedMemberBooks;
-    if (completedMemberBooks.isEmpty()) {
+    if (monthlyCompletedMemberBooks.isEmpty()) {
       return List.of();
     }
 
     Map<String, Long> categoryCounts = new LinkedHashMap<>();
-    long unclassifiedCount = 0;
-    for (MemberBook memberBook : completedMemberBooks) {
-      String kdcName = memberBook.getBook().getKdcName();
-      if (kdcName == null || kdcName.isBlank()) {
-        unclassifiedCount++;
+    for (MemberBook memberBook : monthlyCompletedMemberBooks) {
+      Book book = memberBook.getBook();
+      String kdcCode = book.getKdcCode();
+      String kdcName = book.getKdcName();
+      if (kdcCode == null
+          || !kdcCode.matches("\\d{3}")
+          || kdcName == null
+          || kdcName.isBlank()
+          || kdcName.equals("미분류")) {
         continue;
       }
       categoryCounts.merge(kdcName, 1L, Long::sum);
+    }
+    int classifiedBookCount = categoryCounts.values().stream().mapToInt(Long::intValue).sum();
+    if (classifiedBookCount == 0) {
+      return List.of();
     }
 
     List<Map.Entry<String, Long>> sortedCategories =
@@ -258,15 +252,14 @@ public class BookQueryService {
             category ->
                 statistics.add(
                     toCategoryStatistic(
-                        category.getKey(), category.getValue(), completedMemberBooks.size())));
+                        category.getKey(), category.getValue(), classifiedBookCount)));
 
     long otherCount =
-        unclassifiedCount
-            + (hasMoreThanThreeCategories
-                ? sortedCategories.stream().skip(3).mapToLong(Map.Entry::getValue).sum()
-                : 0);
+        hasMoreThanThreeCategories
+            ? sortedCategories.stream().skip(3).mapToLong(Map.Entry::getValue).sum()
+            : 0;
     if (otherCount > 0) {
-      statistics.add(toCategoryStatistic("기타", otherCount, completedMemberBooks.size()));
+      statistics.add(toCategoryStatistic("기타", otherCount, classifiedBookCount));
     }
     return List.copyOf(statistics);
   }
@@ -317,10 +310,6 @@ public class BookQueryService {
 
   private MemberBookListResDTO.MemberBookInfo toMemberBookListInfo(MemberBook memberBook) {
     Book book = memberBook.getBook();
-    String kdcName = book.getKdcName();
-    if (kdcName == null || kdcName.isBlank()) {
-      kdcName = "미분류";
-    }
 
     return new MemberBookListResDTO.MemberBookInfo(
         new MemberBookRecord(
@@ -338,7 +327,7 @@ public class BookQueryService {
             book.getPublisher(),
             book.getCoverImageUrl(),
             book.getKdcCode(),
-            kdcName));
+            book.getKdcName()));
   }
 
   private MemberBookStatus parseMemberBookStatus(String value) {
@@ -386,11 +375,12 @@ public class BookQueryService {
         kakaoBookSearchClient.searchByIsbn(requestedIsbn).books().stream()
             .findFirst()
             .orElseThrow(() -> new BookException(BookErrorCode.BOOK_NOT_FOUND));
-    String normalizedIsbn = IsbnNormalizer.normalize(externalBook.isbn()).orElse(requestedIsbn);
-    KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(normalizedIsbn);
+    String externalIsbn = IsbnNormalizer.normalize(externalBook.isbn()).orElse(requestedIsbn);
+    String canonicalExternalIsbn = IsbnNormalizer.toIsbn13(externalIsbn);
+    KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(canonicalExternalIsbn);
 
     return new BookDetailResDTO(
-        toExternalBookDetailInfo(externalBook, normalizedIsbn, kdcInfo), null);
+        toExternalBookDetailInfo(externalBook, canonicalExternalIsbn, kdcInfo), null);
   }
 
   private BookDetailResDTO.BookInfo toExternalBookDetailInfo(
@@ -409,11 +399,6 @@ public class BookQueryService {
   }
 
   private BookDetailResDTO.BookInfo toSavedBookDetailInfo(Book book) {
-    String kdcName = book.getKdcName();
-    if (kdcName == null || kdcName.isBlank()) {
-      kdcName = "미분류";
-    }
-
     return new BookDetailResDTO.BookInfo(
         book.getId(),
         book.getIsbn(),
@@ -424,7 +409,7 @@ public class BookQueryService {
         truncateDescription(book.getDescription()),
         book.getCoverImageUrl(),
         book.getKdcCode(),
-        kdcName);
+        book.getKdcName());
   }
 
   private MemberBookInfo toMemberBookInfo(MemberBook memberBook) {

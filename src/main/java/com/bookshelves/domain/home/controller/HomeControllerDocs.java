@@ -96,6 +96,7 @@ public interface HomeControllerDocs {
                       "book": {
                         "id": 2,
                         "title": "혼모노",
+                        "author": "성해나",
                         "publisher": "창비",
                         "coverImageUrl": "https://example.com/honmono.jpg"
                       }
