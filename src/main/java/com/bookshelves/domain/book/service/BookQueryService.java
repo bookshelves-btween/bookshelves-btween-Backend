@@ -29,6 +29,7 @@ import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.MemberBookRepository.CumulativeStatistics;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
@@ -176,8 +177,8 @@ public class BookQueryService {
     LocalDateTime endAt = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
 
     try {
-      List<MemberBook> completedMemberBooks =
-          memberBookRepository.findByMemberIdAndProgress(memberId, 100);
+      CumulativeStatistics cumulativeStatistics =
+          memberBookRepository.findCumulativeStatistics(memberId, 100);
       List<MemberBook> monthlyCompletedMemberBooks =
           memberBookRepository
               .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -185,9 +186,9 @@ public class BookQueryService {
       return new MemberBookStatisticsResDTO(
           yearMonth.getYear(),
           yearMonth.getMonthValue(),
-          completedMemberBooks.size(),
-          countReviews(completedMemberBooks),
-          calculateAverageRating(completedMemberBooks),
+          cumulativeStatistics.getCompletedBookCount(),
+          cumulativeStatistics.getReviewCount(),
+          toAverageRating(cumulativeStatistics.getAverageRating()),
           calculateCategoryStatistics(monthlyCompletedMemberBooks));
     } catch (DataAccessException exception) {
       throw new BookException(BookErrorCode.MEMBER_BOOK_STATISTICS_FAILED);
@@ -205,25 +206,11 @@ public class BookQueryService {
     }
   }
 
-  private long countReviews(List<MemberBook> completedMemberBooks) {
-    return completedMemberBooks.stream()
-        .map(MemberBook::getMemo)
-        .filter(memo -> memo != null && !memo.isBlank())
-        .count();
-  }
-
-  private BigDecimal calculateAverageRating(List<MemberBook> completedMemberBooks) {
-    List<BigDecimal> ratings =
-        completedMemberBooks.stream()
-            .map(MemberBook::getRating)
-            .filter(java.util.Objects::nonNull)
-            .toList();
-    if (ratings.isEmpty()) {
+  private BigDecimal toAverageRating(Double averageRating) {
+    if (averageRating == null) {
       return BigDecimal.ZERO.setScale(1);
     }
-    return ratings.stream()
-        .reduce(BigDecimal.ZERO, BigDecimal::add)
-        .divide(BigDecimal.valueOf(ratings.size()), 1, RoundingMode.DOWN);
+    return BigDecimal.valueOf(averageRating).setScale(1, RoundingMode.DOWN);
   }
 
   private List<MemberBookStatisticsResDTO.CategoryStatistic> calculateCategoryStatistics(

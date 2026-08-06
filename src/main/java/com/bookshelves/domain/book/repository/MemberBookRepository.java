@@ -8,6 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface MemberBookRepository extends JpaRepository<MemberBook, Long> {
 
@@ -26,7 +28,22 @@ public interface MemberBookRepository extends JpaRepository<MemberBook, Long> {
   @EntityGraph(attributePaths = "book")
   Page<MemberBook> findByMemberIdAndProgress(Long memberId, Integer progress, Pageable pageable);
 
-  List<MemberBook> findByMemberIdAndProgress(Long memberId, Integer progress);
+  @Query(
+      """
+      select count(memberBook) as completedBookCount,
+             coalesce(sum(
+               case
+                 when memberBook.memo is not null and trim(memberBook.memo) <> '' then 1
+                 else 0
+               end
+             ), 0) as reviewCount,
+             avg(memberBook.rating) as averageRating
+      from MemberBook memberBook
+      where memberBook.member.id = :memberId
+        and memberBook.progress = :progress
+      """)
+  CumulativeStatistics findCumulativeStatistics(
+      @Param("memberId") Long memberId, @Param("progress") Integer progress);
 
   @EntityGraph(attributePaths = "book")
   Page<MemberBook> findByMemberIdAndProgressBetween(
@@ -35,4 +52,13 @@ public interface MemberBookRepository extends JpaRepository<MemberBook, Long> {
   @EntityGraph(attributePaths = "book")
   List<MemberBook> findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
       Long memberId, Integer progress, LocalDateTime startAt, LocalDateTime endAt);
+
+  interface CumulativeStatistics {
+
+    long getCompletedBookCount();
+
+    long getReviewCount();
+
+    Double getAverageRating();
+  }
 }
