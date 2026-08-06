@@ -29,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class BookCommandService {
 
@@ -43,11 +42,17 @@ public class BookCommandService {
   private final Data4LibraryBookDetailClient data4LibraryBookDetailClient;
   private final TransactionTemplate transactionTemplate;
 
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
   public Book getOrCreateByIsbn(String rawIsbn) {
-    return persistPreparedBook(prepareBook(rawIsbn));
+    PreparedBook preparedBook = prepareBook(rawIsbn);
+    if (preparedBook.persisted()) {
+      return preparedBook.book();
+    }
+    return transactionTemplate.execute(status -> persistPreparedBook(preparedBook));
   }
 
-  private PreparedBook prepareBook(String rawIsbn) {
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
+  public PreparedBook prepareBook(String rawIsbn) {
     String requestedIsbn =
         IsbnNormalizer.normalize(rawIsbn)
             .orElseThrow(() -> new BookException(BookErrorCode.INVALID_BOOK_ISBN));
@@ -62,7 +67,8 @@ public class BookCommandService {
     return new PreparedBook(externalBook, canonicalIsbn, false);
   }
 
-  private Book persistPreparedBook(PreparedBook preparedBook) {
+  @Transactional(propagation = Propagation.MANDATORY)
+  public Book persistPreparedBook(PreparedBook preparedBook) {
     return preparedBook.persisted()
         ? preparedBook.book()
         : saveExternalBook(preparedBook.book(), preparedBook.canonicalIsbn());
@@ -101,6 +107,7 @@ public class BookCommandService {
     }
   }
 
+  @Transactional
   public void deleteMemberBook(String rawIsbn) {
     String requestedIsbn =
         IsbnNormalizer.normalize(rawIsbn)
@@ -193,5 +200,5 @@ public class BookCommandService {
 
   public record MemberBookUpsertResult(boolean created, MemberBookUpsertResDTO response) {}
 
-  private record PreparedBook(Book book, String canonicalIsbn, boolean persisted) {}
+  public record PreparedBook(Book book, String canonicalIsbn, boolean persisted) {}
 }

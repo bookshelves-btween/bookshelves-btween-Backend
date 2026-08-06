@@ -449,14 +449,29 @@ class BookCommandServiceTest {
   }
 
   @Test
-  void suspendsTransactionsOnlyWhileUpsertingMemberBook() throws Exception {
-    assertThat(BookCommandService.class.getAnnotation(Transactional.class)).isNotNull();
+  void separatesExternalLookupFromDatabaseTransactions() throws Exception {
+    assertThat(BookCommandService.class.getAnnotation(Transactional.class)).isNull();
 
+    Transactional getOrCreateTransaction =
+        BookCommandService.class
+            .getMethod("getOrCreateByIsbn", String.class)
+            .getAnnotation(Transactional.class);
     Transactional upsertTransaction =
         BookCommandService.class
             .getMethod("upsertMemberBook", String.class, MemberBookUpsertReqDTO.class)
             .getAnnotation(Transactional.class);
+    Transactional prepareTransaction =
+        BookCommandService.class
+            .getMethod("prepareBook", String.class)
+            .getAnnotation(Transactional.class);
+    Transactional persistTransaction =
+        BookCommandService.class
+            .getMethod("persistPreparedBook", BookCommandService.PreparedBook.class)
+            .getAnnotation(Transactional.class);
 
+    assertThat(getOrCreateTransaction.propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
     assertThat(upsertTransaction.propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
+    assertThat(prepareTransaction.propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
+    assertThat(persistTransaction.propagation()).isEqualTo(Propagation.MANDATORY);
   }
 }
