@@ -52,29 +52,36 @@ public class ChatPresenceService {
   // chatroomId → (memberId → LEFT 유예 타이머). 활성 구독이 0이지만 아직 접속자로 세는 회원.
   private final Map<Long, Map<Long, ScheduledFuture<?>>> pendingLeaveByChatroom = new HashMap<>();
 
-  public synchronized void join(
-      Long chatroomId, Long memberId, String sessionId, String subscriptionId) {
-    Map<String, Subscription> sessionSubscriptions =
-        subscriptionsBySession.computeIfAbsent(sessionId, k -> new HashMap<>());
+  public void join(Long chatroomId, Long memberId, String sessionId, String subscriptionId) {
+    // 닉네임 조회는 락 밖에서 끝낸다. 아래 모니터는 채팅방별이 아니라 이 싱글턴 전체를 잠그므로,
+    // 그 안에서 DB 응답을 기다리면 무관한 채팅방의 입장·퇴장·접속자 조회까지 함께 멈춘다.
+    // 중복 SUBSCRIBE에도 한 번 조회하게 되지만, SUBSCRIBE는 드물고 이미 구독 검증에서 DB를 타는
+    // 경로다. 전송은 락 안에 남겨야 JOINED와 LEFT의 순서가 뒤집히지 않는다.
+    String nickname = findNickname(memberId);
 
-    // 같은 (sessionId, subscriptionId) 중복 SUBSCRIBE는 멱등 처리 — 덮어쓰면서 카운트만 올리면
-    // 이후 해제로 상쇄되지 않아 phantom presence(과대 집계)가 영구히 남는다
-    if (sessionSubscriptions.containsKey(subscriptionId)) {
-      return;
-    }
-    sessionSubscriptions.put(subscriptionId, new Subscription(chatroomId, memberId));
+    synchronized (this) {
+      Map<String, Subscription> sessionSubscriptions =
+          subscriptionsBySession.computeIfAbsent(sessionId, k -> new HashMap<>());
 
-    // 유예 중이던 회원의 재접속이면 타이머를 취소한다
-    boolean wasPendingLeave = cancelPendingLeave(chatroomId, memberId);
+      // 같은 (sessionId, subscriptionId) 중복 SUBSCRIBE는 멱등 처리 — 덮어쓰면서 카운트만 올리면
+      // 이후 해제로 상쇄되지 않아 phantom presence(과대 집계)가 영구히 남는다
+      if (sessionSubscriptions.containsKey(subscriptionId)) {
+        return;
+      }
+      sessionSubscriptions.put(subscriptionId, new Subscription(chatroomId, memberId));
 
-    int subscriptionCount =
-        memberSubscriptionsByChatroom
-            .computeIfAbsent(chatroomId, k -> new HashMap<>())
-            .merge(memberId, 1, Integer::sum);
+      // 유예 중이던 회원의 재접속이면 타이머를 취소한다
+      boolean wasPendingLeave = cancelPendingLeave(chatroomId, memberId);
 
-    // 유예 중이던 회원은 이미 접속자로 세고 있었으므로 JOINED를 다시 쏘지 않는다(깜빡임 방지)
-    if (subscriptionCount == 1 && !wasPendingLeave) {
-      broadcastParticipant(chatroomId, memberId, EVENT_JOINED);
+      int subscriptionCount =
+          memberSubscriptionsByChatroom
+              .computeIfAbsent(chatroomId, k -> new HashMap<>())
+              .merge(memberId, 1, Integer::sum);
+
+      // 유예 중이던 회원은 이미 접속자로 세고 있었으므로 JOINED를 다시 쏘지 않는다(깜빡임 방지)
+      if (subscriptionCount == 1 && !wasPendingLeave) {
+        broadcastParticipant(chatroomId, nickname, EVENT_JOINED);
+      }
     }
   }
 
@@ -185,6 +192,10 @@ public class ChatPresenceService {
   // 판정 시점 이후 방이 비더라도 안전하다. 방을 비우는 쪽이 라운드를 무효화하므로,
   // 뒤늦게 도착한 revealNext는 세대 불일치로 아무것도 공개하지 않는다.
   private void finalizeLeave(Long chatroomId, Long memberId, ScheduledFuture<?> expected) {
+    // join과 같은 이유로 닉네임 조회를 락 앞에 둔다. 이 타이머가 헛돌아 broadcast까지 가지 않는
+    // 경우에도 조회 한 번은 나가지만, 전역 모니터를 쥔 채 DB를 기다리는 것보다 싸다.
+    String nickname = findNickname(memberId);
+
     Integer roundToReveal;
     synchronized (this) {
       Map<Long, ScheduledFuture<?>> pending = pendingLeaveByChatroom.get(chatroomId);
@@ -198,7 +209,7 @@ public class ChatPresenceService {
         pendingLeaveByChatroom.remove(chatroomId);
       }
 
-      broadcastParticipant(chatroomId, memberId, EVENT_LEFT);
+      broadcastParticipant(chatroomId, nickname, EVENT_LEFT);
       roundToReveal = quorumRoundToReveal(chatroomId);
     }
 
@@ -233,9 +244,23 @@ public class ChatPresenceService {
     return null;
   }
 
-  private void broadcastParticipant(Long chatroomId, Long memberId, String event) {
-    String nickname = memberRepository.findById(memberId).map(m -> m.getNickname()).orElse(null);
+  // 닉네임은 호출부가 락 밖에서 미리 조회해 넘긴다 — 여기서 DB를 타면 전역 모니터를 쥔 채 기다리게 된다.
+  //
+  // 조회 실패를 밖으로 던지지 않는다. 이 조회는 presence 판정보다 앞서 실행되므로, 예외가 올라가면
+  // 판정 자체가 실행되지 않는다. finalizeLeave에서는 그게 치명적이다 — 유예 타이머는 이미 발화해
+  // 재시도가 없고, pending 항목이 남은 채로 끝나 떠난 회원이 재시작 전까지 접속자로 계속 세어진다.
+  // 정족수도 그만큼 높은 채로 굳는다. 닉네임은 프레임의 표시값일 뿐이라 없으면 없는 대로 보낸다
+  // (탈퇴로 회원이 사라진 경우에도 원래 null이 나가던 자리다).
+  private String findNickname(Long memberId) {
+    try {
+      return memberRepository.findById(memberId).map(m -> m.getNickname()).orElse(null);
+    } catch (Exception e) {
+      log.warn("presence 프레임 닉네임 조회에 실패해 닉네임 없이 내보낸다: memberId={}", memberId, e);
+      return null;
+    }
+  }
 
+  private void broadcastParticipant(Long chatroomId, String nickname, String event) {
     ChatParticipantPayload payload =
         new ChatParticipantPayload(
             event,
