@@ -94,8 +94,6 @@ class MeetingCommandServiceTest {
     assertThat(participantCaptor.getValue().getMember()).isSameAs(leader);
     assertThat(participantCaptor.getValue().getIsLeader()).isTrue();
     verify(savedMeeting).addParticipant();
-    // 테스트용: 생성 즉시 AI 질문 준비가 시작된다
-    verify(eventPublisher).publishEvent(new MeetingRecruitClosedEvent(1L));
   }
 
   @Test

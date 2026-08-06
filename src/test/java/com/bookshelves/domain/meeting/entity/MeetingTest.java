@@ -45,7 +45,7 @@ class MeetingTest {
   }
 
   @Test
-  void startsRegardlessOfParticipantCount() {
+  void requiresAtLeastThreeParticipantsToStart() {
     Meeting meeting =
         Meeting.builder()
             .book(org.mockito.Mockito.mock(Book.class))
@@ -54,14 +54,16 @@ class MeetingTest {
             .maxParticipants(4)
             .build();
 
-    assertThat(meeting.canStart()).isTrue();
+    meeting.addParticipant();
+    meeting.addParticipant();
+    assertThat(meeting.canStart()).isFalse();
 
     meeting.addParticipant();
     assertThat(meeting.canStart()).isTrue();
   }
 
   @Test
-  void calculatesRecruitmentCloseDateAtStart() {
+  void calculatesRecruitmentCloseDateSixHoursBeforeStart() {
     LocalDateTime startDate = LocalDateTime.of(2026, 8, 1, 20, 0);
     Meeting meeting =
         Meeting.builder()
@@ -71,7 +73,7 @@ class MeetingTest {
             .maxParticipants(4)
             .build();
 
-    assertThat(meeting.getRecruitmentCloseDate()).isEqualTo(startDate);
+    assertThat(meeting.getRecruitmentCloseDate()).isEqualTo(startDate.minusHours(6));
   }
 
   @Test
@@ -85,8 +87,8 @@ class MeetingTest {
             .maxParticipants(4)
             .build();
 
-    assertThat(meeting.isRecruitmentClosedAt(startDate.minusNanos(1))).isFalse();
-    assertThat(meeting.isRecruitmentClosedAt(startDate)).isTrue();
-    assertThat(meeting.isRecruitmentClosedAt(startDate.plusHours(1))).isTrue();
+    assertThat(meeting.isRecruitmentClosedAt(startDate.minusHours(6).minusNanos(1))).isFalse();
+    assertThat(meeting.isRecruitmentClosedAt(startDate.minusHours(6))).isTrue();
+    assertThat(meeting.isRecruitmentClosedAt(startDate.minusHours(5))).isTrue();
   }
 }

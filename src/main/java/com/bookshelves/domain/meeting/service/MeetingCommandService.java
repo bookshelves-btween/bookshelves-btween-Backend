@@ -59,11 +59,6 @@ public class MeetingCommandService {
     meetingParticipantRepository.save(MeetingParticipant.createLeader(savedMeeting, leader));
     savedMeeting.addParticipant();
 
-    // 테스트용: 모집 마감을 기다리지 않고 생성 즉시 AI 질문 준비를 시작한다.
-    // 리스너가 커밋 후 별도 스레드에서 LLM을 호출하므로 생성 응답은 대기하지 않는다.
-    // 이후 정원 충족·마감 경로가 같은 이벤트를 다시 발행해도 준비 로직이 멱등하게 걸러낸다.
-    eventPublisher.publishEvent(new MeetingRecruitClosedEvent(savedMeeting.getId()));
-
     return MeetingCreateResDTO.from(savedMeeting);
   }
 
@@ -96,7 +91,7 @@ public class MeetingCommandService {
     meeting.addParticipant();
 
     // 정원 충족으로 모집이 마감되면 모임 성립이 확정된다 — AI 질문 준비를 이 시점에 시작한다.
-    // 또 하나의 마감 경로인 마감 시각 도달은 completeRecruitmentDeadline에서 같은 이벤트를 발행한다.
+    // 또 하나의 마감 경로인 `starts_at - 6h`는 completeRecruitmentDeadline에서 같은 이벤트를 발행한다.
     if (meeting.getStatus() == MeetingStatus.RECRUIT_CLOSED) {
       eventPublisher.publishEvent(new MeetingRecruitClosedEvent(meetingId));
     }
