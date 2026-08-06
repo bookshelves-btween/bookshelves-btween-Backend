@@ -87,17 +87,18 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
       @Param("memberId") Long memberId,
       Pageable pageable);
 
-  @EntityGraph(attributePaths = "book")
   @Query(
       value =
           """
-          select participant.meeting
+          select meeting
           from MeetingParticipant participant
+          join participant.meeting meeting
+          join fetch meeting.book
           where participant.member.id = :memberId
             and participant.isLeader = :isLeader
-            and (:year is null or year(participant.meeting.startDate) = :year)
-            and (:month is null or month(participant.meeting.startDate) = :month)
-          order by participant.meeting.startDate asc, participant.meeting.id asc
+            and (:year is null or year(meeting.startDate) = :year)
+            and (:month is null or month(meeting.startDate) = :month)
+          order by meeting.startDate asc, meeting.id asc
           """,
       countQuery =
           """
