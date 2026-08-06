@@ -184,7 +184,7 @@ public class MemberCommandService {
   private void validateRequiredTermsAgreed(List<Long> agreedTermsIds) {
     List<Long> agreed = agreedTermsIds == null ? List.of() : agreedTermsIds;
     List<Long> requiredTermsIds =
-        termsRepository.findByIsActiveTrueAndIsRequiredTrue().stream().map(Terms::getId).toList();
+        termsRepository.findByIsRequiredTrue().stream().map(Terms::getId).toList();
 
     if (!agreed.containsAll(requiredTermsIds)) {
       throw new MemberException(TermsErrorCode.TERMS_REQUIRED_NOT_AGREED);

@@ -405,7 +405,7 @@ class MemberCommandServiceTest {
 
     Terms requiredTerms = mock(Terms.class);
     when(requiredTerms.getId()).thenReturn(1L);
-    when(termsRepository.findByIsActiveTrueAndIsRequiredTrue()).thenReturn(List.of(requiredTerms));
+    when(termsRepository.findByIsRequiredTrue()).thenReturn(List.of(requiredTerms));
     when(termsRepository.findAllById(Set.of(1L))).thenReturn(List.of(requiredTerms));
 
     OnboardingRequest request =
@@ -435,7 +435,7 @@ class MemberCommandServiceTest {
 
     Terms requiredTerms = mock(Terms.class);
     when(requiredTerms.getId()).thenReturn(1L);
-    when(termsRepository.findByIsActiveTrueAndIsRequiredTrue()).thenReturn(List.of(requiredTerms));
+    when(termsRepository.findByIsRequiredTrue()).thenReturn(List.of(requiredTerms));
 
     OnboardingRequest request =
         OnboardingRequest.builder()
@@ -450,36 +450,6 @@ class MemberCommandServiceTest {
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(TermsErrorCode.TERMS_REQUIRED_NOT_AGREED);
     verify(memberTermsRepository, never()).saveAll(any());
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  void completeOnboardingIgnoresInactiveRequiredTermsFromEarlierVersions() {
-    // 약관 개정으로 구버전(비활성) 필수 약관이 남아있어도, 검증은 활성 버전만 대상으로 해야
-    // 최신 버전에만 동의한 온보딩이 정상 처리된다.
-    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
-    when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-    when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
-
-    Terms activeRequiredTerms = mock(Terms.class);
-    when(activeRequiredTerms.getId()).thenReturn(2L);
-    when(termsRepository.findByIsActiveTrueAndIsRequiredTrue())
-        .thenReturn(List.of(activeRequiredTerms));
-    when(termsRepository.findAllById(Set.of(2L))).thenReturn(List.of(activeRequiredTerms));
-
-    OnboardingRequest request =
-        OnboardingRequest.builder()
-            .nicknameNoun("책")
-            .nicknameModifier("먹는")
-            .nicknameAnimal("토끼")
-            .profileBackgroundColor(ProfileBackgroundColor.RED)
-            .agreedTermsIds(List.of(2L))
-            .build();
-
-    MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
-
-    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
-    verify(termsRepository).findByIsActiveTrueAndIsRequiredTrue();
   }
 
   @Test

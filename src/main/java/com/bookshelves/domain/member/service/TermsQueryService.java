@@ -18,8 +18,6 @@ public class TermsQueryService {
   }
 
   public List<TermsResponse> getTermsList() {
-    return termsRepository.findByIsActiveTrue().stream()
-        .map(TermsConverter::toTermsResponse)
-        .toList();
+    return termsRepository.findAll().stream().map(TermsConverter::toTermsResponse).toList();
   }
 }
