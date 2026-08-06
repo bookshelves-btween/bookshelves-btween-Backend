@@ -33,6 +33,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
   private static final String BEARER_PREFIX = "Bearer ";
   // 브로커 목적지 접두사(WebSocketConfig#enableSimpleBroker) — 이 아래는 전부 검증 대상이다
   private static final String BROKER_DESTINATION_PREFIX = "/sub";
+  // 사용자 목적지 접두사(Spring 기본값) — 여기 아래도 브로커에 구독으로 등록되므로 검증 대상이다
+  private static final String USER_DESTINATION_PREFIX = "/user";
   // 구독을 허용하는 유일한 목적지 형태. 채팅방 ID는 양의 정수만 받는다.
   private static final Pattern CHATROOM_DESTINATION =
       Pattern.compile("^" + Pattern.quote(ChatFrame.CHATROOM_SUB_DESTINATION) + "([1-9][0-9]*)$");
@@ -94,14 +96,25 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
   private void validateSubscription(StompHeaderAccessor accessor) {
     String destination = accessor.getDestination();
 
-    // 브로커 목적지가 아니면 브로커가 구독을 등록하지 않으므로 어떤 프레임도 전달되지 않는다
-    if (destination == null || !destination.startsWith(BROKER_DESTINATION_PREFIX)) {
+    // 브로커 목적지도 사용자 목적지도 아니면 구독이 등록되지 않으므로 어떤 프레임도 전달되지 않는다
+    if (destination == null
+        || !(destination.startsWith(BROKER_DESTINATION_PREFIX)
+            || destination.startsWith(USER_DESTINATION_PREFIX))) {
       return;
     }
 
     if (!(accessor.getUser() instanceof Authentication authentication)
         || !(authentication.getPrincipal() instanceof MemberPrincipal principal)) {
       throw new AuthException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
+    }
+
+    // 오류 목적지는 Spring이 세션별로 치환하므로 남의 프레임이 섞이지 않는다. 정확히 일치할 때만
+    // 통과시킨다 — 패턴을 허용하면 치환 규칙에 기대는 우회 여지를 남기게 된다.
+    if (StompExceptionAdvice.ERROR_DESTINATION.equals(destination)) {
+      return;
+    }
+    if (destination.startsWith(USER_DESTINATION_PREFIX)) {
+      throw new ChatException(ChatErrorCode.CHATROOM_NOT_FOUND);
     }
 
     Long chatroomId = parseChatroomId(destination);
