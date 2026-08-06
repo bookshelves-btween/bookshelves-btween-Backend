@@ -5,6 +5,7 @@ import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -63,13 +64,13 @@ public class KakaoBookSearchClient {
               .uri(
                   uriBuilder -> {
                     uriBuilder
-                        .queryParam("query", query)
+                        .queryParam("query", "{query}")
                         .queryParam("page", page)
                         .queryParam("size", size);
                     if (target != null) {
                       uriBuilder.queryParam("target", target);
                     }
-                    return uriBuilder.build();
+                    return uriBuilder.build(Map.of("query", query));
                   })
               .header(HttpHeaders.AUTHORIZATION, AUTHORIZATION_PREFIX + restApiKey)
               .retrieve()
