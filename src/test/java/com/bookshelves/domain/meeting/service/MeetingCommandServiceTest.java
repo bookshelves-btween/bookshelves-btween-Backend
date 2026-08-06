@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import com.bookshelves.domain.ai.repository.AIQuestionRepository;
 import com.bookshelves.domain.ai.service.AIQuestionPreparationService;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.service.BookCommandService;
+import com.bookshelves.domain.book.service.BookCommandService.PreparedBook;
 import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
@@ -41,6 +43,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -49,7 +52,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class MeetingCommandServiceTest {
@@ -65,7 +71,20 @@ class MeetingCommandServiceTest {
   @Mock private ReportRepository reportRepository;
   @Mock private AIQuestionPreparationService aiQuestionPreparationService;
   @Mock private ApplicationEventPublisher eventPublisher;
+  @Mock private TransactionTemplate transactionTemplate;
   @InjectMocks private MeetingCommandService meetingCommandService;
+
+  @BeforeEach
+  void executeTransactionsInline() {
+    lenient()
+        .when(transactionTemplate.execute(any()))
+        .thenAnswer(
+            invocation -> {
+              TransactionCallback<?> callback = invocation.getArgument(0);
+              return callback.doInTransaction(
+                  mock(org.springframework.transaction.TransactionStatus.class));
+            });
+  }
 
   @Test
   void createsMeetingWithBookResolvedByIsbn() {
@@ -75,7 +94,9 @@ class MeetingCommandServiceTest {
     Member leader = mock(Member.class);
     MeetingCreateReqDTO request =
         new MeetingCreateReqDTO(isbn, LocalDate.of(2026, 8, 1), "20:00", 4, 60);
-    given(bookCommandService.getOrCreateByIsbn(isbn)).willReturn(book);
+    PreparedBook preparedBook = new PreparedBook(book, isbn, true);
+    given(bookCommandService.prepareBook(isbn)).willReturn(preparedBook);
+    given(bookCommandService.persistPreparedBook(preparedBook)).willReturn(book);
     given(meetingRepository.save(any(Meeting.class))).willReturn(savedMeeting);
     given(savedMeeting.getId()).willReturn(1L);
     given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
@@ -83,11 +104,17 @@ class MeetingCommandServiceTest {
 
     MeetingCreateResDTO response = meetingCommandService.createMeeting(request);
 
+    InOrder creationOrder = inOrder(bookCommandService, transactionTemplate, meetingRepository);
+    creationOrder.verify(bookCommandService).prepareBook(isbn);
+    creationOrder.verify(transactionTemplate).execute(any());
+    creationOrder.verify(bookCommandService).persistPreparedBook(preparedBook);
+    creationOrder.verify(meetingRepository).save(any(Meeting.class));
     ArgumentCaptor<MeetingParticipant> participantCaptor =
         ArgumentCaptor.forClass(MeetingParticipant.class);
     ArgumentCaptor<ChatRoom> chatRoomCaptor = ArgumentCaptor.forClass(ChatRoom.class);
     assertThat(response.id()).isEqualTo(1L);
-    verify(bookCommandService).getOrCreateByIsbn(isbn);
+    verify(bookCommandService).prepareBook(isbn);
+    verify(bookCommandService).persistPreparedBook(preparedBook);
     verify(meetingRepository).save(any(Meeting.class));
     verify(meetingParticipantRepository).save(participantCaptor.capture());
     verify(chatRoomRepository).save(chatRoomCaptor.capture());
@@ -96,6 +123,18 @@ class MeetingCommandServiceTest {
     assertThat(participantCaptor.getValue().getMember()).isSameAs(leader);
     assertThat(participantCaptor.getValue().getIsLeader()).isTrue();
     verify(savedMeeting).addParticipant();
+  }
+
+  @Test
+  void suspendsTransactionsWhileResolvingBookForMeetingCreation() throws Exception {
+    assertThat(MeetingCommandService.class.getAnnotation(Transactional.class)).isNull();
+
+    Transactional createMeetingTransaction =
+        MeetingCommandService.class
+            .getMethod("createMeeting", MeetingCreateReqDTO.class)
+            .getAnnotation(Transactional.class);
+
+    assertThat(createMeetingTransaction.propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
   }
 
   @Test
