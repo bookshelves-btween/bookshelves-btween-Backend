@@ -29,12 +29,21 @@ final class Prompts {
     }
   }
 
-  // 모델이 넣은 줄바꿈과 연속 공백을 한 칸으로 접는다. 길이 검증이 눈에 보이는 길이와 어긋나지 않게
-  // 하려면 검증 전에 접어야 한다.
+  // 줄바꿈과 연속 공백을 한 칸으로 접는다. 길이 검증이 눈에 보이는 길이와 어긋나지 않게 하려면
+  // 검증 전에 접어야 하고, 대화를 프롬프트에 넣을 때는 한 발화가 여러 줄로 보이지 않아야 한다.
+  //
+  // (?U)가 붙어야 유니코드 공백까지 접힌다. 자바 정규식의 기본 \s는 [ \t\n\x0B\f\r]뿐이라
+  // U+2028(LINE SEPARATOR)·U+2029(PARAGRAPH SEPARATOR)·U+00A0(NBSP)를 그냥 통과시킨다.
+  // 그대로 두면 참여자가 U+2028로 줄을 나눈 메시지가 JSON 문자열 안에서 여러 줄로 되살아나
+  // 규칙 블록을 흉내 낼 수 있다.
+  //
+  // 접은 결과가 비면 null이다. 접기 전 isBlank로 판단하면 NBSP만 담긴 문자열을 걸러내지 못한다
+  // — Character.isWhitespace는 non-breaking space를 공백으로 보지 않는다.
   static String normalize(String text) {
-    if (text == null || text.isBlank()) {
+    if (text == null) {
       return null;
     }
-    return text.strip().replaceAll("\\s+", " ");
+    String normalized = text.replaceAll("(?U)\\s+", " ").strip();
+    return normalized.isEmpty() ? null : normalized;
   }
 }

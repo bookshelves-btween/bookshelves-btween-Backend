@@ -108,6 +108,40 @@ class StompAuthChannelInterceptorTest {
     verifyNoInteractions(chatSubscriptionValidator);
   }
 
+  // 처리 실패를 받는 사용자 목적지. 세션별로 치환되므로 채팅방 참여 검증 대상이 아니다.
+  @Test
+  void errorDestinationIsAllowedWithoutChatroomValidation() {
+    assertThatCode(
+            () ->
+                interceptor.preSend(
+                    subscribe(StompExceptionAdvice.ERROR_DESTINATION, authenticated()), channel))
+        .doesNotThrowAnyException();
+
+    verifyNoInteractions(chatSubscriptionValidator);
+  }
+
+  // 오류 목적지는 정확히 일치할 때만 통과한다 — 사용자 목적지 아래를 열어두면 치환 규칙에 기대는
+  // 우회 여지가 생긴다
+  @ParameterizedTest
+  @ValueSource(
+      strings = {"/user/**", "/user/sub/**", "/user/sub/errors/1", "/user/sub/chatrooms/1"})
+  void otherUserDestinationIsRejected(String destination) {
+    assertThatThrownBy(() -> interceptor.preSend(subscribe(destination, authenticated()), channel))
+        .isInstanceOf(ChatException.class)
+        .hasFieldOrPropertyWithValue("errorCode", ChatErrorCode.CHATROOM_NOT_FOUND);
+
+    verifyNoInteractions(chatSubscriptionValidator);
+  }
+
+  @Test
+  void unauthenticatedErrorDestinationSubscribeIsRejected() {
+    assertThatThrownBy(
+            () ->
+                interceptor.preSend(
+                    subscribe(StompExceptionAdvice.ERROR_DESTINATION, null), channel))
+        .isInstanceOf(AuthException.class);
+  }
+
   @Test
   void unauthenticatedSubscribeIsRejected() {
     assertThatThrownBy(() -> interceptor.preSend(subscribe("/sub/chatrooms/1", null), channel))
