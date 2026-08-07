@@ -47,6 +47,22 @@ for tls_file in \
   fi
 done
 
+firebase_enabled="$(grep -E '^FIREBASE_ENABLED=' .env | tail -n 1 | cut -d= -f2- | tr '[:upper:]' '[:lower:]' || true)"
+firebase_enabled="${firebase_enabled:-false}"
+firebase_credentials_path="$(grep -E '^FIREBASE_CREDENTIALS_PATH=' .env | tail -n 1 | cut -d= -f2- || true)"
+firebase_credentials_path="${firebase_credentials_path:-$PROJECT_ROOT/secrets/firebase-service-account.json}"
+firebase_project_id="$(grep -E '^FIREBASE_PROJECT_ID=' .env | tail -n 1 | cut -d= -f2- || true)"
+if [[ "$firebase_enabled" == "true" ]]; then
+  if [[ -z "$firebase_project_id" ]]; then
+    echo "FIREBASE_PROJECT_ID is required when FIREBASE_ENABLED=true."
+    exit 1
+  fi
+  if [[ -z "$firebase_credentials_path" || ! -f "$firebase_credentials_path" ]]; then
+    echo "Firebase service-account file not found: ${firebase_credentials_path:-<empty>}"
+    exit 1
+  fi
+fi
+
 # Pull everything before touching the currently-serving bootstrap or application stack.
 docker compose --env-file .env pull
 
