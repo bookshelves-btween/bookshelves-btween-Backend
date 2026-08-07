@@ -31,6 +31,7 @@ import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.MemberBookRepository.CumulativeStatistics;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.global.security.AuthenticationFacade;
@@ -281,7 +282,7 @@ class BookQueryServiceTest {
   }
 
   @Test
-  void getBookDetailReturnsNullMemberBookWhenSavedBookHasNoReadingRecord() {
+  void getBookDetailReturnsNullKdcWithoutDisplayValueConversion() {
     Book savedBook = mock(Book.class);
 
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
@@ -289,13 +290,16 @@ class BookQueryServiceTest {
     given(savedBook.getId()).willReturn(10L);
     given(savedBook.getIsbn()).willReturn("9788936434595");
     given(savedBook.getTitle()).willReturn("혼모노");
-    given(savedBook.getKdcName()).willReturn("문학");
+    given(savedBook.getKdcCode()).willReturn(null);
+    given(savedBook.getKdcName()).willReturn(null);
     given(memberBookRepository.findByMemberIdAndBookId(7L, 10L)).willReturn(Optional.empty());
 
     BookDetailResDTO result = bookQueryService.getBookDetail("9788936434595");
 
     assertThat(result.book().id()).isEqualTo(10L);
     assertThat(result.book().title()).isEqualTo("혼모노");
+    assertThat(result.book().kdcCode()).isNull();
+    assertThat(result.book().kdcName()).isNull();
     assertThat(result.memberBook()).isNull();
     verifyNoInteractions(kakaoBookSearchClient, data4LibraryBookDetailClient);
   }
@@ -320,7 +324,7 @@ class BookQueryServiceTest {
   }
 
   @Test
-  void getBookDetailReturnsNullMemberBookAndUnclassifiedWhenBookIsNotSaved() {
+  void getBookDetailReturnsExternalBookWhenBookIsNotSaved() {
     KakaoBookItem externalBook =
         new KakaoBookItem(
             "9788936434595",
@@ -346,6 +350,49 @@ class BookQueryServiceTest {
     assertThat(result.book().description()).hasSize(129).isEqualTo("a".repeat(126) + "...");
     assertThat(result.memberBook()).isNull();
     verifyNoInteractions(memberBookRepository);
+  }
+
+  @Test
+  void getBookDetailNormalizesExternalIsbn10ForKdcLookupAndResponse() {
+    KakaoBookItem externalBook =
+        new KakaoBookItem(
+            "8936434594",
+            "혼모노",
+            List.of("성해나"),
+            "창비",
+            "2024-03-29T00:00:00.000+09:00",
+            "도서 설명",
+            "https://example.com/book.jpg");
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(bookRepository.findByIsbn("9788936434595")).willReturn(Optional.empty());
+    given(kakaoBookSearchClient.searchByIsbn("8936434594"))
+        .willReturn(new KakaoBookSearchResult(List.of(externalBook), true));
+    given(data4LibraryBookDetailClient.findKdcByIsbn("9788936434595"))
+        .willReturn(new KdcInfo("813", "문학"));
+
+    BookDetailResDTO result = bookQueryService.getBookDetail("8936434594");
+
+    assertThat(result.book().isbn()).isEqualTo("9788936434595");
+    verify(data4LibraryBookDetailClient).findKdcByIsbn("9788936434595");
+  }
+
+  @Test
+  void getBookDetailReturnsNullKdcWhenExternalClassificationIsUnavailable() {
+    KakaoBookItem externalBook =
+        new KakaoBookItem("9788936434595", "혼모노", List.of("성해나"), "창비", null, null, null);
+
+    given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
+    given(bookRepository.findByIsbn("9788936434595")).willReturn(Optional.empty());
+    given(kakaoBookSearchClient.searchByIsbn("9788936434595"))
+        .willReturn(new KakaoBookSearchResult(List.of(externalBook), true));
+    given(data4LibraryBookDetailClient.findKdcByIsbn("9788936434595"))
+        .willReturn(KdcInfo.unavailable());
+
+    BookDetailResDTO result = bookQueryService.getBookDetail("9788936434595");
+
+    assertThat(result.book().kdcCode()).isNull();
+    assertThat(result.book().kdcName()).isNull();
   }
 
   @Test
@@ -381,7 +428,7 @@ class BookQueryServiceTest {
   }
 
   @Test
-  void getMemberBooksReturnsOwnReadingRecordsWithDerivedStatusAndUnclassifiedKdc() {
+  void getMemberBooksReturnsNullKdcWithoutDisplayValueConversion() {
     Book book = mock(Book.class);
     MemberBook memberBook = mock(MemberBook.class);
     Pageable pageable =
@@ -412,7 +459,7 @@ class BookQueryServiceTest {
     assertThat(result.memberBooks().getFirst().memberBook().updatedAt())
         .isEqualTo(LocalDateTime.of(2026, 7, 14, 4, 30));
     assertThat(result.memberBooks().getFirst().book().kdcCode()).isNull();
-    assertThat(result.memberBooks().getFirst().book().kdcName()).isEqualTo("미분류");
+    assertThat(result.memberBooks().getFirst().book().kdcName()).isNull();
     assertThat(result.page()).isEqualTo(1);
     assertThat(result.size()).isEqualTo(20);
     assertThat(result.hasNext()).isFalse();
@@ -541,8 +588,8 @@ class BookQueryServiceTest {
     MemberBook history = memberBook("역사", null, null);
     MemberBook unclassified = memberBook(null, null, null);
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
-        .willReturn(List.of(koreanLiteratureOne, koreanLiteratureTwo));
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(2L, 1L, 4.15));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -571,17 +618,20 @@ class BookQueryServiceTest {
         .containsExactly("한국 문학", "심리학", "역사", "기타");
     assertThat(result.categoryStatistics())
         .extracting(MemberBookStatisticsResDTO.CategoryStatistic::count)
-        .containsExactly(2L, 1L, 1L, 2L);
+        .containsExactly(2L, 1L, 1L, 1L);
+    assertThat(result.categoryStatistics())
+        .extracting(MemberBookStatisticsResDTO.CategoryStatistic::percentage)
+        .containsExactly(40, 20, 20, 20);
   }
 
   @Test
-  void getMemberBookStatisticsIncludesUnclassifiedBookAsOtherWhenThreeOrFewerCategories() {
+  void getMemberBookStatisticsExcludesUnclassifiedBookFromCategories() {
     MemberBook literature = memberBook("문학", null, null);
     MemberBook psychology = memberBook("심리학", null, null);
     MemberBook unclassified = memberBook(null, null, null);
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
-        .willReturn(List.of(literature, psychology, unclassified));
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(3L, 0L, null));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -595,7 +645,10 @@ class BookQueryServiceTest {
 
     assertThat(result.categoryStatistics())
         .extracting(MemberBookStatisticsResDTO.CategoryStatistic::name)
-        .containsExactly("문학", "심리학", "기타");
+        .containsExactly("문학", "심리학");
+    assertThat(result.categoryStatistics())
+        .extracting(MemberBookStatisticsResDTO.CategoryStatistic::percentage)
+        .containsExactly(50, 50);
     assertThat(result.averageRating()).isEqualByComparingTo("0.0");
   }
 
@@ -603,7 +656,8 @@ class BookQueryServiceTest {
   void getMemberBookStatisticsUsesCurrentSeoulMonthWhenYearAndMonthAreOmitted() {
     YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(0L, 0L, null));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -624,7 +678,8 @@ class BookQueryServiceTest {
   void getMemberBookStatisticsUsesCurrentSeoulYearWhenYearIsOmitted() {
     YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(0L, 0L, null));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -644,7 +699,8 @@ class BookQueryServiceTest {
   void getMemberBookStatisticsUsesCurrentSeoulMonthWhenMonthIsOmitted() {
     YearMonth currentYearMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100)).willReturn(List.of());
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
+        .willReturn(cumulativeStatistics(0L, 0L, null));
     given(
             memberBookRepository
                 .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
@@ -664,7 +720,7 @@ class BookQueryServiceTest {
   @Test
   void getMemberBookStatisticsThrowsBookExceptionWhenDatabaseLookupFails() {
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
-    given(memberBookRepository.findByMemberIdAndProgress(7L, 100))
+    given(memberBookRepository.findCumulativeStatistics(7L, 100))
         .willThrow(new DataAccessResourceFailureException("database unavailable"));
 
     assertThatThrownBy(() -> bookQueryService.getMemberBookStatistics("2026", "6"))
@@ -693,8 +749,29 @@ class BookQueryServiceTest {
     given(memberBook.getBook()).willReturn(book);
     lenient().when(memberBook.getRating()).thenReturn(rating);
     lenient().when(memberBook.getMemo()).thenReturn(memo);
+    given(book.getKdcCode()).willReturn(kdcName == null ? null : "800");
     given(book.getKdcName()).willReturn(kdcName);
     return memberBook;
+  }
+
+  private CumulativeStatistics cumulativeStatistics(
+      long completedBookCount, long reviewCount, Double averageRating) {
+    return new CumulativeStatistics() {
+      @Override
+      public long getCompletedBookCount() {
+        return completedBookCount;
+      }
+
+      @Override
+      public long getReviewCount() {
+        return reviewCount;
+      }
+
+      @Override
+      public Double getAverageRating() {
+        return averageRating;
+      }
+    };
   }
 
   private Category category(Long id, String kdcCode, String name) {

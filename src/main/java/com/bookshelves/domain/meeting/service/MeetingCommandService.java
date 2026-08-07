@@ -4,6 +4,7 @@ import com.bookshelves.domain.ai.repository.AIQuestionRepository;
 import com.bookshelves.domain.ai.service.AIQuestionPreparationService;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.service.BookCommandService;
+import com.bookshelves.domain.book.service.BookCommandService.PreparedBook;
 import com.bookshelves.domain.chat.entity.ChatRoom;
 import com.bookshelves.domain.chat.repository.ChatRoomRepository;
 import com.bookshelves.domain.meeting.converter.MeetingConverter;
@@ -22,16 +23,19 @@ import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.service.NotificationCommandService;
+import com.bookshelves.domain.report.repository.ReportRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
+import com.bookshelves.global.util.ServiceTime;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class MeetingCommandService {
 
@@ -43,18 +47,29 @@ public class MeetingCommandService {
   private final MemberRepository memberRepository;
   private final AuthenticationFacade authenticationFacade;
   private final AIQuestionRepository aiQuestionRepository;
+  private final ReportRepository reportRepository;
   private final AIQuestionPreparationService aiQuestionPreparationService;
   private final ApplicationEventPublisher eventPublisher;
+  private final TransactionTemplate transactionTemplate;
 
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
   public MeetingCreateResDTO createMeeting(MeetingCreateReqDTO request) {
-    Book book = bookCommandService.getOrCreateByIsbn(request.isbn());
+    PreparedBook preparedBook = bookCommandService.prepareBook(request.isbn());
+    Long memberId = authenticationFacade.getCurrentMemberId();
 
+    return transactionTemplate.execute(
+        status -> {
+          Book book = bookCommandService.persistPreparedBook(preparedBook);
+          return saveMeeting(request, book, memberId);
+        });
+  }
+
+  private MeetingCreateResDTO saveMeeting(MeetingCreateReqDTO request, Book book, Long memberId) {
     Meeting meeting = MeetingConverter.toEntity(book, request);
     Meeting savedMeeting = meetingRepository.save(meeting);
     // 모임 생성과 채팅방 생성을 같은 트랜잭션으로 처리한다.
     chatRoomRepository.save(ChatRoom.create(savedMeeting));
 
-    Long memberId = authenticationFacade.getCurrentMemberId();
     Member leader = memberRepository.getReferenceById(memberId);
     meetingParticipantRepository.save(MeetingParticipant.createLeader(savedMeeting, leader));
     savedMeeting.addParticipant();
@@ -74,7 +89,7 @@ public class MeetingCommandService {
         || meeting.getCurParticipants() >= meeting.getMaxParticipants()) {
       throw new MeetingException(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
     }
-    if (meeting.isRecruitmentClosedAt(LocalDateTime.now())) {
+    if (meeting.isRecruitmentClosedAt(ServiceTime.now())) {
       completeRecruitmentDeadline(meetingId, meeting);
       throw new MeetingException(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
     }
@@ -99,6 +114,7 @@ public class MeetingCommandService {
     return MeetingParticipationResDTO.from(meetingParticipant);
   }
 
+  @Transactional
   public boolean startMeeting(Long meetingId, LocalDateTime now) {
     // 스케줄러 중복 실행에도 한 번만 상태가 변경되도록 잠금 후 다시 확인한다.
     Meeting meeting = meetingRepository.findByIdForUpdate(meetingId).orElse(null);
@@ -124,6 +140,7 @@ public class MeetingCommandService {
     return true;
   }
 
+  @Transactional
   public boolean processRecruitmentDeadline(Long meetingId, LocalDateTime now) {
     Meeting meeting = meetingRepository.findByIdForUpdate(meetingId).orElse(null);
     if (meeting == null
@@ -154,6 +171,8 @@ public class MeetingCommandService {
 
     // 모집 마감 시점에 AI 질문이 준비됐을 수 있다 — meeting_id FK가 걸려 있어 모임보다 먼저 지운다
     aiQuestionRepository.deleteAllByMeetingId(meetingId);
+    // 신고가 채팅방을 참조하므로 FK 의존 순서에 따라 채팅방보다 먼저 지운다.
+    reportRepository.deleteAllByMeetingId(meetingId);
     chatRoomRepository.deleteAllByMeetingId(meetingId);
     meetingParticipantRepository.deleteAllByMeetingId(meetingId);
     meetingRepository.delete(meeting);
@@ -161,6 +180,7 @@ public class MeetingCommandService {
 
   // 채팅방 최초 유효 구독 시 출석 처리("1회 이상 입장 = 출석"). 이미 true면 멱등하게 무시하며,
   // 한번 true가 되면 재접속·해제로 되돌리지 않는다. 모임 종료 시 attended != true가 노쇼로 확정된다.
+  @Transactional
   public void markAttended(Long chatroomId, Long memberId) {
     meetingParticipantRepository.markAttendedByChatroom(chatroomId, memberId);
   }

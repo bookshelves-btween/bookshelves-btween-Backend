@@ -220,6 +220,7 @@ class HomeQueryServiceTest {
     assertThat(info.meeting().duration()).isEqualTo(60);
     // 모임에는 이름 필드가 없어 책 제목을 카드 제목으로 쓴다
     assertThat(info.book().title()).isEqualTo("혼모노");
+    assertThat(info.book().author()).isEqualTo("손원평");
     assertThat(info.book().publisher()).isEqualTo("창비");
   }
 

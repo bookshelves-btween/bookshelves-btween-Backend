@@ -54,13 +54,20 @@ public class NotificationCommandService {
   }
 
   public NotificationReadResponse readNotification(Long notificationId, Long memberId) {
-    Notification notification =
-        notificationRepository
-            .findByIdAndMember_Id(notificationId, memberId)
-            .orElseThrow(
-                () -> new NotificationException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
+    Notification notification = findOwnedNotification(notificationId, memberId);
 
     notification.markAsRead();
     return new NotificationReadResponse(notification.getId());
+  }
+
+  public void deleteNotification(Long notificationId, Long memberId) {
+    Notification notification = findOwnedNotification(notificationId, memberId);
+    notification.delete();
+  }
+
+  private Notification findOwnedNotification(Long notificationId, Long memberId) {
+    return notificationRepository
+        .findByIdAndMember_IdAndIsDeletedFalse(notificationId, memberId)
+        .orElseThrow(() -> new NotificationException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
   }
 }

@@ -15,17 +15,20 @@ import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
+import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class BookCommandService {
 
@@ -33,31 +36,78 @@ public class BookCommandService {
   private final MemberBookRepository memberBookRepository;
   private final MemberBookHistoryRepository memberBookHistoryRepository;
   private final MemberRepository memberRepository;
+  private final RecentBookSearchRepository recentBookSearchRepository;
   private final AuthenticationFacade authenticationFacade;
   private final KakaoBookSearchClient kakaoBookSearchClient;
   private final Data4LibraryBookDetailClient data4LibraryBookDetailClient;
+  private final TransactionTemplate transactionTemplate;
 
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
   public Book getOrCreateByIsbn(String rawIsbn) {
+    PreparedBook preparedBook = prepareBook(rawIsbn);
+    if (preparedBook.persisted()) {
+      return preparedBook.book();
+    }
+    return transactionTemplate.execute(status -> persistPreparedBook(preparedBook));
+  }
+
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
+  public PreparedBook prepareBook(String rawIsbn) {
     String requestedIsbn =
         IsbnNormalizer.normalize(rawIsbn)
             .orElseThrow(() -> new BookException(BookErrorCode.INVALID_BOOK_ISBN));
     String canonicalIsbn = IsbnNormalizer.toIsbn13(requestedIsbn);
 
-    return bookRepository
-        .findByIsbn(canonicalIsbn)
-        .orElseGet(() -> saveExternalBook(requestedIsbn, canonicalIsbn));
+    Book savedBook = bookRepository.findByIsbn(canonicalIsbn).orElse(null);
+    if (savedBook != null) {
+      return new PreparedBook(savedBook, canonicalIsbn, true);
+    }
+
+    Book externalBook = fetchExternalBook(requestedIsbn, canonicalIsbn);
+    return new PreparedBook(externalBook, canonicalIsbn, false);
   }
 
+  @Transactional(propagation = Propagation.MANDATORY)
+  public Book persistPreparedBook(PreparedBook preparedBook) {
+    return preparedBook.persisted()
+        ? preparedBook.book()
+        : saveExternalBook(preparedBook.book(), preparedBook.canonicalIsbn());
+  }
+
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
   public MemberBookUpsertResult upsertMemberBook(String rawIsbn, MemberBookUpsertReqDTO request) {
-    Book book = getOrCreateByIsbn(rawIsbn);
+    PreparedBook preparedBook = prepareBook(rawIsbn);
     Long memberId = authenticationFacade.getCurrentMemberId();
 
-    return memberRepository
-        .findByIdForUpdate(memberId)
-        .map(lockedMember -> upsertLockedMemberBook(memberId, lockedMember, book, request))
-        .orElseThrow(() -> new IllegalStateException("인증된 회원을 찾을 수 없습니다."));
+    return transactionTemplate.execute(
+        status -> {
+          Book book = persistPreparedBook(preparedBook);
+          return memberRepository
+              .findByIdForUpdate(memberId)
+              .map(lockedMember -> upsertLockedMemberBook(memberId, lockedMember, book, request))
+              .orElseThrow(() -> new IllegalStateException("인증된 회원을 찾을 수 없습니다."));
+        });
   }
 
+  public void deleteRecentBookSearch(String keyword) {
+    if (keyword == null) {
+      throw new BookException(BookErrorCode.INVALID_RECENT_BOOK_SEARCH_DELETE_REQUEST);
+    }
+
+    String normalizedKeyword = keyword.strip();
+    if (normalizedKeyword.isBlank()) {
+      throw new BookException(BookErrorCode.INVALID_RECENT_BOOK_SEARCH_DELETE_REQUEST);
+    }
+
+    Long memberId = authenticationFacade.getCurrentMemberId();
+    try {
+      recentBookSearchRepository.delete(memberId, normalizedKeyword);
+    } catch (DataAccessException exception) {
+      throw new BookException(BookErrorCode.RECENT_BOOK_SEARCH_DELETE_FAILED);
+    }
+  }
+
+  @Transactional
   public void deleteMemberBook(String rawIsbn) {
     String requestedIsbn =
         IsbnNormalizer.normalize(rawIsbn)
@@ -122,14 +172,17 @@ public class BookCommandService {
     return MemberBookUpsertResDTO.withHistory(history.getId());
   }
 
-  private Book saveExternalBook(String requestedIsbn, String canonicalIsbn) {
+  private Book fetchExternalBook(String requestedIsbn, String canonicalIsbn) {
     KakaoBookItem item =
         kakaoBookSearchClient.searchByIsbn(requestedIsbn).books().stream()
             .findFirst()
             .orElseThrow(() -> new BookException(BookErrorCode.BOOK_NOT_FOUND));
 
     KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(canonicalIsbn);
-    Book book = BookConverter.toEntity(item, canonicalIsbn, kdcInfo);
+    return BookConverter.toEntity(item, canonicalIsbn, kdcInfo);
+  }
+
+  private Book saveExternalBook(Book book, String canonicalIsbn) {
     bookRepository.upsert(
         book.getIsbn(),
         book.getTitle(),
@@ -146,4 +199,6 @@ public class BookCommandService {
   }
 
   public record MemberBookUpsertResult(boolean created, MemberBookUpsertResDTO response) {}
+
+  public record PreparedBook(Book book, String canonicalIsbn, boolean persisted) {}
 }

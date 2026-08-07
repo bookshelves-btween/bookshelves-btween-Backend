@@ -62,5 +62,9 @@ public class RecentBookSearchRepository {
         .toList();
   }
 
+  public void delete(Long memberId, String keyword) {
+    stringRedisTemplate.opsForZSet().remove(KEY_PREFIX + memberId, keyword);
+  }
+
   public record RecentSearch(String keyword, long searchedAtEpochMillis) {}
 }

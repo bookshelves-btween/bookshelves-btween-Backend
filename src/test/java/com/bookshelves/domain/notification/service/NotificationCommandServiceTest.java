@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,7 +68,7 @@ class NotificationCommandServiceTest {
   void readNotificationMarksOwnedNotificationAsRead() {
     Notification notification = mock(Notification.class);
     when(notification.getId()).thenReturn(101L);
-    when(notificationRepository.findByIdAndMember_Id(101L, 1L))
+    when(notificationRepository.findByIdAndMember_IdAndIsDeletedFalse(101L, 1L))
         .thenReturn(Optional.of(notification));
 
     NotificationReadResponse response = notificationCommandService.readNotification(101L, 1L);
@@ -78,9 +79,33 @@ class NotificationCommandServiceTest {
 
   @Test
   void readNotificationThrowsNotFoundWhenNotificationIsMissingOrNotOwned() {
-    when(notificationRepository.findByIdAndMember_Id(101L, 1L)).thenReturn(Optional.empty());
+    when(notificationRepository.findByIdAndMember_IdAndIsDeletedFalse(101L, 1L))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> notificationCommandService.readNotification(101L, 1L))
+        .isInstanceOf(NotificationException.class)
+        .extracting(exception -> ((NotificationException) exception).getErrorCode())
+        .isEqualTo(NotificationErrorCode.NOTIFICATION_NOT_FOUND);
+  }
+
+  @Test
+  void deleteNotificationSoftDeletesOwnedNotification() {
+    Notification notification = mock(Notification.class);
+    when(notificationRepository.findByIdAndMember_IdAndIsDeletedFalse(101L, 1L))
+        .thenReturn(Optional.of(notification));
+
+    notificationCommandService.deleteNotification(101L, 1L);
+
+    verify(notification).delete();
+    verify(notificationRepository, never()).delete(notification);
+  }
+
+  @Test
+  void deleteNotificationThrowsNotFoundWhenNotificationIsMissingOrNotOwned() {
+    when(notificationRepository.findByIdAndMember_IdAndIsDeletedFalse(101L, 1L))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> notificationCommandService.deleteNotification(101L, 1L))
         .isInstanceOf(NotificationException.class)
         .extracting(exception -> ((NotificationException) exception).getErrorCode())
         .isEqualTo(NotificationErrorCode.NOTIFICATION_NOT_FOUND);
