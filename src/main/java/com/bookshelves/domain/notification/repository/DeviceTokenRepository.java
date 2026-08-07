@@ -1,12 +1,16 @@
 package com.bookshelves.domain.notification.repository;
 
 import com.bookshelves.domain.notification.entity.DeviceToken;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface DeviceTokenRepository extends JpaRepository<DeviceToken, Long> {
+
+  @Query("select dt.fcmToken from DeviceToken dt where dt.member.id = :memberId order by dt.id")
+  List<String> findFcmTokensByMemberId(@Param("memberId") Long memberId);
 
   @Modifying
   @Query(

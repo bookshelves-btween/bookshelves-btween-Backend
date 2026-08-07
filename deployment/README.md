@@ -224,6 +224,16 @@ terraform output -raw database_password
 
 공개 API 도메인의 TLS 인증서를 먼저 발급하고 서버의 `.env`에 호스트 경로를 입력합니다. 예를 들어 Let's Encrypt를 사용한다면 `TLS_CERT_PATH`는 `fullchain.pem`, `TLS_PRIVATE_KEY_PATH`는 `privkey.pem`의 절대 경로입니다. 인증서나 개인 키는 Git에 추가하지 않습니다.
 
+FCM을 사용하려면 Firebase Console에서 해당 프로젝트의 서비스 계정 키(JSON)를 발급한 뒤 서버에만 저장합니다. 키 파일 자체는 Git이나 Docker 이미지에 넣지 않습니다.
+
+```bash
+sudo install -d -m 700 -o 10001 -g 10001 /opt/bookshelf/secrets
+sudo install -m 400 -o 10001 -g 10001 firebase-service-account.json \
+  /opt/bookshelf/secrets/firebase-service-account.json
+```
+
+이후 `.env`에서 `FIREBASE_ENABLED=true`, `FIREBASE_PROJECT_ID`를 실제 Firebase 프로젝트 ID로, `FIREBASE_CREDENTIALS_PATH`를 위 호스트 경로로 지정합니다. Compose는 키를 컨테이너의 `/run/secrets/firebase-service-account.json`에 읽기 전용으로 마운트하며, 애플리케이션은 Google Application Default Credentials로 이를 읽습니다. `deploy.sh`는 FCM이 활성화된 경우 프로젝트 ID와 키 파일이 없으면 배포를 중단합니다.
+
 비공개 GHCR 이미지를 사용하면 먼저 로그인합니다.
 
 ```bash
@@ -238,6 +248,8 @@ bash scripts/deploy.sh
 ```
 
 스크립트는 예제 값, 가변 애플리케이션 이미지, 누락된 TLS 파일이 있으면 중지합니다. 현재 서비스를 중단하기 전에 이미지를 모두 내려받고, 애플리케이션 상태 확인이 성공한 뒤 Nginx를 시작합니다. 마지막으로 `https://127.0.0.1/health`가 성공할 때까지 기다립니다.
+
+이후 GitHub Actions 배포는 새 애플리케이션 이미지에 포함된 `deployment/runtime` 번들을 먼저 `/opt/bookshelf/runtime`에 복사한 뒤 배포를 실행합니다. 따라서 `compose.yml`, Nginx 설정, 배포 스크립트의 변경도 애플리케이션 이미지와 같은 커밋 기준으로 매번 동기화됩니다. 서버에만 존재하는 `/opt/bookshelf/runtime/.env`와 `/opt/bookshelf/secrets`는 이미지에 포함되지 않으며 동기화 과정에서도 보존됩니다.
 
 ## 9. 데이터 백업
 

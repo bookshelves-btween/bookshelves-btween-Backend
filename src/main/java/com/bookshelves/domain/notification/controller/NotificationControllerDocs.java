@@ -31,7 +31,8 @@ public interface NotificationControllerDocs {
       summary = "FCM 디바이스 토큰 등록",
       description =
           "인증된 사용자의 FCM 토큰을 등록합니다. 동일한 토큰이 이미 등록되어 있으면 현재 사용자에게 다시 연결하며, "
-              + "MVP에서는 platform을 요청으로 받지 않고 IOS로 저장합니다.")
+              + "MVP에서는 platform을 요청으로 받지 않고 IOS로 저장합니다. 이후 FCM data에는 폴링 응답의 id와 동일한 "
+              + "notificationId가 문자열로 포함되므로 앱 사용 중 이미 표시한 알림을 중복 제거할 수 있습니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(

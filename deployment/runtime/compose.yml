@@ -61,6 +61,9 @@ services:
       DATA4LIBRARY_AUTH_KEY: ${DATA4LIBRARY_AUTH_KEY:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
       APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:?APPLE_CLIENT_ID is required}
+      FIREBASE_ENABLED: ${FIREBASE_ENABLED:-false}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
       JAVA_TOOL_OPTIONS: >-
         -XX:+UseContainerSupport -Xms256m -Xmx768m
         -Duser.timezone=Asia/Seoul
@@ -71,6 +74,7 @@ services:
       - "8080"
     volumes:
       - ${RDS_TRUSTSTORE_PATH}:/etc/ssl/certs/rds-truststore.jks:ro
+      - ${FIREBASE_CREDENTIALS_PATH:-/opt/bookshelf/secrets/firebase-service-account.json}:/run/secrets/firebase-service-account.json:ro
     healthcheck:
       test:
         - CMD-SHELL
