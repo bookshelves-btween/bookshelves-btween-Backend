@@ -156,6 +156,9 @@ public class MemberCommandService {
     }
 
     member.anonymize();
+    // 관심 장르는 개인정보처리방침상 탈퇴 완료 시 파기 대상인 개인정보다. category_id가
+    // NOT NULL이라 값을 비울 수 없어, 이 데이터의 익명화는 곧 row 삭제를 의미한다.
+    memberCategoryRepository.deleteByMember_Id(memberId);
   }
 
   public MemberWithdrawResponse withdraw(Long memberId) {
