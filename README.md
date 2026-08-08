@@ -48,6 +48,8 @@
 | `GEMINI_API_KEY`                                                  | Gemini API           |
 | `JWT_SECRET`                                                      | JWT 서명 키 (HS256, 최소 32바이트 이상 랜덤 문자열 필수) |
 | `CORS_ALLOWED_ORIGINS`                                            | 허용할 CORS Origin (콤마로 여러 개 지정, 환경별로 다르게 설정) |
+| `FIREBASE_ENABLED` / `FIREBASE_PROJECT_ID`                        | FCM 발송 활성화 및 Firebase 프로젝트 ID |
+| `GOOGLE_APPLICATION_CREDENTIALS`                                 | Firebase 서비스 계정 JSON 경로 (파일은 커밋 금지) |
 
 ## 코드 포맷
 

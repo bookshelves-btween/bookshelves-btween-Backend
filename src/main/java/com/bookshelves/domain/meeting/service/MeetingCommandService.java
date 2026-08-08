@@ -133,7 +133,7 @@ public class MeetingCommandService {
 
     List<MeetingParticipant> participants =
         meetingParticipantRepository.findAllWithMemberByMeetingId(meetingId);
-    notificationCommandService.saveAll(
+    notificationCommandService.createNotifications(
         participants.stream()
             .map(participant -> Notification.meetingStarted(participant.getMember(), meeting))
             .toList());
@@ -164,7 +164,7 @@ public class MeetingCommandService {
     // 모임을 삭제하기 전에 모든 참여자의 취소 알림을 영속화한다.
     List<MeetingParticipant> participants =
         meetingParticipantRepository.findAllWithMemberByMeetingId(meetingId);
-    notificationCommandService.saveAll(
+    notificationCommandService.createNotifications(
         participants.stream()
             .map(participant -> Notification.meetingCanceled(participant.getMember(), meeting))
             .toList());

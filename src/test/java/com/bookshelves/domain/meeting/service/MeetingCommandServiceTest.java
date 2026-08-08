@@ -161,7 +161,7 @@ class MeetingCommandServiceTest {
     verify(meeting).start();
     @SuppressWarnings("unchecked")
     ArgumentCaptor<List<Notification>> notificationCaptor = ArgumentCaptor.forClass(List.class);
-    verify(notificationCommandService).saveAll(notificationCaptor.capture());
+    verify(notificationCommandService).createNotifications(notificationCaptor.capture());
     assertThat(notificationCaptor.getValue()).hasSize(1);
     Notification notification = notificationCaptor.getValue().get(0);
     assertThat(notification.getMember()).isSameAs(member);
@@ -307,7 +307,7 @@ class MeetingCommandServiceTest {
         .extracting("errorCode")
         .isEqualTo(MeetingErrorCode.MEETING_RECRUITMENT_CLOSED);
 
-    verify(notificationCommandService).saveAll(any());
+    verify(notificationCommandService).createNotifications(any());
     verify(reportRepository).deleteAllByMeetingId(1L);
     verify(chatRoomRepository).deleteAllByMeetingId(1L);
     verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
@@ -350,7 +350,7 @@ class MeetingCommandServiceTest {
     assertThat(deleted).isTrue();
     @SuppressWarnings("unchecked")
     ArgumentCaptor<List<Notification>> notificationCaptor = ArgumentCaptor.forClass(List.class);
-    verify(notificationCommandService).saveAll(notificationCaptor.capture());
+    verify(notificationCommandService).createNotifications(notificationCaptor.capture());
     assertThat(notificationCaptor.getValue()).hasSize(1);
     Notification notification = notificationCaptor.getValue().get(0);
     assertThat(notification.getMember()).isSameAs(member);
@@ -364,7 +364,7 @@ class MeetingCommandServiceTest {
             chatRoomRepository,
             meetingParticipantRepository,
             meetingRepository);
-    deletionOrder.verify(notificationCommandService).saveAll(any());
+    deletionOrder.verify(notificationCommandService).createNotifications(any());
     deletionOrder.verify(reportRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
@@ -486,7 +486,7 @@ class MeetingCommandServiceTest {
             chatRoomRepository,
             meetingParticipantRepository,
             meetingRepository);
-    deletionOrder.verify(notificationCommandService).saveAll(List.of());
+    deletionOrder.verify(notificationCommandService).createNotifications(List.of());
     deletionOrder.verify(chatRoomRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingParticipantRepository).deleteAllByMeetingId(1L);
     deletionOrder.verify(meetingRepository).delete(meeting);
