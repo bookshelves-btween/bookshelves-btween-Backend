@@ -11,6 +11,7 @@ import com.bookshelves.domain.notification.repository.DeviceTokenRepository;
 import com.bookshelves.domain.notification.repository.NotificationRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class NotificationCommandService {
   private final DeviceTokenRepository deviceTokenRepository;
   private final NotificationRepository notificationRepository;
   private final MemberRepository memberRepository;
+  private final ApplicationEventPublisher eventPublisher;
 
   public void registerFcmToken(Long memberId, String fcmToken) {
     deviceTokenRepository.upsertFcmToken(memberId, fcmToken);
@@ -30,7 +32,7 @@ public class NotificationCommandService {
   // 같은 회원의 알림은 Member 행 잠금을 획득한 트랜잭션만 INSERT할 수 있다.
   // IDENTITY ID 할당 순서와 커밋 순서를 일치시켜 ID 커서 폴링의 누락을 방지한다.
   // 여러 회원을 함께 처리할 때는 교착 상태를 막기 위해 회원 ID 오름차순으로 잠근다.
-  public List<Notification> saveAll(List<Notification> notifications) {
+  public List<Notification> createNotifications(List<Notification> notifications) {
     List<Long> memberIds =
         notifications.stream()
             .map(notification -> notification.getMember().getId())
@@ -44,7 +46,11 @@ public class NotificationCommandService {
                 .findByIdForUpdate(memberId)
                 .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND)));
 
-    return notificationRepository.saveAllAndFlush(notifications);
+    List<Notification> savedNotifications = notificationRepository.saveAllAndFlush(notifications);
+    if (!savedNotifications.isEmpty()) {
+      eventPublisher.publishEvent(NotificationPushEvent.from(savedNotifications));
+    }
+    return savedNotifications;
   }
 
   public NotificationReadResponse readNotification(Long notificationId, Long memberId) {

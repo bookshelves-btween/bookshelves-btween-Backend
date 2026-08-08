@@ -22,6 +22,11 @@ RUN apt-get update \
 
 COPY --chown=app:app --from=builder /workspace/build/libs/*.jar app.jar
 
+# CI deploys this immutable runtime bundle before starting the application. Keeping the
+# Compose definition and deployment scripts in the same image prevents the server from
+# continuing to use stale configuration after a repository change.
+COPY --from=builder /workspace/deployment/runtime /opt/bookshelf-runtime
+
 USER app
 
 EXPOSE 8080

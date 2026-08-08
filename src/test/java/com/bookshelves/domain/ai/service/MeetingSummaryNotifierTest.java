@@ -19,6 +19,7 @@ import com.bookshelves.domain.member.enums.Provider;
 import com.bookshelves.domain.notification.entity.Notification;
 import com.bookshelves.domain.notification.enums.NotificationType;
 import com.bookshelves.domain.notification.repository.NotificationRepository;
+import com.bookshelves.domain.notification.service.NotificationCommandService;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,7 @@ class MeetingSummaryNotifierTest {
   @Mock private MeetingRepository meetingRepository;
   @Mock private MeetingParticipantRepository meetingParticipantRepository;
   @Mock private NotificationRepository notificationRepository;
+  @Mock private NotificationCommandService notificationCommandService;
 
   private MeetingSummaryNotifier notifier;
 
@@ -45,7 +47,10 @@ class MeetingSummaryNotifierTest {
   void setUp() {
     notifier =
         new MeetingSummaryNotifier(
-            meetingRepository, meetingParticipantRepository, notificationRepository);
+            meetingRepository,
+            meetingParticipantRepository,
+            notificationRepository,
+            notificationCommandService);
   }
 
   private Member member(Long id) {
@@ -67,7 +72,7 @@ class MeetingSummaryNotifierTest {
 
   private List<Notification> captureSaved() {
     ArgumentCaptor<List<Notification>> captor = ArgumentCaptor.captor();
-    verify(notificationRepository).saveAll(captor.capture());
+    verify(notificationCommandService).createNotifications(captor.capture());
     return captor.getValue();
   }
 
@@ -134,7 +139,7 @@ class MeetingSummaryNotifierTest {
 
     notifier.notifySummaryDone(MEETING_ID);
 
-    verify(notificationRepository, never()).saveAll(any());
+    verify(notificationCommandService, never()).createNotifications(any());
   }
 
   @Test
@@ -147,12 +152,12 @@ class MeetingSummaryNotifierTest {
     given(notificationRepository.existsByMember_IdAndTypeAndRelatedId(any(), any(), eq(MEETING_ID)))
         .willReturn(false);
     willThrow(new DataIntegrityViolationException("uk_notification_member_type_related"))
-        .given(notificationRepository)
-        .saveAll(any());
+        .given(notificationCommandService)
+        .createNotifications(any());
 
     // 경합에서 진 쪽이 예외를 삼켜 조용히 넘어가면 알림 누락을 아무도 알 수 없다
     assertThatCode(() -> notifier.notifySummaryDone(MEETING_ID)).doesNotThrowAnyException();
-    verify(notificationRepository).saveAll(any());
+    verify(notificationCommandService).createNotifications(any());
   }
 
   @Test
@@ -161,6 +166,6 @@ class MeetingSummaryNotifierTest {
 
     notifier.notifySummaryDone(MEETING_ID);
 
-    verify(notificationRepository, never()).saveAll(any());
+    verify(notificationCommandService, never()).createNotifications(any());
   }
 }

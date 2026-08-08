@@ -22,6 +22,12 @@ public class TaskExecutorConfig {
     return buildExecutor("meeting-summary-");
   }
 
+  // FCM 네트워크 지연이 모임 시작·취소 트랜잭션을 호출한 스케줄러를 붙잡지 않게 한다.
+  @Bean
+  public ThreadPoolTaskExecutor notificationPushTaskExecutor() {
+    return buildExecutor("notification-push-");
+  }
+
   // 추천 도서 준비 전용. 여기만 스레드가 하나다.
   //
   // 호출자를 떼어놓는 것이 1차 목적이다. 기동 훅은 메인 스레드에서, 23시 잡은 풀 크기 2짜리 공용

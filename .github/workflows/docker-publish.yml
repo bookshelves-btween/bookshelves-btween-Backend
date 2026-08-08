@@ -69,7 +69,25 @@ jobs:
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
           IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
         run: |
-          remote_command="sudo bash /opt/bookshelf/runtime/scripts/deploy-from-ci.sh '$IMAGE_REF'"
+          remote_command="sudo bash -c 'set -Eeuo pipefail
+          image_ref=\"$IMAGE_REF\"
+          runtime_dir=/opt/bookshelf/runtime
+          ghcr_credentials_file=/opt/bookshelf/secrets/ghcr.env
+          if [[ -f \"\$ghcr_credentials_file\" ]]; then
+            source \"\$ghcr_credentials_file\"
+            test -n \"\${GHCR_USER:-}\" && test -n \"\${GHCR_TOKEN:-}\"
+            printf %s \"\$GHCR_TOKEN\" | docker login ghcr.io -u \"\$GHCR_USER\" --password-stdin
+          fi
+          docker pull \"\$image_ref\"
+          bundle_container=\$(docker create \"\$image_ref\")
+          cleanup() { docker rm -f \"\$bundle_container\" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          install -d -m 755 \"\$runtime_dir\"
+          docker cp \"\$bundle_container:/opt/bookshelf-runtime/.\" \"\$runtime_dir/\"
+          cleanup
+          trap - EXIT
+          chmod +x \"\$runtime_dir\"/scripts/*.sh
+          exec bash \"\$runtime_dir/scripts/deploy-from-ci.sh\" \"\$image_ref\"'"
           parameters="$(jq -cn --arg command "$remote_command" '{commands: [$command]}')"
 
           command_id="$(aws ssm send-command \
