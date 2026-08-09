@@ -25,6 +25,8 @@ public class ChatConverter {
         chatMessage.getId(),
         chatMessage.getSenderMember().getId(),
         chatMessage.getSenderMember().getNickname(),
+        chatMessage.getSenderMember().getNicknameAnimal(),
+        chatMessage.getSenderMember().getProfileBackgroundColor(),
         chatMessage.getMessage(),
         toOffset(chatMessage.getCreatedAt()));
   }
