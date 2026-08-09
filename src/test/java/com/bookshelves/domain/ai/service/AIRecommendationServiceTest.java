@@ -49,7 +49,7 @@ class AIRecommendationServiceTest {
   }
 
   private void givenSingleBook(Book book) {
-    given(bookRepository.findAllIds()).willReturn(List.of(book.getId()));
+    given(bookRepository.findRecommendableIds()).willReturn(List.of(book.getId()));
     given(aiRecommendationRepository.findBookIdsRecommendedSince(any())).willReturn(List.of());
     given(bookRepository.findById(book.getId())).willReturn(Optional.of(book));
   }
@@ -75,13 +75,13 @@ class AIRecommendationServiceTest {
     aiRecommendationService.prepare(TARGET_DATE);
 
     // 스케줄러가 두 번 돌거나 배포로 다시 떠도 하루에 두 권이 쌓이면 안 된다
-    verify(bookRepository, never()).findAllIds();
+    verify(bookRepository, never()).findRecommendableIds();
     verify(aiRecommendationRepository, never()).save(any());
   }
 
   @Test
-  void skipsWhenNoBookHasBeenSeeded() {
-    given(bookRepository.findAllIds()).willReturn(List.of());
+  void skipsWhenNoBookFallsInTheRecommendableCategories() {
+    given(bookRepository.findRecommendableIds()).willReturn(List.of());
 
     aiRecommendationService.prepare(TARGET_DATE);
 
@@ -90,7 +90,7 @@ class AIRecommendationServiceTest {
 
   @Test
   void excludesBooksRecommendedWithinTheWindow() {
-    given(bookRepository.findAllIds()).willReturn(List.of(1L, 2L, 3L));
+    given(bookRepository.findRecommendableIds()).willReturn(List.of(1L, 2L, 3L));
     given(
             aiRecommendationRepository.findBookIdsRecommendedSince(
                 TARGET_DATE.minusDays(AIRecommendationService.EXCLUSION_WINDOW_DAYS)))
@@ -107,7 +107,7 @@ class AIRecommendationServiceTest {
   @Test
   void ignoresExclusionWhenEveryBookWasRecommendedRecently() {
     // 책이 제외 기간보다 적으면 후보가 통째로 빈다. 그때까지 추천을 멈추면 홈이 계속 비어 있게 된다.
-    given(bookRepository.findAllIds()).willReturn(List.of(1L, 2L));
+    given(bookRepository.findRecommendableIds()).willReturn(List.of(1L, 2L));
     given(aiRecommendationRepository.findBookIdsRecommendedSince(any()))
         .willReturn(List.of(1L, 2L));
     Book book = book(1L, "설명");
@@ -123,7 +123,7 @@ class AIRecommendationServiceTest {
   void picksDifferentBooksAcrossRunsWhenCandidatesRemain() {
     // 후보가 여럿인데 늘 같은 책이 나오면 제외 창이 하는 일이 없어진다.
     // 5권 중 30회가 전부 같은 책일 확률은 5 * (1/5)^30이라 이 단언은 흔들리지 않는다.
-    given(bookRepository.findAllIds()).willReturn(List.of(1L, 2L, 3L, 4L, 5L));
+    given(bookRepository.findRecommendableIds()).willReturn(List.of(1L, 2L, 3L, 4L, 5L));
     given(aiRecommendationRepository.findBookIdsRecommendedSince(any())).willReturn(List.of());
     given(bookRepository.findById(any()))
         .willAnswer(invocation -> Optional.of(book(invocation.getArgument(0), "설명")));
