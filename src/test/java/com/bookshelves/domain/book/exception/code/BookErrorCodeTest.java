@@ -14,9 +14,7 @@ class BookErrorCodeTest {
         "BOOK400_3",
         "등록한 평점은 미평가로 변경할 수 없습니다.");
     assertErrorCode(
-        BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST,
-        "BOOK400_5",
-        "조회 연도 또는 월이 올바르지 않습니다.");
+        BookErrorCode.INVALID_MEMBER_BOOK_CALENDAR_REQUEST, "BOOK400_5", "조회 연도 또는 월이 올바르지 않습니다.");
     assertErrorCode(
         BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST,
         "BOOK400_6",
