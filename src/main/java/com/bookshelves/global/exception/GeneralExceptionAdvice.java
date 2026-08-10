@@ -7,6 +7,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -86,11 +87,12 @@ public class GeneralExceptionAdvice {
     return failureResponse(GeneralErrorCode.COMMON_NOT_FOUND);
   }
 
-  // 존재하는 경로를 지원하지 않는 HTTP 메서드로 호출한 요청
+  // 존재하는 경로를 지원하지 않는 HTTP 메서드로 호출한 요청. 어떤 메서드가 허용되는지
+  // Allow 헤더로 함께 알려준다(RFC 9110).
   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
   public ResponseEntity<ApiResponse<Map<String, Object>>>
       handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException e) {
-    return failureResponse(GeneralErrorCode.COMMON_METHOD_NOT_ALLOWED);
+    return failureResponse(GeneralErrorCode.COMMON_METHOD_NOT_ALLOWED, e.getHeaders());
   }
 
   // 기타 예외 — 원인은 서버 로그로만 남기고, 클라이언트에는 내부 구현 정보를 노출하지 않는다.
@@ -103,5 +105,12 @@ public class GeneralExceptionAdvice {
 
   private ResponseEntity<ApiResponse<Map<String, Object>>> failureResponse(BaseErrorCode code) {
     return ResponseEntity.status(code.getStatus()).body(ApiResponse.onFailure(code, Map.of()));
+  }
+
+  private ResponseEntity<ApiResponse<Map<String, Object>>> failureResponse(
+      BaseErrorCode code, HttpHeaders headers) {
+    return ResponseEntity.status(code.getStatus())
+        .headers(headers)
+        .body(ApiResponse.onFailure(code, Map.of()));
   }
 }

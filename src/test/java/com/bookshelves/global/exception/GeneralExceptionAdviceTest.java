@@ -91,9 +91,9 @@ class GeneralExceptionAdviceTest {
   }
 
   @Test
-  void handleHttpRequestMethodNotSupportedExceptionReturnsMethodNotAllowed() {
+  void handleHttpRequestMethodNotSupportedExceptionReturnsMethodNotAllowedWithAllowHeader() {
     HttpRequestMethodNotSupportedException exception =
-        new HttpRequestMethodNotSupportedException("GET");
+        new HttpRequestMethodNotSupportedException("GET", List.of("POST"));
 
     ResponseEntity<ApiResponse<Map<String, Object>>> response =
         generalExceptionAdvice.handleHttpRequestMethodNotSupportedException(exception);
@@ -101,6 +101,7 @@ class GeneralExceptionAdviceTest {
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
     assertThat(response.getBody().getCode()).isEqualTo("COMMON405_1");
     assertThat(response.getBody().getResult()).isEmpty();
+    assertThat(response.getHeaders().getAllow()).containsExactly(HttpMethod.POST);
   }
 
   @Test
