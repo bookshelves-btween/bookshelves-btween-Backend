@@ -22,7 +22,7 @@ public class MemberAnonymizationScheduler {
     this.memberCommandService = memberCommandService;
   }
 
-  @Scheduled(cron = "0 0 0 * * *")
+  @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
   public void anonymizeExpiredWithdrawnMembers() {
     LocalDateTime threshold =
         LocalDateTime.now(Member.SERVICE_ZONE).minusDays(Member.RESTORE_PERIOD_DAYS);
