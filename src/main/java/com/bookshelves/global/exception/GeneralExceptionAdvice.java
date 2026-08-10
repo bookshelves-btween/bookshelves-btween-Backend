@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -83,6 +84,13 @@ public class GeneralExceptionAdvice {
   public ResponseEntity<ApiResponse<Map<String, Object>>> handleNoResourceFoundException(
       NoResourceFoundException e) {
     return failureResponse(GeneralErrorCode.COMMON_NOT_FOUND);
+  }
+
+  // 존재하는 경로를 지원하지 않는 HTTP 메서드로 호출한 요청
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  public ResponseEntity<ApiResponse<Map<String, Object>>>
+      handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException e) {
+    return failureResponse(GeneralErrorCode.COMMON_METHOD_NOT_ALLOWED);
   }
 
   // 기타 예외 — 원인은 서버 로그로만 남기고, 클라이언트에는 내부 구현 정보를 노출하지 않는다.

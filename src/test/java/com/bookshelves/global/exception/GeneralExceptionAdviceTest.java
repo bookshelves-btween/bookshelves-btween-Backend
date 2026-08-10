@@ -16,6 +16,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -86,6 +87,19 @@ class GeneralExceptionAdviceTest {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(response.getBody().getCode()).isEqualTo("COMMON404_1");
+    assertThat(response.getBody().getResult()).isEmpty();
+  }
+
+  @Test
+  void handleHttpRequestMethodNotSupportedExceptionReturnsMethodNotAllowed() {
+    HttpRequestMethodNotSupportedException exception =
+        new HttpRequestMethodNotSupportedException("GET");
+
+    ResponseEntity<ApiResponse<Map<String, Object>>> response =
+        generalExceptionAdvice.handleHttpRequestMethodNotSupportedException(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+    assertThat(response.getBody().getCode()).isEqualTo("COMMON405_1");
     assertThat(response.getBody().getResult()).isEmpty();
   }
 
