@@ -43,13 +43,23 @@ public class MemberAnonymizationScheduler {
           memberRepository.findIdsByStatusAndDeletedAtLessThanEqual(
               MemberStatus.WITHDRAWN, threshold, pageable);
 
+      int successCount = 0;
       for (Long memberId : memberIds) {
         // 회원 단위로 격리 — 한 건 실패가 나머지 익명화 처리를 막지 않도록 한다
         try {
           memberCommandService.anonymizeMember(memberId);
+          successCount++;
         } catch (Exception e) {
           log.error("회원 익명화 처리 실패: memberId={}", memberId, e);
         }
+      }
+
+      // 배치 전체가 실패하면 대상 상태가 안 바뀌어서 다음 조회도 같은 회원들을 그대로
+      // 돌려준다. 그대로 반복하면 무한 루프에 빠지므로, 이번 실행을 종료하고 다음
+      // 스케줄에서 재시도한다.
+      if (!memberIds.isEmpty() && successCount == 0) {
+        log.warn("익명화 배치가 전부 실패해 이번 실행을 종료합니다. 다음 스케줄에서 재시도됩니다. 시도 건수={}", memberIds.size());
+        break;
       }
     } while (memberIds.size() == BATCH_SIZE);
   }

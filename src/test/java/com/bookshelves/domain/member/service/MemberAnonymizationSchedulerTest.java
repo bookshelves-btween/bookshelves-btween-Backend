@@ -113,6 +113,44 @@ class MemberAnonymizationSchedulerTest {
   }
 
   @Test
+  void stopsWithoutInfiniteLoopWhenFullBatchCompletelyFails() {
+    // BATCH_SIZE만큼 꽉 찬 배치인데 전부 실패하면 대상 회원 상태가 안 바뀌어서, 다음 조회도
+    // 매번 똑같은 결과를 돌려준다. size == BATCH_SIZE 조건만 보고 반복하면 무한 루프에
+    // 빠지므로, 한 건도 성공 못 하면 그 자리에서 실행을 종료해야 한다.
+    List<Long> fullFailingPage = LongStream.rangeClosed(1, BATCH_SIZE).boxed().toList();
+    when(memberRepository.findIdsByStatusAndDeletedAtLessThanEqual(
+            eq(MemberStatus.WITHDRAWN), any(), any(Pageable.class)))
+        .thenReturn(fullFailingPage);
+    doThrow(new RuntimeException("처리 실패")).when(memberCommandService).anonymizeMember(anyLong());
+
+    scheduler.anonymizeExpiredWithdrawnMembers();
+
+    verify(memberCommandService, times(BATCH_SIZE)).anonymizeMember(anyLong());
+    verify(memberRepository, times(1))
+        .findIdsByStatusAndDeletedAtLessThanEqual(eq(MemberStatus.WITHDRAWN), any(), any());
+  }
+
+  @Test
+  void continuesToNextBatchWhenAtLeastOneMemberSucceedsInAFullBatch() {
+    // 꽉 찬 배치 안에서 단 한 명이라도 성공하면(=대상 집합이 줄어들면), 무한 루프 방지 로직이
+    // 잘못 발동해서 조기 종료하면 안 된다 — 정상적으로 다음 페이지를 계속 조회해야 한다.
+    List<Long> fullPageWithOneSuccess = LongStream.rangeClosed(1, BATCH_SIZE).boxed().toList();
+    List<Long> lastPage = List.of();
+    when(memberRepository.findIdsByStatusAndDeletedAtLessThanEqual(
+            eq(MemberStatus.WITHDRAWN), any(), any(Pageable.class)))
+        .thenReturn(fullPageWithOneSuccess)
+        .thenReturn(lastPage);
+    doThrow(new RuntimeException("처리 실패"))
+        .when(memberCommandService)
+        .anonymizeMember(org.mockito.ArgumentMatchers.longThat(id -> id != 1L));
+
+    scheduler.anonymizeExpiredWithdrawnMembers();
+
+    verify(memberRepository, times(2))
+        .findIdsByStatusAndDeletedAtLessThanEqual(eq(MemberStatus.WITHDRAWN), any(), any());
+  }
+
+  @Test
   void stopsAfterSinglePageWhenResultIsShorterThanBatchSize() {
     when(memberRepository.findIdsByStatusAndDeletedAtLessThanEqual(
             eq(MemberStatus.WITHDRAWN), any(), any(Pageable.class)))
