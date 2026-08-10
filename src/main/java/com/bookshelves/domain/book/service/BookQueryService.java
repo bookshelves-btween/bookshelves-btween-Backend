@@ -200,6 +200,9 @@ public class BookQueryService {
     try {
       int year = yearValue == null ? now.getYear() : Integer.parseInt(yearValue);
       int month = monthValue == null ? now.getMonthValue() : Integer.parseInt(monthValue);
+      if (year > now.getYear()) {
+        throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST);
+      }
       return YearMonth.of(year, month);
     } catch (NumberFormatException | DateTimeException exception) {
       throw new BookException(BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST);
