@@ -35,7 +35,7 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
   // 눌렀을 때 거절될 모임을 애초에 내려보내지 않는다.
   //
   // earliestStartDate에는 현재 시각이 아니라 모집 마감 기준을 넘긴다. 참여는 시작 6시간 전부터
-  // 거절되는데(MeetingCommandService.participateInMeeting), 상태를 바꾸는 배치가 60초 주기라
+  // 거절되는데(MeetingCommandService.participateInMeeting), 상태를 바꾸는 배치가 15초 주기라
   // 그 사이 모임은 RECRUITING인 채로 남는다. 시작 시각만 보면 이 구간이 그대로 새어 나온다.
   String JOINABLE_MEETINGS_FROM_WHERE =
       """

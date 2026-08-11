@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
-// 오늘의 추천 도서를 하루 한 권 준비한다.
+// 오늘의 추천 도서를 하루 한 권 준비한다. 후보는 문학(KDC 800)과 철학(KDC 100)으로 분류된 책뿐이다.
 //
 // 이 클래스에는 트랜잭션 경계가 없다. 멘트 생성이 수십 초 걸리는 LLM 호출이라 전체를 트랜잭션으로
 // 감싸면 그동안 커넥션을 붙잡게 된다. 조회 두 번과 INSERT 한 번뿐이고 서로 원자적일 이유가 없어
@@ -29,8 +29,9 @@ public class AIRecommendationService {
 
   // 최근 이 기간에 추천된 책은 후보에서 뺀다. 같은 책이 며칠 간격으로 다시 나오면 추천이 고장 난 것처럼 보인다.
   //
-  // 책이 이 기간보다 적으면 후보가 통째로 비는데, 그때는 제외를 포기하고 전체에서 고른다.
+  // 추천 대상 책이 이 기간보다 적으면 후보가 통째로 비는데, 그때는 제외를 포기하고 전체에서 고른다.
   // 책 11권에 10일 제외면 순환하지만 어제와 다른 책이 나오고, 5권이면 제외를 포기해야 아예 멈추지 않는다.
+  // 대상을 문학과 철학으로 좁힌 뒤로는 이 경로에 더 자주 걸린다.
   static final int EXCLUSION_WINDOW_DAYS = 10;
 
   // 멘트 생성이 실패했을 때 쓰는 폴백. 책 소개의 첫 문장이 1순위다. 그 책에 대한 실제 설명이라
@@ -62,8 +63,8 @@ public class AIRecommendationService {
 
     Long bookId = pickBookId(recommendedDate);
     if (bookId == null) {
-      // 책을 아직 한 권도 안 넣은 상태다. 추천할 대상이 없는 것이지 실패가 아니다.
-      log.warn("추천할 책이 없어 오늘의 추천을 건너뛴다: recommendedDate={}", recommendedDate);
+      // 문학이나 철학으로 분류된 책이 아직 한 권도 없는 상태다. 추천할 대상이 없는 것이지 실패가 아니다.
+      log.warn("추천 대상 책이 없어 오늘의 추천을 건너뛴다: recommendedDate={}", recommendedDate);
       return;
     }
 
@@ -78,8 +79,8 @@ public class AIRecommendationService {
   }
 
   private Long pickBookId(LocalDate recommendedDate) {
-    List<Long> allIds = bookRepository.findAllIds();
-    if (allIds.isEmpty()) {
+    List<Long> recommendableIds = bookRepository.findRecommendableIds();
+    if (recommendableIds.isEmpty()) {
       return null;
     }
 
@@ -88,10 +89,11 @@ public class AIRecommendationService {
             aiRecommendationRepository.findBookIdsRecommendedSince(
                 recommendedDate.minusDays(EXCLUSION_WINDOW_DAYS)));
 
-    List<Long> candidates = allIds.stream().filter(id -> !recentlyUsed.contains(id)).toList();
+    List<Long> candidates =
+        recommendableIds.stream().filter(id -> !recentlyUsed.contains(id)).toList();
     if (candidates.isEmpty()) {
-      log.info("최근 추천을 제외하면 후보가 없어 전체에서 고른다: 전체={}", allIds.size());
-      candidates = allIds;
+      log.info("최근 추천을 제외하면 후보가 없어 전체에서 고른다: 전체={}", recommendableIds.size());
+      candidates = recommendableIds;
     }
     return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
   }

@@ -275,7 +275,7 @@ class BookQueryServiceTest {
     assertThat(result.book().id()).isEqualTo(10L);
     assertThat(result.book().kdcCode()).isEqualTo("813");
     assertThat(result.book().kdcName()).isEqualTo("문학");
-    assertThat(result.book().description()).hasSize(129).isEqualTo("a".repeat(126) + "...");
+    assertThat(result.book().description()).isEqualTo("a".repeat(127));
     assertThat(result.memberBook().progress()).isEqualTo(70);
     assertThat(result.memberBook().rating()).isEqualByComparingTo("4.5");
     verifyNoInteractions(kakaoBookSearchClient, data4LibraryBookDetailClient);
@@ -347,7 +347,7 @@ class BookQueryServiceTest {
     assertThat(result.book().id()).isNull();
     assertThat(result.book().kdcCode()).isEqualTo("813");
     assertThat(result.book().kdcName()).isEqualTo("문학");
-    assertThat(result.book().description()).hasSize(129).isEqualTo("a".repeat(126) + "...");
+    assertThat(result.book().description()).isEqualTo("a".repeat(127));
     assertThat(result.memberBook()).isNull();
     verifyNoInteractions(memberBookRepository);
   }
@@ -734,6 +734,27 @@ class BookQueryServiceTest {
   @Test
   void getMemberBookStatisticsRejectsInvalidYearOrMonthBeforeAuthentication() {
     assertThatThrownBy(() -> bookQueryService.getMemberBookStatistics("2026", "13"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST));
+
+    verifyNoInteractions(authenticationFacade, memberBookRepository);
+  }
+
+  @Test
+  void getMemberBookStatisticsRejectsFutureYearBeforeAuthentication() {
+    int nextYear = YearMonth.now(ZoneId.of("Asia/Seoul")).getYear() + 1;
+
+    assertThatThrownBy(
+            () -> bookQueryService.getMemberBookStatistics(String.valueOf(nextYear), "1"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST));
+    assertThatThrownBy(() -> bookQueryService.getMemberBookStatistics("999999999", "1"))
         .isInstanceOf(BookException.class)
         .satisfies(
             exception ->

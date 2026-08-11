@@ -578,6 +578,8 @@ class MemberCommandServiceTest {
     assertThat(member.getNickname()).isEqualTo("탈퇴한 사용자1");
     assertThat(member.getProvider()).isNull();
     assertThat(member.getProviderId()).isNull();
+    // 관심 장르는 개인정보처리방침상 파기 대상이라, 익명화 시 member_category도 함께 삭제되어야 한다.
+    verify(memberCategoryRepository).deleteByMember_Id(1L);
   }
 
   @Test
@@ -603,6 +605,7 @@ class MemberCommandServiceTest {
     assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
     assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
     assertThat(member.getProviderId()).isEqualTo("kakao-id");
+    verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
 
   @Test
@@ -619,6 +622,7 @@ class MemberCommandServiceTest {
     assertThat(member.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
     assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
     assertThat(member.getProviderId()).isEqualTo("kakao-id");
+    verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
 
   @Test
