@@ -65,9 +65,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class BookQueryService {
 
-  private static final int DESCRIPTION_PREVIEW_LENGTH = 126;
-  private static final String DESCRIPTION_SUFFIX = "...";
-
   private final CategoryRepository categoryRepository;
   private final BookRepository bookRepository;
   private final MemberBookRepository memberBookRepository;
@@ -395,7 +392,7 @@ public class BookQueryService {
         toAuthor(item),
         item.publisher(),
         parsePublishedDate(item.datetime()),
-        truncateDescription(item.contents()),
+        item.contents(),
         item.thumbnail(),
         kdcInfo.code(),
         kdcInfo.name());
@@ -409,7 +406,7 @@ public class BookQueryService {
         book.getAuthor(),
         book.getPublisher(),
         book.getPublishedDate(),
-        truncateDescription(book.getDescription()),
+        book.getDescription(),
         book.getCoverImageUrl(),
         book.getKdcCode(),
         book.getKdcName());
@@ -421,16 +418,6 @@ public class BookQueryService {
     }
     return new MemberBookInfo(
         memberBook.getId(), memberBook.getProgress(), memberBook.getRating(), memberBook.getMemo());
-  }
-
-  private String truncateDescription(String description) {
-    if (description == null
-        || description.codePointCount(0, description.length()) <= DESCRIPTION_PREVIEW_LENGTH) {
-      return description;
-    }
-
-    int endIndex = description.offsetByCodePoints(0, DESCRIPTION_PREVIEW_LENGTH);
-    return description.substring(0, endIndex) + DESCRIPTION_SUFFIX;
   }
 
   private RecentSearchInfo toRecentSearchInfo(RecentSearch recentSearch) {

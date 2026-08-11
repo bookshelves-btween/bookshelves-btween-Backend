@@ -275,7 +275,7 @@ class BookQueryServiceTest {
     assertThat(result.book().id()).isEqualTo(10L);
     assertThat(result.book().kdcCode()).isEqualTo("813");
     assertThat(result.book().kdcName()).isEqualTo("문학");
-    assertThat(result.book().description()).hasSize(129).isEqualTo("a".repeat(126) + "...");
+    assertThat(result.book().description()).isEqualTo("a".repeat(127));
     assertThat(result.memberBook().progress()).isEqualTo(70);
     assertThat(result.memberBook().rating()).isEqualByComparingTo("4.5");
     verifyNoInteractions(kakaoBookSearchClient, data4LibraryBookDetailClient);
@@ -347,7 +347,7 @@ class BookQueryServiceTest {
     assertThat(result.book().id()).isNull();
     assertThat(result.book().kdcCode()).isEqualTo("813");
     assertThat(result.book().kdcName()).isEqualTo("문학");
-    assertThat(result.book().description()).hasSize(129).isEqualTo("a".repeat(126) + "...");
+    assertThat(result.book().description()).isEqualTo("a".repeat(127));
     assertThat(result.memberBook()).isNull();
     verifyNoInteractions(memberBookRepository);
   }
