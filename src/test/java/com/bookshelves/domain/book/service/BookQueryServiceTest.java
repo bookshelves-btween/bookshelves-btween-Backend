@@ -743,6 +743,27 @@ class BookQueryServiceTest {
     verifyNoInteractions(authenticationFacade, memberBookRepository);
   }
 
+  @Test
+  void getMemberBookStatisticsRejectsFutureYearBeforeAuthentication() {
+    int nextYear = YearMonth.now(ZoneId.of("Asia/Seoul")).getYear() + 1;
+
+    assertThatThrownBy(
+            () -> bookQueryService.getMemberBookStatistics(String.valueOf(nextYear), "1"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST));
+    assertThatThrownBy(() -> bookQueryService.getMemberBookStatistics("999999999", "1"))
+        .isInstanceOf(BookException.class)
+        .satisfies(
+            exception ->
+                assertThat(((BookException) exception).getErrorCode())
+                    .isEqualTo(BookErrorCode.INVALID_MEMBER_BOOK_STATISTICS_REQUEST));
+
+    verifyNoInteractions(authenticationFacade, memberBookRepository);
+  }
+
   private MemberBook memberBook(String kdcName, BigDecimal rating, String memo) {
     MemberBook memberBook = mock(MemberBook.class);
     Book book = mock(Book.class);
