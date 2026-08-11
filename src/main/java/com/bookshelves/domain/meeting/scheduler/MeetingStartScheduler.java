@@ -24,7 +24,7 @@ public class MeetingStartScheduler {
   private final MeetingRepository meetingRepository;
   private final MeetingCommandService meetingCommandService;
 
-  @Scheduled(fixedRate = 60_000)
+  @Scheduled(fixedRate = 15_000)
   public void startScheduledMeetings() {
     LocalDateTime now = ServiceTime.now();
     try {
