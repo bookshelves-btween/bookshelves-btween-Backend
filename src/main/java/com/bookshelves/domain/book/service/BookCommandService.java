@@ -1,9 +1,5 @@
 package com.bookshelves.domain.book.service;
 
-import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient;
-import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
-import com.bookshelves.domain.book.client.KakaoBookSearchClient;
-import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookItem;
 import com.bookshelves.domain.book.converter.BookConverter;
 import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
@@ -13,6 +9,7 @@ import com.bookshelves.domain.book.entity.MemberBookHistory;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
+import com.bookshelves.domain.book.repository.ExternalBookCacheRepository.CachedBookDetail;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
@@ -38,8 +35,7 @@ public class BookCommandService {
   private final MemberRepository memberRepository;
   private final RecentBookSearchRepository recentBookSearchRepository;
   private final AuthenticationFacade authenticationFacade;
-  private final KakaoBookSearchClient kakaoBookSearchClient;
-  private final Data4LibraryBookDetailClient data4LibraryBookDetailClient;
+  private final ExternalBookLookupService externalBookLookupService;
   private final TransactionTemplate transactionTemplate;
 
   @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -173,13 +169,9 @@ public class BookCommandService {
   }
 
   private Book fetchExternalBook(String requestedIsbn, String canonicalIsbn) {
-    KakaoBookItem item =
-        kakaoBookSearchClient.searchByIsbn(requestedIsbn).books().stream()
-            .findFirst()
-            .orElseThrow(() -> new BookException(BookErrorCode.BOOK_NOT_FOUND));
-
-    KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(canonicalIsbn);
-    return BookConverter.toEntity(item, canonicalIsbn, kdcInfo);
+    CachedBookDetail bookDetail =
+        externalBookLookupService.findByIsbn(requestedIsbn, canonicalIsbn);
+    return BookConverter.toEntity(bookDetail.item(), canonicalIsbn, bookDetail.kdcInfo());
   }
 
   private Book saveExternalBook(Book book, String canonicalIsbn) {
