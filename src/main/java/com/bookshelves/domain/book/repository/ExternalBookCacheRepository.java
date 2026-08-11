@@ -29,7 +29,8 @@ public class ExternalBookCacheRepository {
   private final ObjectMapper objectMapper;
 
   public Optional<KakaoBookSearchResult> findSearch(String normalizedQuery, int page, int size) {
-    return read(searchKey(normalizedQuery, page, size), KakaoBookSearchResult.class);
+    return read(searchKey(normalizedQuery, page, size), KakaoBookSearchResult.class)
+        .filter(searchResult -> searchResult.books() != null);
   }
 
   public void saveSearch(
@@ -38,7 +39,13 @@ public class ExternalBookCacheRepository {
   }
 
   public Optional<CachedBookDetail> findDetail(String canonicalIsbn) {
-    return read(detailKey(canonicalIsbn), CachedBookDetail.class);
+    return read(detailKey(canonicalIsbn), CachedBookDetail.class)
+        .filter(
+            bookDetail ->
+                bookDetail.item() != null
+                    && bookDetail.canonicalIsbn() != null
+                    && !bookDetail.canonicalIsbn().isBlank()
+                    && bookDetail.kdcInfo() != null);
   }
 
   public void saveDetail(String canonicalIsbn, CachedBookDetail bookDetail) {

@@ -73,6 +73,59 @@ class ExternalBookCacheRepositoryTest {
   }
 
   @Test
+  void searchWithNullBooksFallsBackToCacheMiss() {
+    KakaoBookSearchResult incompleteResult = new KakaoBookSearchResult(null, true);
+    given(valueOperations.get(anyString())).willReturn("json");
+    given(objectMapper.readValue("json", KakaoBookSearchResult.class)).willReturn(incompleteResult);
+
+    assertThat(externalBookCacheRepository.findSearch("cached-query", 1, 15)).isEmpty();
+  }
+
+  @Test
+  void detailWithNullItemFallsBackToCacheMiss() {
+    CachedBookDetail incompleteDetail =
+        new CachedBookDetail(null, "9788936434595", KdcInfo.unavailable());
+    given(valueOperations.get(anyString())).willReturn("json");
+    given(objectMapper.readValue("json", CachedBookDetail.class)).willReturn(incompleteDetail);
+
+    assertThat(externalBookCacheRepository.findDetail("9788936434595")).isEmpty();
+  }
+
+  @Test
+  void detailWithNullKdcInfoFallsBackToCacheMiss() {
+    CachedBookDetail validDetail = cachedBookDetail();
+    CachedBookDetail incompleteDetail =
+        new CachedBookDetail(validDetail.item(), validDetail.canonicalIsbn(), null);
+    given(valueOperations.get(anyString())).willReturn("json");
+    given(objectMapper.readValue("json", CachedBookDetail.class)).willReturn(incompleteDetail);
+
+    assertThat(externalBookCacheRepository.findDetail("9788936434595")).isEmpty();
+  }
+
+  @Test
+  void detailWithMissingCanonicalIsbnFallsBackToCacheMiss() {
+    CachedBookDetail validDetail = cachedBookDetail();
+    CachedBookDetail incompleteDetail =
+        new CachedBookDetail(validDetail.item(), null, validDetail.kdcInfo());
+    given(valueOperations.get(anyString())).willReturn("json");
+    given(objectMapper.readValue("json", CachedBookDetail.class)).willReturn(incompleteDetail);
+
+    assertThat(externalBookCacheRepository.findDetail("9788936434595")).isEmpty();
+  }
+
+  @Test
+  void detailWithUnavailableKdcInfoRemainsValidCacheHit() {
+    CachedBookDetail validDetail = cachedBookDetail();
+    CachedBookDetail detail =
+        new CachedBookDetail(
+            validDetail.item(), validDetail.canonicalIsbn(), KdcInfo.unavailable());
+    given(valueOperations.get(anyString())).willReturn("json");
+    given(objectMapper.readValue("json", CachedBookDetail.class)).willReturn(detail);
+
+    assertThat(externalBookCacheRepository.findDetail("9788936434595")).containsSame(detail);
+  }
+
+  @Test
   void redisReadFailureFallsBackToCacheMiss() {
     given(valueOperations.get(anyString())).willThrow(new RuntimeException("redis unavailable"));
 
