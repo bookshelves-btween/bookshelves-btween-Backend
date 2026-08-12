@@ -14,9 +14,9 @@ public class NotificationPushListener {
   private final ThreadPoolTaskExecutor notificationPushTaskExecutor;
 
   public NotificationPushListener(
-    ObjectProvider<FcmNotificationSender> senderProvider,
-    @Qualifier("notificationPushTaskExecutor")
-    ThreadPoolTaskExecutor notificationPushTaskExecutor) {
+      ObjectProvider<FcmNotificationSender> senderProvider,
+      @Qualifier("notificationPushTaskExecutor")
+          ThreadPoolTaskExecutor notificationPushTaskExecutor) {
     this.senderProvider = senderProvider;
     this.notificationPushTaskExecutor = notificationPushTaskExecutor;
   }
@@ -28,8 +28,8 @@ public class NotificationPushListener {
       return;
     }
     event
-      .notifications()
-      .forEach(
-        notification -> notificationPushTaskExecutor.execute(() -> sender.send(notification)));
+        .notifications()
+        .forEach(
+            notification -> notificationPushTaskExecutor.execute(() -> sender.send(notification)));
   }
 }

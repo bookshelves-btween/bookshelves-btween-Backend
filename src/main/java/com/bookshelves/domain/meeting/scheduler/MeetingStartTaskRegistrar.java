@@ -5,14 +5,12 @@ import com.bookshelves.domain.meeting.event.MeetingCreatedEvent;
 import com.bookshelves.domain.meeting.repository.MeetingRepository;
 import com.bookshelves.domain.meeting.service.MeetingCommandService;
 import com.bookshelves.global.util.ServiceTime;
-
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -28,7 +26,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class MeetingStartTaskRegistrar {
 
   private static final List<MeetingStatus> BEFORE_START_STATUSES =
-    List.of(MeetingStatus.RECRUITING, MeetingStatus.RECRUIT_CLOSED);
+      List.of(MeetingStatus.RECRUITING, MeetingStatus.RECRUIT_CLOSED);
 
   private final MeetingRepository meetingRepository;
   private final MeetingCommandService meetingCommandService;
@@ -36,9 +34,9 @@ public class MeetingStartTaskRegistrar {
   private final Map<Long, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
 
   public MeetingStartTaskRegistrar(
-    MeetingRepository meetingRepository,
-    MeetingCommandService meetingCommandService,
-    @Qualifier("meetingStartTaskScheduler") TaskScheduler meetingStartTaskScheduler) {
+      MeetingRepository meetingRepository,
+      MeetingCommandService meetingCommandService,
+      @Qualifier("meetingStartTaskScheduler") TaskScheduler meetingStartTaskScheduler) {
     this.meetingRepository = meetingRepository;
     this.meetingCommandService = meetingCommandService;
     this.meetingStartTaskScheduler = meetingStartTaskScheduler;
@@ -50,8 +48,8 @@ public class MeetingStartTaskRegistrar {
     LocalDateTime now = ServiceTime.now();
     try {
       meetingRepository
-        .findAllByStatusInAndStartDateAfter(BEFORE_START_STATUSES, now)
-        .forEach(meeting -> schedule(meeting.getId(), meeting.getStartDate()));
+          .findAllByStatusInAndStartDateAfter(BEFORE_START_STATUSES, now)
+          .forEach(meeting -> schedule(meeting.getId(), meeting.getStartDate()));
     } catch (Exception e) {
       // 기동 복구가 실패해도 애플리케이션은 시작하고 기존 폴링이 누락된 시작 처리
       log.error("미래 모임 시작 예약 복구 실패", e);
