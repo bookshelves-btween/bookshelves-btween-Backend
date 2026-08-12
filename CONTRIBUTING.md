@@ -26,12 +26,11 @@ hotfix/45-oauth-token-refresh
 
 ## 2. 커밋 컨벤션 — Conventional Commits
 
-형식: `<type>(<scope>): <description>` — 한글 또는 영어로 작성.
+형식: `<type>(<scope>): <description>` — 영어로 작성.
 
 ```
 feat(book): add ISBN normalization on lazy persistence
-feat(meeting): 모임 자동 폭파 스케줄러 추가
-fix(auth): 만료된 카카오 액세스 토큰 갱신 처리
+fix(auth): handle expired kakao access token
 docs(readme): document required env vars
 ```
 
@@ -50,7 +49,7 @@ docs(readme): document required env vars
 | `ci`       | CI 설정 변경                    |
 | `perf`     | 성능 개선                       |
 
-- **description:** 마침표 없음. 영어는 명령형 현재시제·소문자 시작 (`add`, `fix` — not `added`, `Fixes`), 한글은 `~추가`·`~수정`처럼 간결한 명사형 종결.
+- **description:** 명령형 현재시제, 소문자 시작, 마침표 없음 (`add`, `fix` — not `added`, `Fixes`).
 - **scope:** 선택. 도메인 단위 권장 (`book`, `meeting`, `auth`, `chat`, `ai`, `notification`).
 - 커밋 본문(body)이 필요하면 제목 아래 한 줄 띄우고 상세 설명.
 
@@ -63,7 +62,6 @@ docs(readme): document required env vars
 - **1 이슈 → 1 PR → N 커밋.** 하나의 작업 단위는 이슈로 만들고, 그 이슈를 해결하는 브랜치에서 여러 커밋을 쌓아 PR 하나로 올린다.
 - 이슈/PR 템플릿은 자동으로 채워진다(`.github/`). 빈칸을 채워 작성한다.
 - PR 본문에 `Closes #<이슈번호>`를 넣어 머지 시 이슈가 자동 종료되게 한다.
-- **PR 제목은 이슈와 동일한 `[Type]` prefix**를 붙인다 (`[Feature]` / `[Bug]` / `[Refactor]` / `[Chore]`).
 
 ### 머지 방식 — Merge commit (`--no-ff`)
 
@@ -73,9 +71,12 @@ docs(readme): document required env vars
 
 ### 머지 조건
 
-- 리뷰 **최소 1인 승인**.
-- CI 통과 — `./gradlew spotlessCheck build`.
-- 충돌 없음 (충돌 시 PR 작성자가 최신 base를 반영해 해결).
+- 사람 리뷰어 또는 CodeRabbit 등 AI 리뷰어의 리뷰를 **최소 1회** 받아야 한다.
+- AI 리뷰가 등록된 경우, 모든 리뷰에 대해 **수정하거나 미반영 사유를 댓글로 작성한 후 스레드를 Resolve**해야 한다.
+- CI `./gradlew spotlessCheck build`가 통과해야 한다.
+- 충돌이 없어야 하며, 충돌 발생 시 PR 작성자가 최신 base 브랜치를 반영해 해결한다.
+
+즉, **CodeRabbit 리뷰가 완료되고 모든 리뷰 의견이 처리되었다면 사람의 별도 승인 없이도 머지할 수 있습니다.**
 
 ---
 
@@ -89,11 +90,6 @@ docs(readme): document required env vars
 **리뷰어**
 
 - 로직·설계·엣지케이스에 집중한다. 포맷/스타일 지적은 하지 않는다 — Spotless가 강제하므로 리뷰 대상이 아니다.
-- 코멘트에 심각도를 접두어로 표기한다:
-  - **[P1]** 머지 전 반드시 반영 (버그·설계 결함)
-  - **[P2]** 반영 권장 (개선 제안)
-  - **[Q]** 질문 / 확인
-  - **[Nit]** 사소한 취향 (반영 선택)
 - 근거와 대안을 함께 제시하고, 사람이 아니라 코드를 대상으로 코멘트한다.
 
 **작성자 응답**
