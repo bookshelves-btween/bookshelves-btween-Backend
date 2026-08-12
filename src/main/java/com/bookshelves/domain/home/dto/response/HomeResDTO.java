@@ -9,7 +9,10 @@ import java.util.List;
 @Schema(description = "홈 화면 조회 결과")
 public record HomeResDTO(
     @Schema(description = "로그인한 회원 정보") MemberInfo member,
-    @Schema(description = "반환된 추천 도서의 노출 기준일. 저장된 추천이 없으면 null", example = "2026-07-31")
+    @Schema(
+            description = "반환된 추천 도서의 노출 기준일. 저장된 추천이 없으면 null",
+            example = "2026-07-31",
+            nullable = true)
         LocalDate recommendedAt,
     @Schema(description = "오늘의 추천 도서. 저장된 추천이 없으면 null", nullable = true)
         RecommendedBookInfo recommendedBook,
@@ -23,7 +26,7 @@ public record HomeResDTO(
   @Schema(description = "책 정보")
   public record BookInfo(
       @Schema(description = "책 ID", example = "1") Long id,
-      @Schema(description = "책 상세 조회와 서재 담기의 식별자", example = "9788936434595") String isbn,
+      @Schema(description = "책 상세 조회와 서재 담기의 식별자", example = "9788936434267") String isbn,
       @Schema(description = "책 제목", example = "아몬드") String title,
       @Schema(description = "저자", example = "손원평") String author,
       @Schema(description = "출판사", example = "창비") String publisher,
@@ -49,7 +52,8 @@ public record HomeResDTO(
       @Schema(description = "서재 기록 ID", example = "10") Long id,
       @Schema(description = "독서 진행률(%)", example = "70") Integer progress,
       @Schema(description = "진행률에서 파생한 상태", example = "READING") String status,
-      @Schema(description = "내가 기록한 별점. 기록 전이면 null", example = "4.5") BigDecimal rating,
+      @Schema(description = "내가 기록한 별점. 기록 전이면 null", example = "4.5", nullable = true)
+          BigDecimal rating,
       @Schema(description = "서재 기록을 마지막으로 수정한 시각", example = "2026-07-30T04:30:00")
           LocalDateTime updatedAt) {}
 

@@ -89,21 +89,34 @@ public interface AIControllerDocs {
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
-        description = "모임을 찾을 수 없음 (MEETING404_1)",
+        description = "모임 또는 채팅방을 찾을 수 없음 (MEETING404_1, CHAT404_1)",
         content =
             @Content(
                 mediaType = "application/json",
-                examples =
-                    @ExampleObject(
-                        value =
-                            """
+                examples = {
+                  @ExampleObject(
+                      name = "모임 없음",
+                      value =
+                          """
                             {
                               "isSuccess": false,
                               "code": "MEETING404_1",
                               "message": "해당 모임을 찾을 수 없습니다.",
                               "result": {}
                             }
-                            """))),
+                            """),
+                  @ExampleObject(
+                      name = "채팅방 없음",
+                      value =
+                          """
+                            {
+                              "isSuccess": false,
+                              "code": "CHAT404_1",
+                              "message": "존재하지 않는 채팅방입니다.",
+                              "result": {}
+                            }
+                            """)
+                })),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "409",
         description = "중복 투표, 마지막 질문 공개 완료 또는 진행 중이 아닌 모임",

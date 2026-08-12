@@ -121,7 +121,7 @@ public interface HomeControllerDocs {
                               "isSuccess": false,
                               "code": "AUTH401_2",
                               "message": "유효하지 않은 Access Token입니다.",
-                              "result": {}
+                              "result": null
                             }
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
