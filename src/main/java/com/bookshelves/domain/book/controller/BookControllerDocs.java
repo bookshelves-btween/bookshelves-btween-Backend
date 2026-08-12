@@ -309,6 +309,23 @@ public interface BookControllerDocs {
                             }
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "429",
+        description = "외부 도서 검색 요청 횟수 초과",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK429_1",
+                              "message": "외부 도서 조회 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+                              "result": {}
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "502",
         description = "카카오 도서 API 호출 실패",
         content =
@@ -542,6 +559,23 @@ public interface BookControllerDocs {
                               "code": "BOOK404_1",
                               "message": "해당 책을 찾을 수 없습니다.",
                               "result": null
+                            }
+                            """))),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "429",
+        description = "외부 도서 상세 조회 요청 횟수 초과",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK429_1",
+                              "message": "외부 도서 조회 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+                              "result": {}
                             }
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
