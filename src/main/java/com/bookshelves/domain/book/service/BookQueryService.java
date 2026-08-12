@@ -1,8 +1,6 @@
 package com.bookshelves.domain.book.service;
 
-import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient;
 import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
-import com.bookshelves.domain.book.client.KakaoBookSearchClient;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookItem;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookSearchResult;
 import com.bookshelves.domain.book.dto.response.BookDetailResDTO;
@@ -27,6 +25,7 @@ import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
 import com.bookshelves.domain.book.repository.CategoryRepository;
+import com.bookshelves.domain.book.repository.ExternalBookCacheRepository.CachedBookDetail;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository.CumulativeStatistics;
@@ -69,8 +68,7 @@ public class BookQueryService {
   private final BookRepository bookRepository;
   private final MemberBookRepository memberBookRepository;
   private final MemberBookHistoryRepository memberBookHistoryRepository;
-  private final KakaoBookSearchClient kakaoBookSearchClient;
-  private final Data4LibraryBookDetailClient data4LibraryBookDetailClient;
+  private final ExternalBookLookupService externalBookLookupService;
   private final RecentBookSearchRepository recentBookSearchRepository;
   private final AuthenticationFacade authenticationFacade;
 
@@ -98,7 +96,8 @@ public class BookQueryService {
     validateSearchRequest(query, page, size);
 
     String normalizedQuery = query.trim();
-    KakaoBookSearchResult searchResult = kakaoBookSearchClient.search(normalizedQuery, page, size);
+    KakaoBookSearchResult searchResult =
+        externalBookLookupService.search(normalizedQuery, page, size);
 
     List<BookInfo> books = normalizeAndDeduplicate(searchResult.books());
     if (saveRecent) {
@@ -371,16 +370,13 @@ public class BookQueryService {
       return new BookDetailResDTO(toSavedBookDetailInfo(savedBook), toMemberBookInfo(memberBook));
     }
 
-    KakaoBookItem externalBook =
-        kakaoBookSearchClient.searchByIsbn(requestedIsbn).books().stream()
-            .findFirst()
-            .orElseThrow(() -> new BookException(BookErrorCode.BOOK_NOT_FOUND));
-    String externalIsbn = IsbnNormalizer.normalize(externalBook.isbn()).orElse(requestedIsbn);
-    String canonicalExternalIsbn = IsbnNormalizer.toIsbn13(externalIsbn);
-    KdcInfo kdcInfo = data4LibraryBookDetailClient.findKdcByIsbn(canonicalExternalIsbn);
+    CachedBookDetail externalBook =
+        externalBookLookupService.findByIsbn(requestedIsbn, canonicalIsbn);
 
     return new BookDetailResDTO(
-        toExternalBookDetailInfo(externalBook, canonicalExternalIsbn, kdcInfo), null);
+        toExternalBookDetailInfo(
+            externalBook.item(), externalBook.canonicalIsbn(), externalBook.kdcInfo()),
+        null);
   }
 
   private BookDetailResDTO.BookInfo toExternalBookDetailInfo(
