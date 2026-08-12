@@ -12,6 +12,8 @@ import com.bookshelves.domain.book.dto.response.RecentBookSearchResDTO;
 import com.bookshelves.domain.book.exception.code.BookSuccessCode;
 import com.bookshelves.domain.book.service.BookCommandService;
 import com.bookshelves.domain.book.service.BookQueryService;
+import com.bookshelves.domain.book.service.ExternalBookRateLimitService;
+import com.bookshelves.domain.book.service.ExternalBookRateLimitService.RequestType;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ public class BookController implements BookControllerDocs {
 
   private final BookQueryService bookQueryService;
   private final BookCommandService bookCommandService;
+  private final ExternalBookRateLimitService externalBookRateLimitService;
 
   @Override
   @GetMapping("/api/v1/categories")
@@ -45,6 +48,7 @@ public class BookController implements BookControllerDocs {
       @RequestParam(defaultValue = "1") String page,
       @RequestParam(defaultValue = "15") String size,
       @RequestParam(defaultValue = "true") boolean saveRecent) {
+    externalBookRateLimitService.check(RequestType.SEARCH);
     BookSearchResDTO response = bookQueryService.searchExternalBooks(query, page, size, saveRecent);
     return ResponseEntity.ok(
         ApiResponse.onSuccess(BookSuccessCode.EXTERNAL_BOOK_SEARCHED, response));
@@ -53,6 +57,7 @@ public class BookController implements BookControllerDocs {
   @Override
   @GetMapping("/api/v1/books/{isbn}")
   public ResponseEntity<ApiResponse<BookDetailResDTO>> getBookDetail(@PathVariable String isbn) {
+    externalBookRateLimitService.check(RequestType.DETAIL);
     BookDetailResDTO response = bookQueryService.getBookDetail(isbn);
     return ResponseEntity.ok(ApiResponse.onSuccess(BookSuccessCode.BOOK_DETAIL_FOUND, response));
   }

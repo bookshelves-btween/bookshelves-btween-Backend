@@ -84,3 +84,8 @@ management:
     web:
       exposure:
         include: health
+
+book:
+  rate-limit:
+    request-limit: ${BOOK_RATE_LIMIT_REQUEST_LIMIT:30}
+    window: ${BOOK_RATE_LIMIT_WINDOW:1m}

@@ -26,6 +26,8 @@ public enum BookErrorCode implements BaseErrorCode {
   MEMBER_BOOK_RATING_CANNOT_BE_CLEARED(
       HttpStatus.BAD_REQUEST, "BOOK400_3", "등록한 평점은 미평가로 변경할 수 없습니다."),
   BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOK404_1", "해당 책을 찾을 수 없습니다."),
+  EXTERNAL_BOOK_RATE_LIMIT_EXCEEDED(
+      HttpStatus.TOO_MANY_REQUESTS, "BOOK429_1", "외부 도서 조회 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."),
   CATEGORY_LIST_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "BOOK500_1", "카테고리 목록 조회에 실패했습니다."),
   RECENT_BOOK_SEARCHES_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "BOOK500_2", "최근 검색어를 불러오지 못했습니다."),
   RECENT_BOOK_SEARCH_DELETE_FAILED(
