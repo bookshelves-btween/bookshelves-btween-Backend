@@ -25,6 +25,11 @@ import lombok.NoArgsConstructor;
 public class Meeting extends BaseEntity {
 
   public static final int MIN_PARTICIPANTS = 3;
+  public static final int MAX_PARTICIPANTS = 6;
+  public static final int MIN_DURATION_MINUTES = 5;
+  public static final int MAX_DURATION_MINUTES = 60;
+  public static final int DURATION_UNIT_MINUTES = 5;
+  public static final int MIN_HOURS_BEFORE_START = 7;
   public static final int RECRUITMENT_CLOSE_HOURS_BEFORE_START = 6;
 
   @Id
