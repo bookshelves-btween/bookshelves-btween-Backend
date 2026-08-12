@@ -122,7 +122,7 @@ public class ChatPresenceService {
     return members.size();
   }
 
-  // 정족수는 접속 인원의 과반을 올림한 값이다.
+  // 정족수는 접속 인원의 절반을 올림한 값이다.
   public synchronized int requiredVotes(Long chatroomId) {
     return Math.ceilDiv(countConnected(chatroomId), 2);
   }

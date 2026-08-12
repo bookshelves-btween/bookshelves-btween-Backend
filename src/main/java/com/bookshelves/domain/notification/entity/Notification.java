@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
 @Table(
     name = "notification",
     uniqueConstraints = {
-      // 같은 회원에게 같은 사건의 알림이 중복 저장되지 않게 한다.
+      // 대상 ID가 있으면 회원·유형·대상 ID가 같은 알림의 중복 저장을 막는다.
       @UniqueConstraint(
           name = "uk_notification_member_type_related",
           columnNames = {"member_id", "type", "related_id"})

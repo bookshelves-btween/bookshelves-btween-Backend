@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AIQuestionRepository extends JpaRepository<AIQuestion, Long> {
 
-  // 현재 질문은 미리 저장된 질문 중 Meeting.currentQuestionOrder로 조회한다.
+  // 모임과 질문 순서로 저장된 질문을 조회한다.
   Optional<AIQuestion> findByMeetingIdAndQuestionOrder(Long meetingId, Integer questionOrder);
 
   List<AIQuestion> findAllByMeetingIdOrderByQuestionOrderAsc(Long meetingId);

@@ -15,7 +15,7 @@ public class GeminiClient {
 
   static final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
-  // 모델명의 콜론이 URI 스킴으로 해석되지 않도록 경로 변수로 치환한다.
+  // 모델명을 경로 변수로 주입해 generateContent 호출 경로를 구성한다.
   static final String GENERATE_CONTENT_PATH = "/models/{model}:generateContent";
   static final String DEFAULT_MODEL = "gemini-3.6-flash";
   private static final String API_KEY_HEADER = "x-goog-api-key";

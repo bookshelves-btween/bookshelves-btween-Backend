@@ -26,8 +26,8 @@ public class QuestionRevealService {
   private final ApplicationEventPublisher eventPublisher;
 
   /**
-   * 다음 질문을 공개하고 성공 여부를 반환한다. 비관적 락으로 커서 증가를 직렬화하고, 같은 락 안에서 {@code expectedRound}를 소비해 같은 표로 질문이 두
-   * 번 공개되는 것을 막는다.
+   * 다음 질문을 공개하고 성공 여부를 반환한다. 모임 행의 비관적 락으로 커서 증가를 직렬화하고, {@link QuestionVoteStore}에서 {@code
+   * expectedRound}를 검증·소비해 같은 라운드의 중복 공개를 막는다.
    *
    * @param expectedRound 정족수를 판정한 시점의 라운드 번호
    */

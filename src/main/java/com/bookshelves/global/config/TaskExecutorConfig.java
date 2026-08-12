@@ -15,7 +15,7 @@ public class TaskExecutorConfig {
     return buildExecutor("ai-question-");
   }
 
-  // 질문 생성과 큐를 분리해 한쪽의 지연이 다른 쪽으로 전파되지 않게 한다.
+  // 회의 요약과 질문 생성의 실행기·큐를 분리해 한쪽의 지연이 전파되지 않게 한다.
   @Bean
   public ThreadPoolTaskExecutor meetingSummaryTaskExecutor() {
     return buildExecutor("meeting-summary-");

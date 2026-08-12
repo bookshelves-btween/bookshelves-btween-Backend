@@ -27,7 +27,7 @@ public class AccessTokenGuard {
         .orElse(false);
   }
 
-  // 로그아웃 시각 이전에 발급된 토큰을 폐기한다.
+  // 로그아웃 시각 이전 또는 같은 시각에 발급된 토큰을 폐기한다.
   private boolean isRevokedByLogout(Long memberId, Instant tokenIssuedAt) {
     return redisTokenRepository
         .findLogoutAt(memberId)

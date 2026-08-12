@@ -80,7 +80,7 @@ public class MeetingCommandService {
     return MeetingCreateResDTO.from(savedMeeting);
   }
 
-  // 마감 상태를 커밋한 뒤 참여 요청에는 마감 예외를 반환한다.
+  // 모집 마감 처리를 커밋한 뒤 참여 요청에는 마감 예외를 반환한다.
   @Transactional(noRollbackFor = MeetingException.class)
   public MeetingParticipationResDTO participateMeeting(Long meetingId) {
     Meeting meeting =
@@ -129,7 +129,7 @@ public class MeetingCommandService {
     }
 
     meeting.start();
-    // 마감 이벤트에서 준비되지 않은 질문은 시드 문장으로 보충한다.
+    // 모임 시작 시 준비되지 않은 질문은 시드 문장으로 보충한다.
     aiQuestionPreparationService.ensureSeeded(meetingId);
 
     List<MeetingParticipant> participants =
