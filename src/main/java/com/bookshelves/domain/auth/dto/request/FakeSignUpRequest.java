@@ -19,11 +19,18 @@ public class FakeSignUpRequest {
   // 임의 문자열을 허용하면 아무 값이나 계정과 닉네임으로 남는다.
   @NotBlank
   @Pattern(regexp = "^tester-[1-9][0-9]?$", message = "key는 tester-1 ~ tester-99 형식이어야 합니다.")
-  @Schema(description = "테스트 회원을 구분하는 값", example = "tester-1")
+  @Schema(
+      description = "테스트 회원 식별 키. 동일한 키를 다시 사용하면 같은 회원으로 로그인합니다.",
+      example = "tester-1",
+      pattern = "^tester-[1-9][0-9]?$",
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String key;
 
   // 서버 환경 변수 FAKE_SIGNUP_SECRET과 일치해야 한다. 저장소가 공개되어 있어 코드에 값을 둘 수 없다.
   @NotBlank
-  @Schema(description = "서버에 설정된 테스트 회원가입 비밀값")
+  @Schema(
+      description = "서버의 FAKE_SIGNUP_SECRET과 일치해야 하는 테스트용 비밀값",
+      example = "local-test-secret",
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String secret;
 }

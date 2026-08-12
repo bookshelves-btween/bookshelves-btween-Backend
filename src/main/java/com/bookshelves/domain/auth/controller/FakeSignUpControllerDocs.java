@@ -17,29 +17,28 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface FakeSignUpControllerDocs {
 
   @Operation(
-      summary = "테스트용 토큰 발급 (임시)",
+      summary = "테스트 회원 토큰 발급 (임시)",
       description =
           """
-          소셜 로그인 없이 테스트 회원을 만들고 토큰을 발급한다. 시뮬레이터 여러 대에서
-          서로 다른 회원으로 모임 참여와 채팅을 확인하기 위한 임시 경로다.
+          소셜 로그인 없이 테스트 회원을 생성하고 토큰을 발급합니다. 여러 시뮬레이터에서 서로 다른
+          회원으로 모임 참여와 채팅을 검증하기 위한 임시 API입니다.
 
-          이 API는 앱이 호출하지 않는다. Swagger에서 직접 호출해 받은 accessToken과
-          refreshToken을 각 기기에 넣어 쓴다.
+          앱에서는 이 API를 호출하지 않습니다. Swagger에서 직접 호출해 받은 `accessToken`과
+          `refreshToken`을 테스트 기기에 설정해 사용합니다.
 
-          호출하려면 서버 환경 변수 FAKE_SIGNUP_SECRET과 같은 값을 secret으로 보내야 한다.
-          값이 설정되지 않은 환경에서는 모든 요청을 거부한다.
+          요청의 `secret`은 서버 환경 변수 `FAKE_SIGNUP_SECRET`과 일치해야 합니다. 환경 변수가 설정되지
+          않았거나 값이 일치하지 않으면 요청을 거부합니다.
 
-          같은 key로 다시 호출하면 같은 회원의 토큰을 발급하고, 처음 보는 key면 회원을 새로 만든다.
-          만들어진 회원은 닉네임까지 채워 ACTIVE 상태로 시작하므로 온보딩을 거치지 않는다.
-          key는 tester-1 ~ tester-99 형식만 허용한다.
+          같은 `key`로 다시 호출하면 기존 테스트 회원의 토큰을 발급하고, 처음 사용하는 `key`이면 새 회원을
+          생성합니다. 테스트 회원은 닉네임이 설정된 `ACTIVE` 상태로 생성되므로 온보딩이 필요하지 않습니다.
+          `key`는 `tester-1`부터 `tester-99`까지의 형식만 허용합니다.
 
-          임시 API다. prod 프로파일에서는 이 컨트롤러 자체가 등록되지 않는다.
-          앱 공개 전에 이 엔드포인트와 관련 설정을 모두 제거한다.
+          `prod` 프로파일에서는 엔드포인트가 등록되지 않습니다.
           """)
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "200",
-        description = "테스트 회원가입 성공",
+        description = "테스트 회원 생성 또는 로그인 성공",
         content =
             @Content(
                 mediaType = "application/json",
