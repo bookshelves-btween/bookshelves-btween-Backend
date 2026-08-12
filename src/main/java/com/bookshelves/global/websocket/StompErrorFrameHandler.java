@@ -17,15 +17,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.StompSubProtocolErrorHandler;
 import tools.jackson.databind.ObjectMapper;
 
-// CONNECT·SUBSCRIBE 처리 중 발생한 예외를 ERROR 프레임에 실어 보낸다.
-//
-// @RestControllerAdvice는 서블릿 디스패처 안에서만 동작해 STOMP 경로에는 개입하지 않는다.
-// 기본 핸들러는 예외 메시지 원문을 그대로 message 헤더에 넣으므로, 클라이언트는 HTTP에서 받던
-// ApiResponse envelope 대신 형식이 다른 문자열을 받게 된다. 여기서 같은 envelope로 맞춘다.
-//
-// 인터셉터가 던진 예외는 clientInboundChannel의 send가 호출 스레드에서 그대로 올려주므로
-// 여기까지 도달한다. 반면 @MessageMapping 처리 중 예외는 다른 스레드에서 발생해 이 경로를 타지
-// 않는다 — 그쪽은 StompExceptionAdvice가 맡는다.
+// CONNECT·SUBSCRIBE 처리 예외를 HTTP와 같은 ApiResponse 형식의 ERROR 프레임으로 변환한다.
+// @MessageMapping 처리 예외는 StompExceptionAdvice가 담당한다.
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -47,8 +40,7 @@ public class StompErrorFrameHandler extends StompSubProtocolErrorHandler {
     return MessageBuilder.createMessage(serialize(errorCode), accessor.getMessageHeaders());
   }
 
-  // 채널이 예외를 MessageDeliveryException으로 감싸므로 원인 사슬을 따라가 우리 예외를 찾는다.
-  // 못 찾으면 내부 구현 정보를 노출하지 않고 공통 500으로 내린다 — HTTP 쪽 처리와 같은 기준이다.
+  // 래핑된 원인에서 프로젝트 예외를 찾고, 나머지는 내부 정보를 숨긴 공통 오류로 처리한다.
   private BaseErrorCode resolveErrorCode(Throwable ex) {
     for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
       if (cause instanceof ProjectException projectException) {
@@ -73,7 +65,7 @@ public class StompErrorFrameHandler extends StompSubProtocolErrorHandler {
     }
   }
 
-  // 직렬화 실패가 원래 오류를 삼키면 안 된다. 본문이 비어도 message 헤더로 사유는 전달된다.
+  // 직렬화가 실패해도 STOMP message 헤더에는 오류 사유가 남는다.
   private byte[] serialize(BaseErrorCode errorCode) {
     try {
       return objectMapper.writeValueAsBytes(ApiResponse.onFailure(errorCode, Map.of()));

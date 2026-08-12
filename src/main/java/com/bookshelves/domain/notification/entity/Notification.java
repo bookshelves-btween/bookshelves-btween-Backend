@@ -28,8 +28,7 @@ import lombok.NoArgsConstructor;
 @Table(
     name = "notification",
     uniqueConstraints = {
-      // 같은 회원에게 같은 사건의 알림이 두 번 쌓이는 것을 막는다. 조회 후 삽입만으로는 동시 실행에서
-      // 둘 다 없다고 읽어 각각 INSERT한다. related_id가 NULL인 취소 알림은 제약을 받지 않는다.
+      // 대상 ID가 있으면 회원·유형·대상 ID가 같은 알림의 중복 저장을 막는다.
       @UniqueConstraint(
           name = "uk_notification_member_type_related",
           columnNames = {"member_id", "type", "related_id"})
@@ -84,7 +83,7 @@ public class Notification extends BaseEntity {
                 meeting.getCurParticipants(),
                 meeting.getMaxParticipants());
     notification.type = NotificationType.MEETING_CANCELED;
-    // 취소된 모임은 즉시 삭제되므로 이동 대상 ID를 남기지 않는다.
+    // 삭제되는 모임이므로 이동 대상 ID를 남기지 않는다.
     notification.relatedId = null;
     return notification;
   }

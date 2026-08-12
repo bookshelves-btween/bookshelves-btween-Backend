@@ -54,9 +54,7 @@ public class Meeting extends BaseEntity {
   @Column(name = "status", nullable = false)
   private MeetingStatus status = MeetingStatus.RECRUITING;
 
-  // 현재 참여자에게 공개된 AI 질문의 question_order. 0 = 아직 공개 전(모임 시작 전).
-  // 질문 5개는 모임 시작 전에 미리 저장되므로 "저장된 행 수"가 진행도를 뜻하지 않는다 — 커서로 분리한다.
-  // 기존 행에도 값이 필요해 DB 기본값 0을 함께 지정한다(ddl-auto가 컬럼을 추가할 때 적용).
+  // 공개된 질문의 순서이며 0은 공개 전을 의미한다.
   @Column(
       name = "current_question_order",
       nullable = false,
@@ -86,7 +84,7 @@ public class Meeting extends BaseEntity {
     this.status = MeetingStatus.COMPLETED;
   }
 
-  // 시작과 동시에 1번 질문을 공개한다 — IN_PROGRESS인데 표시할 질문이 없는 구간을 만들지 않는다
+  // 진행 상태로 전환하면서 첫 질문을 공개한다.
   public void start() {
     this.status = MeetingStatus.IN_PROGRESS;
     this.currentQuestionOrder = 1;
@@ -101,7 +99,7 @@ public class Meeting extends BaseEntity {
     this.status = MeetingStatus.RECRUIT_CLOSED;
   }
 
-  // 시작 시각이 아니라 상태로 판단한다 — MeetingStartScheduler가 올려준 상태를 단일 기준으로 삼는다.
+  // 스케줄러가 전환한 상태를 시작 여부의 기준으로 사용한다.
   public boolean hasStarted() {
     return this.status == MeetingStatus.IN_PROGRESS || this.status == MeetingStatus.COMPLETED;
   }
@@ -118,7 +116,6 @@ public class Meeting extends BaseEntity {
     return !getRecruitmentCloseDate().isAfter(now);
   }
 
-  // 종료 시각 = 시작 시각 + 진행 시간(분)
   public LocalDateTime getEndDate() {
     return this.startDate.plusMinutes(this.duration);
   }

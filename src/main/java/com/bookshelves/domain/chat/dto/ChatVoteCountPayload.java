@@ -1,4 +1,4 @@
 package com.bookshelves.domain.chat.dto;
 
-// VOTE_COUNT 프레임 data — 질문 생성 투표 현황 변경 시 전원 broadcast
+// 질문 공개 투표 현황을 전달하는 VOTE_COUNT 프레임 데이터.
 public record ChatVoteCountPayload(int currentVotes, int requiredVotes) {}

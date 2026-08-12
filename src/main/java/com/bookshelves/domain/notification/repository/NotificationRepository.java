@@ -17,11 +17,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
   Slice<Notification> findAllByMember_IdAndIsDeletedFalseAndIdGreaterThanOrderByIdAsc(
       Long memberId, Long afterId, Pageable pageable);
 
-  // 읽음 처리와 soft delete가 동시에 stale 상태를 저장해 삭제를 되돌리지 않도록 행 변경을 직렬화한다.
+  // 읽음 처리와 soft delete의 동시 갱신을 직렬화한다.
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<Notification> findByIdAndMember_IdAndIsDeletedFalse(Long id, Long memberId);
 
-  // 요약 완료 알림은 중복 이벤트로 두 번 생성될 수 있다. 회원·타입·모임 조합으로 존재를 확인한다.
+  // 회원·타입·모임 조합으로 요약 완료 알림의 중복을 확인한다.
   boolean existsByMember_IdAndTypeAndRelatedId(
       Long memberId, NotificationType type, Long relatedId);
 }

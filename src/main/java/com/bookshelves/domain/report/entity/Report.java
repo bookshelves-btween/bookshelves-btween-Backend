@@ -26,7 +26,7 @@ import lombok.NoArgsConstructor;
 @Table(
     name = "report",
     uniqueConstraints = {
-      // 같은 사람이 같은 방을 재신고할 수 없다 — 사전 조회(existsBy)와 저장 사이 경쟁을 DB가 최종 차단
+      // 동시 요청에서도 같은 회원의 채팅방 중복 신고를 막는다.
       @UniqueConstraint(
           name = "uk_report_reporter_chatroom",
           columnNames = {"reporter_member_id", "chatroom_id"})

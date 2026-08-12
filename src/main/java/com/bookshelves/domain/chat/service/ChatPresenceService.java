@@ -18,14 +18,9 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 
-// 채팅방별 접속자(presence) 추적 — 단일 서버(SimpleBroker) 전제의 인메모리 저장.
-// 서버 다중화(Redis Pub/Sub 전환) 시 이 저장소도 외부화 대상.
-// 접속자 수는 세션이 아니라 "회원" 단위로 센다 (한 회원이 다중 탭·재연결로 세션을
-// 여러 개 가져도 1명). 회원의 첫 구독에만 JOINED, 마지막 구독 해제에만 LEFT를 broadcast한다.
-//
-// LEFT는 즉시 내보내지 않고 유예(grace)를 둔다 — 마지막 구독이 끊겨도 유예 시간 안에
-// 재접속하면 LEFT 없이 presence를 유지한다. iOS 백그라운드 전환처럼 짧게 끊겼다 돌아오는
-// 경우에 connected 숫자가 깜빡이는 것을 막는다. 유예 동안에도 회원을 접속자로 계속 센다.
+// 채팅방 접속자를 회원 단위로 추적하는 단일 서버용 인메모리 저장소.
+// 첫 구독과 마지막 해제에만 상태를 전파하며, 짧은 재접속에는 LEFT 유예를 적용한다.
+// 서버 다중화 시 투표 저장소와 함께 외부화해야 한다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -33,35 +28,27 @@ public class ChatPresenceService {
 
   private static final String EVENT_JOINED = "JOINED";
   private static final String EVENT_LEFT = "LEFT";
-  // LEFT 유예 시간 — 명세 "10~15초, 백엔드 확정" 범위에서 15초로 확정
+  // 유예 중인 회원도 접속 인원에 포함한다.
   private static final Duration LEFT_GRACE = Duration.ofSeconds(15);
 
   private final MemberRepository memberRepository;
   private final SimpMessagingTemplate messagingTemplate;
   private final QuestionVoteStore questionVoteStore;
   private final QuestionRevealService questionRevealService;
-  // 필드명이 빈 이름(webSocketTaskScheduler)과 일치 → 브로커 자체 스케줄러와 구분해 주입
+  // WebSocket 전용 스케줄러를 다른 TaskScheduler와 구분해 주입한다.
   private final ThreadPoolTaskScheduler webSocketTaskScheduler;
 
   private record Subscription(Long chatroomId, Long memberId) {}
 
-  // sessionId → (subscriptionId → 구독 정보)
+  // sessionId → subscriptionId → 구독 정보
   private final Map<String, Map<String, Subscription>> subscriptionsBySession = new HashMap<>();
-  // chatroomId → (memberId → 해당 회원의 활성 구독 수)
+  // chatroomId → memberId → 활성 구독 수
   private final Map<Long, Map<Long, Integer>> memberSubscriptionsByChatroom = new HashMap<>();
-  // chatroomId → (memberId → LEFT 유예 타이머). 활성 구독이 0이지만 아직 접속자로 세는 회원.
+  // chatroomId → memberId → LEFT 유예 타이머
   private final Map<Long, Map<Long, ScheduledFuture<?>>> pendingLeaveByChatroom = new HashMap<>();
 
-  // 구독 등록과 JOINED 전파를 두 단계로 나눈다.
-  //
-  // 등록은 어떤 DB 호출보다 먼저 끝내야 한다. 등록이 조회 뒤로 밀리면, 그 사이 소켓이 끊겨
-  // disconnect가 먼저 돌 때 지울 상태가 없어 그냥 반환하고, 뒤늦은 등록이 이미 닫힌 세션을
-  // 남긴다. 그 세션에는 다시 올 해제 이벤트가 없어 회원이 영구히 접속자로 세어지고 정족수도
-  // 그만큼 높은 채로 굳는다.
-  //
-  // 닉네임 조회는 두 단계 사이, 락 밖에서 한다. 이 모니터는 채팅방별이 아니라 싱글턴 전체를
-  // 잠그므로 안에서 DB를 기다리면 무관한 채팅방의 입장·퇴장·접속자 조회까지 멈춘다.
-  // 조회는 실제로 전파할 때만 하므로 중복 SUBSCRIBE는 DB를 타지 않는다.
+  // disconnect와의 경합을 막기 위해 DB 조회 전에 구독을 등록한다.
+  // 닉네임은 전역 모니터 밖에서 조회해 다른 채팅방의 presence 처리를 막지 않는다.
   public void join(Long chatroomId, Long memberId, String sessionId, String subscriptionId) {
     if (!register(chatroomId, memberId, sessionId, subscriptionId)) {
       return;
@@ -69,8 +56,7 @@ public class ChatPresenceService {
 
     String nickname = findNickname(memberId);
 
-    // 카운트 계산과 전송은 다시 락 안에서 한 덩어리로 한다 — 따로 두면 동시 입장 시
-    // "2명 프레임 뒤에 1명 프레임"처럼 접속자 수가 역행하는 전송이 나간다
+    // 카운트 계산과 전송을 직렬화해 접속자 수 프레임의 역행을 막는다.
     synchronized (this) {
       broadcastParticipant(chatroomId, nickname, EVENT_JOINED);
     }
@@ -82,14 +68,12 @@ public class ChatPresenceService {
     Map<String, Subscription> sessionSubscriptions =
         subscriptionsBySession.computeIfAbsent(sessionId, k -> new HashMap<>());
 
-    // 같은 (sessionId, subscriptionId) 중복 SUBSCRIBE는 멱등 처리 — 덮어쓰면서 카운트만 올리면
-    // 이후 해제로 상쇄되지 않아 phantom presence(과대 집계)가 영구히 남는다
+    // 중복 SUBSCRIBE는 활성 구독 수를 늘리지 않는다.
     if (sessionSubscriptions.containsKey(subscriptionId)) {
       return false;
     }
     sessionSubscriptions.put(subscriptionId, new Subscription(chatroomId, memberId));
 
-    // 유예 중이던 회원의 재접속이면 타이머를 취소한다
     boolean wasPendingLeave = cancelPendingLeave(chatroomId, memberId);
 
     int subscriptionCount =
@@ -97,7 +81,7 @@ public class ChatPresenceService {
             .computeIfAbsent(chatroomId, k -> new HashMap<>())
             .merge(memberId, 1, Integer::sum);
 
-    // 유예 중이던 회원은 이미 접속자로 세고 있었으므로 JOINED를 다시 쏘지 않는다(깜빡임 방지)
+    // 유예 중인 회원은 이미 접속자로 집계되므로 JOINED를 다시 보내지 않는다.
     return subscriptionCount == 1 && !wasPendingLeave;
   }
 
@@ -138,7 +122,7 @@ public class ChatPresenceService {
     return members.size();
   }
 
-  // 정족수 — 명세 정의 공식: ceil(connected / 2). (예시: 4명 → 2표, 5명 → 3표)
+  // 정족수는 접속 인원의 절반을 올림한 값이다.
   public synchronized int requiredVotes(Long chatroomId) {
     return Math.ceilDiv(countConnected(chatroomId), 2);
   }
@@ -151,7 +135,7 @@ public class ChatPresenceService {
 
     Integer current = members.get(subscription.memberId());
     if (current == null) {
-      return; // 이미 정리된 구독 — 방어
+      return;
     }
 
     if (current > 1) {
@@ -159,8 +143,7 @@ public class ChatPresenceService {
       return;
     }
 
-    // 회원의 마지막 활성 구독이 끊겼다 — 즉시 LEFT하지 않고 유예 타이머를 건다.
-    // 유예 동안에도 접속자로 계속 세므로 connected가 깜빡이지 않는다.
+    // 마지막 구독 해제 후 유예 시간 동안 재접속을 기다린다.
     members.remove(subscription.memberId());
     if (members.isEmpty()) {
       memberSubscriptionsByChatroom.remove(subscription.chatroomId());
@@ -195,28 +178,16 @@ public class ChatPresenceService {
     return true;
   }
 
-  // 유예 시간이 지나도 재접속이 없으면 실제 LEFT를 확정한다.
-  //
-  // presence 판정·정리·LEFT 전파·정족수 재판정은 전부 락 안에서 한 덩어리로 끝내고,
-  // 질문 공개(revealNext)만 락 밖으로 뺀다. 그 하나만 모임 행 비관적 락을 거는 DB 트랜잭션이라,
-  // 락을 쥔 채 기다리면 무관한 채팅방의 입장·퇴장·접속자 조회까지 그 시간만큼 멈춘다.
-  //
-  // 나머지를 락 밖으로 빼면 안 된다. pending에서 지운 뒤 락을 풀면 그 사이 같은 회원이 재접속해
-  // JOINED가 먼저 나가고 낡은 LEFT가 뒤따르고, 빈 방 판정과 라운드 무효화 사이에 끼어든 표가
-  // 함께 지워진다. expected 비교는 이미 지운 뒤의 재접속을 잡지 못한다.
-  //
-  // 판정 시점 이후 방이 비더라도 안전하다. 방을 비우는 쪽이 라운드를 무효화하므로,
-  // 뒤늦게 도착한 revealNext는 세대 불일치로 아무것도 공개하지 않는다.
+  // LEFT 확정과 정족수 재판정은 원자적으로 처리하되, DB 락을 사용하는 질문 공개는 모니터 밖에서 실행한다.
   private void finalizeLeave(Long chatroomId, Long memberId, ScheduledFuture<?> expected) {
-    // join과 같은 이유로 닉네임 조회를 락 앞에 둔다. 이 타이머가 헛돌아 broadcast까지 가지 않는
-    // 경우에도 조회 한 번은 나가지만, 전역 모니터를 쥔 채 DB를 기다리는 것보다 싸다.
+    // 전역 모니터를 점유하지 않도록 닉네임을 먼저 조회한다.
     String nickname = findNickname(memberId);
 
     Integer roundToReveal;
     synchronized (this) {
       Map<Long, ScheduledFuture<?>> pending = pendingLeaveByChatroom.get(chatroomId);
       if (pending == null || pending.get(memberId) != expected) {
-        // 재접속으로 취소됐거나, 해제→재접속→재해제로 새 타이머가 등록된 경우 — 이 태스크는 무시
+        // 취소됐거나 새 타이머로 교체된 작업은 무시한다.
         return;
       }
 
@@ -232,7 +203,7 @@ public class ChatPresenceService {
     if (roundToReveal == null) {
       return;
     }
-    // 이 메서드는 LEFT 유예 타이머 스레드에서 실행된다 — DB 실패가 presence 정리를 되돌리면 안 된다
+    // 질문 공개 실패는 이미 확정된 presence 상태를 되돌리지 않는다.
     try {
       questionRevealService.revealNext(chatroomId, roundToReveal);
     } catch (Exception e) {
@@ -240,19 +211,16 @@ public class ChatPresenceService {
     }
   }
 
-  // 명세 "정족수 즉시 재판정" — LEFT로 connected가 줄어 requiredVotes가 내려갔을 때,
-  // 이미 모인 표가 새 정족수를 충족하면 다음 질문을 공개해야 한다.
-  // 공개할 라운드 번호를 돌려주고, 공개할 필요가 없으면 null. 호출자가 락을 쥔 채로 부른다.
+  // LEFT로 낮아진 정족수를 기존 표가 충족하면 공개할 라운드 번호를 반환한다.
   private Integer quorumRoundToReveal(Long chatroomId) {
     if (countConnected(chatroomId) == 0) {
-      // 방이 비면 라운드 자체가 무의미 — 표를 버리고 라운드도 무효화한다.
-      // 표만 지우면, 지우기 전에 정족수를 판정해 둔 요청이 재접속 이후의 새 표를 같은 라운드로 보고 소비한다.
+      // 빈 방의 표와 이전 정족수 판정을 함께 무효화한다.
       questionVoteStore.invalidateRound(chatroomId);
       return null;
     }
 
     int requiredVotes = requiredVotes(chatroomId);
-    // 표 수와 라운드를 같은 스냅샷에서 읽는다 — 투표 경로가 먼저 공개했다면 이 판정은 무효가 되어야 한다
+    // 투표 경로와의 경합을 막기 위해 표와 라운드를 함께 읽는다.
     QuestionVoteStore.VoteRound voteRound = questionVoteStore.snapshot(chatroomId);
     if (voteRound.votes() >= 1 && voteRound.votes() >= requiredVotes) {
       return voteRound.round();
@@ -260,13 +228,7 @@ public class ChatPresenceService {
     return null;
   }
 
-  // 닉네임은 호출부가 락 밖에서 미리 조회해 넘긴다 — 여기서 DB를 타면 전역 모니터를 쥔 채 기다리게 된다.
-  //
-  // 조회 실패를 밖으로 던지지 않는다. 이 조회는 presence 판정보다 앞서 실행되므로, 예외가 올라가면
-  // 판정 자체가 실행되지 않는다. finalizeLeave에서는 그게 치명적이다 — 유예 타이머는 이미 발화해
-  // 재시도가 없고, pending 항목이 남은 채로 끝나 떠난 회원이 재시작 전까지 접속자로 계속 세어진다.
-  // 정족수도 그만큼 높은 채로 굳는다. 닉네임은 프레임의 표시값일 뿐이라 없으면 없는 대로 보낸다
-  // (탈퇴로 회원이 사라진 경우에도 원래 null이 나가던 자리다).
+  // 닉네임 조회 실패가 presence 정리와 정족수 판정을 막지 않게 한다.
   private String findNickname(Long memberId) {
     try {
       return memberRepository.findById(memberId).map(m -> m.getNickname()).orElse(null);

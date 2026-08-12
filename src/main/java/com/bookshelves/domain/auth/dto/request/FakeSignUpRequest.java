@@ -12,11 +12,7 @@ import lombok.extern.jackson.Jacksonized;
 @Jacksonized
 public class FakeSignUpRequest {
 
-  // 회원을 구분하는 값이다. 같은 key로 다시 호출하면 같은 회원으로 로그인하고,
-  // 처음 보는 key면 새 회원을 만든다. 소셜 로그인의 providerId 자리에 대응한다.
-  //
-  // 형식을 tester-1 ~ tester-99로 묶어 만들어질 수 있는 테스트 회원 수를 제한한다.
-  // 임의 문자열을 허용하면 아무 값이나 계정과 닉네임으로 남는다.
+  // 같은 key는 같은 테스트 회원을 식별하며 허용 형식으로 계정 수를 제한한다.
   @NotBlank
   @Pattern(regexp = "^tester-[1-9][0-9]?$", message = "key는 tester-1 ~ tester-99 형식이어야 합니다.")
   @Schema(
@@ -26,7 +22,7 @@ public class FakeSignUpRequest {
       requiredMode = Schema.RequiredMode.REQUIRED)
   private String key;
 
-  // 서버 환경 변수 FAKE_SIGNUP_SECRET과 일치해야 한다. 저장소가 공개되어 있어 코드에 값을 둘 수 없다.
+  // 서버의 FAKE_SIGNUP_SECRET과 일치해야 한다.
   @NotBlank
   @Schema(
       description = "서버의 FAKE_SIGNUP_SECRET과 일치해야 하는 테스트용 비밀값",

@@ -10,11 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-// 채팅방 접근 검증의 단일 기준 — 미존재 404 · 비참여자 403 · 종료 모임 410.
-// 입장 API(ChatQueryService)와 SUBSCRIBE 인터셉터가 같은 인스턴스를 사용한다.
-// StompAuthChannelInterceptor(→ WebSocketConfig 의존 사슬)에서 호출되므로 리포지토리에만
-// 의존해야 한다. ChatQueryService를 물면 presence → SimpMessagingTemplate → WebSocketConfig로
-// 이어지는 순환 참조가 생겨 부팅이 실패한다. (#53)
+// 입장 API와 STOMP 구독에서 채팅방 접근 조건을 동일하게 검증한다.
+// WebSocket 설정과의 순환 의존을 피하기 위해 리포지토리에만 의존한다.
 @Component
 @RequiredArgsConstructor
 public class ChatSubscriptionValidator {
@@ -32,7 +29,7 @@ public class ChatSubscriptionValidator {
     validate(chatRoom, memberId);
   }
 
-  /** 이미 조회된 ChatRoom에 대한 검증 — 입장 API처럼 fetch join으로 로드한 경우 재조회를 피한다. */
+  /** 이미 조회한 채팅방은 재조회하지 않고 검증한다. */
   public void validate(ChatRoom chatRoom, Long memberId) {
     if (!meetingParticipantRepository.existsByMeetingIdAndMemberId(
         chatRoom.getMeeting().getId(), memberId)) {

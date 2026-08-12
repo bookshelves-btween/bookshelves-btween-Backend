@@ -29,18 +29,16 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
-// 모임 종료 후 요약 3주제를 저장한다.
-//
-// 실패는 전부 안내 문구로 수렴한다. 키 미설정·타임아웃·파싱 실패·검증 탈락 어느 쪽이든 요약은 반드시
-// 3행 저장된다. 프론트가 주제 3칸을 항상 그리기 때문이다.
+// 모임 종료 후 세 가지 축의 요약을 저장한다.
+// 생성하지 못한 축도 안내 문구로 채워 항상 세 행을 유지한다.
 @Slf4j
 @Service
 public class MeetingSummaryPreparationService {
 
-  // 축에 쓸 내용이 없거나 생성에 실패했을 때 제목 자리에 들어간다. 본문은 비운다.
+  // 요약할 내용이 없거나 생성에 실패한 축의 제목.
   static final String FALLBACK_TITLE = "나눈 이야기가 적어 정리하지 못했어요";
 
-  // 총 4회 시도(최초 1회 + 재시도 3회). 일시적 오류로 영구적인 안내 문구가 박히는 것을 막는다.
+  // 일시적 오류는 최초 호출을 포함해 네 번 시도한다.
   private static final int MAX_ATTEMPTS = 4;
   private static final long RETRY_BACKOFF_MILLIS = 3_000L;
 
@@ -62,7 +60,7 @@ public class MeetingSummaryPreparationService {
       ChatMessageRepository chatMessageRepository,
       GeminiSummaryClient geminiSummaryClient,
       MeetingSummaryNotifier meetingSummaryNotifier,
-      // WebSocket 브로커 설정이 채널용 TaskExecutor 빈을 여럿 등록하므로 전용 빈을 명시 지정한다
+      // 같은 타입의 WebSocket 실행기와 구분한다.
       @Qualifier("meetingSummaryTaskExecutor") TaskExecutor taskExecutor,
       TransactionTemplate transactionTemplate) {
     this.meetingRepository = meetingRepository;
@@ -76,7 +74,7 @@ public class MeetingSummaryPreparationService {
     this.transactionTemplate = transactionTemplate;
   }
 
-  // 종료 트랜잭션이 커밋된 뒤에만 시작한다 — 롤백된 종료로 요약을 만들지 않기 위함.
+  // 모임 종료 커밋 후 전용 실행기에서 준비한다.
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void onMeetingEnded(MeetingEndedEvent event) {
     try {
@@ -90,21 +88,19 @@ public class MeetingSummaryPreparationService {
   public void prepare(Long meetingId) {
     try {
       if (isFullyPrepared(meetingId)) {
-        // 요약은 있는데 알림 직전에 중단된 경우가 있다. 알림 생성은 멱등이므로 그냥 호출한다.
+        // 저장 후 알림 전에 중단된 경우를 보정한다.
         meetingSummaryNotifier.notifySummaryDone(meetingId);
         return;
       }
       Meeting meeting = meetingRepository.findWithBookById(meetingId).orElse(null);
       if (meeting == null) {
-        return; // 종료 직후 삭제된 모임
+        return;
       }
 
       Map<SummaryAxis, SummaryDraft> drafts = generate(meeting);
       saveSummaries(meetingId, drafts);
 
-      // 저장 성공 여부를 결과로 확인한 뒤에만 알림을 만든다.
-      // 예외 종류로 판정하면 unique 충돌과 길이 초과를 구분하지 못해, 한 행도 안 들어간 모임에
-      // 요약이 준비되었다는 알림을 보내게 된다.
+      // 세 축이 모두 저장된 경우에만 완료 알림을 생성한다.
       if (!isFullyPrepared(meetingId)) {
         log.error("AI 요약 저장이 3행을 채우지 못해 알림을 보내지 않는다: meetingId={}", meetingId);
         return;
@@ -116,7 +112,7 @@ public class MeetingSummaryPreparationService {
     }
   }
 
-  // 개수가 아니라 축의 존재로 판정한다 — 개수만 보면 축이 어긋난 데이터에서 준비 완료로 오판한다.
+  // 중복을 제외한 축의 개수로 준비 상태를 판단한다.
   private boolean isFullyPrepared(Long meetingId) {
     return existingAxes(meetingId).size() == SummaryAxis.count();
   }
@@ -127,7 +123,7 @@ public class MeetingSummaryPreparationService {
         .collect(Collectors.toCollection(() -> EnumSet.noneOf(SummaryAxis.class)));
   }
 
-  // 락 밖에서 호출한다 — 응답이 오래 걸리므로 락을 쥔 채 기다리지 않는다.
+  // DB 락을 잡지 않은 상태에서 LLM을 호출한다.
   private Map<SummaryAxis, SummaryDraft> generate(Meeting meeting) {
     List<ChatMessage> messages =
         chatRoomRepository
@@ -135,7 +131,6 @@ public class MeetingSummaryPreparationService {
             .map(chatRoom -> chatMessageRepository.findAllWithSenderByChatroomId(chatRoom.getId()))
             .orElseGet(List::of);
     if (messages.isEmpty()) {
-      // 요약할 재료가 없다. 호출 비용을 쓰지 않고 바로 안내 문구로 채운다.
       log.info("대화가 없어 LLM을 호출하지 않는다: meetingId={}", meeting.getId());
       return Map.of();
     }
@@ -157,10 +152,7 @@ public class MeetingSummaryPreparationService {
     return Map.of();
   }
 
-  // 다시 보내면 결과가 달라질 수 있는 오류만 재시도한다.
-  //
-  // 모델 혼잡(5xx), 무료 티어 쿼터(429), 네트워크·타임아웃이 여기 해당한다. 잘못된 요청이나 인증
-  // 실패는 몇 번을 보내도 같은 응답이 오므로 백오프만 태우고 전용 executor 스레드를 붙잡는다.
+  // 서버 오류, 요청 제한, 네트워크 오류만 재시도한다.
   private boolean isRetryable(Exception e) {
     return e instanceof HttpServerErrorException
         || e instanceof HttpClientErrorException.TooManyRequests
@@ -175,10 +167,7 @@ public class MeetingSummaryPreparationService {
     }
   }
 
-  // 저장 시점에 모임 행 락을 잡고, 락 안에서 기존 축을 다시 조회한다.
-  //
-  // 진입 가드만으로는 부족하다. 중복 작업 두 개가 가드를 함께 통과한 뒤 차례로 락을 얻으면, 두 번째가
-  // 락 안에서 다시 확인하지 않는 한 세 행을 또 INSERT해 unique 위반으로 끝난다.
+  // 저장 시 모임 행을 잠그고 누락된 축을 다시 계산한다.
   private void saveSummaries(Long meetingId, Map<SummaryAxis, SummaryDraft> drafts) {
     try {
       transactionTemplate.executeWithoutResult(
@@ -193,14 +182,12 @@ public class MeetingSummaryPreparationService {
                         }
                       }));
     } catch (DataIntegrityViolationException e) {
-      // 락이 닿지 않는 경로(다중 인스턴스)에서의 unique 충돌과, 길이 초과·NOT NULL 위반이 모두 같은
-      // 예외형으로 온다. 여기서는 구분하지 않고 로그만 남기고, 실제 성공 여부는 호출부가 저장된 축을
-      // 다시 세어 판정한다.
+      // 실제 성공 여부는 호출부가 저장된 축을 다시 조회해 판단한다.
       log.warn("AI 요약 저장 충돌 또는 제약 위반: meetingId={}", meetingId, e);
     }
   }
 
-  // 아직 없는 축만 만든다. 초안이 없거나 본문이 비면 안내 문구로 채운다 — 축별로 독립 폴백된다.
+  // 누락된 축만 생성하며 사용할 초안이 없으면 안내 문구로 채운다.
   private List<MeetingSummary> buildMissingSummaries(
       Meeting meeting, Map<SummaryAxis, SummaryDraft> drafts) {
     Set<SummaryAxis> existing = existingAxes(meeting.getId());

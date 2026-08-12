@@ -6,16 +6,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Getter;
 
-// 모임 진행 질문 다섯 자리. 모든 모임이 이 순서를 그대로 쓴다.
-//
-// 순서 자체가 기획된 흐름이다 — 전/후 감상 → 별점 → 인상 깊은 장면 → 기억하고 싶은 문장 → 한 문장 소개로
-// 가벼운 감상에서 깊은 성찰로 올라간다. LLM에 흐름까지 맡기면 매 모임 구성이 달라지고 질문이 겹치므로,
-// 흐름은 여기서 고정하고 문장만 LLM이 그 책에 맞게 새로 쓴다(GeminiQuestionClient).
-//
-// 그래서 값이 둘이다. content는 LLM이 실패했을 때 그대로 쓰이는 폴백 문장이고,
-// intent는 프롬프트에 넘겨 이 자리에서 무엇을 물어야 하는지 알려주는 설명이다.
-// 프롬프트에 content를 넣지 않는 것이 중요하다 — 원문을 보여주면 모델이 그 문장을 보존하려 들면서
-// 앞에 수식어만 붙이는 결과로 수렴한다.
+// 모든 모임에 공통으로 적용되는 질문 순서와 폴백 문장.
+// content는 생성 실패 시 사용하고, intent는 질문 생성 프롬프트에 전달한다.
 @Getter
 public enum SeedQuestion {
   READING_IMPRESSION(
@@ -41,19 +33,19 @@ public enum SeedQuestion {
     this.intent = intent;
   }
 
-  /** 모임당 질문 수 = 시드 개수. 명세의 maxQuestions와 같은 값이다. */
+  /** 모임당 질문 수. */
   public static int count() {
     return values().length;
   }
 
-  /** question_order(1부터) 오름차순 목록. enum 선언 순서에 의존하지 않도록 명시 정렬한다. */
+  /** questionOrder 오름차순 목록. */
   public static List<SeedQuestion> ordered() {
     return Arrays.stream(values())
         .sorted((left, right) -> Integer.compare(left.questionOrder, right.questionOrder))
         .toList();
   }
 
-  /** 모임에 반드시 존재해야 하는 question_order 집합. */
+  /** 모임에 필요한 모든 questionOrder. */
   public static Set<Integer> allOrders() {
     return Arrays.stream(values()).map(SeedQuestion::getQuestionOrder).collect(Collectors.toSet());
   }
