@@ -68,7 +68,7 @@ public interface NotificationControllerDocs {
                   "code": "COMMON400_1",
                   "message": "잘못된 요청입니다.",
                   "result": {
-                    "fcmToken": "공백일 수 없습니다"
+                    "fcmToken": "FCM 토큰은 필수입니다."
                   }
                 }
                 """),
@@ -81,7 +81,7 @@ public interface NotificationControllerDocs {
                   "code": "COMMON400_1",
                   "message": "잘못된 요청입니다.",
                   "result": {
-                    "fcmToken": "크기가 0에서 255 사이여야 합니다"
+                    "fcmToken": "FCM 토큰은 255자 이하여야 합니다."
                   }
                 }
                 """),
@@ -293,7 +293,9 @@ public interface NotificationControllerDocs {
           @Max(value = 50, message = "페이지 크기는 50 이하여야 합니다.")
           Integer size);
 
-  @Operation(summary = "알림 읽음 처리", description = "인증된 사용자의 알림을 읽음 처리합니다. 이미 읽은 알림도 동일하게 성공 응답합니다.")
+  @Operation(
+      summary = "알림 읽음 처리",
+      description = "인증된 사용자의 알림을 읽음 처리합니다. 이미 읽은 알림에 다시 요청해도 동일하게 성공 응답합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
