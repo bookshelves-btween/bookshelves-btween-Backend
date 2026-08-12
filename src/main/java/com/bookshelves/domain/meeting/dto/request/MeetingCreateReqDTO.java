@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 
 @Schema(description = "모임 생성 요청")
 public record MeetingCreateReqDTO(
@@ -57,7 +58,11 @@ public record MeetingCreateReqDTO(
 
     try {
       LocalDateTime meetingStart = LocalDateTime.of(startDate, LocalTime.parse(startTime));
-      return !meetingStart.isBefore(ServiceTime.now().plusHours(Meeting.MIN_HOURS_BEFORE_START));
+      LocalDateTime earliestStart =
+          ServiceTime.now()
+              .truncatedTo(ChronoUnit.MINUTES)
+              .plusHours(Meeting.MIN_HOURS_BEFORE_START);
+      return !meetingStart.isBefore(earliestStart);
     } catch (DateTimeParseException exception) {
       return true;
     }

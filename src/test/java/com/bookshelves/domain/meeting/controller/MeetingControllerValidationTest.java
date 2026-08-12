@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.bookshelves.domain.meeting.dto.request.MeetingCreateReqDTO;
+import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.service.MeetingCommandService;
 import com.bookshelves.domain.meeting.service.MeetingQueryService;
 import com.bookshelves.global.util.ServiceTime;
@@ -13,6 +14,7 @@ import jakarta.validation.ValidatorFactory;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 
 class MeetingControllerValidationTest {
@@ -32,6 +34,19 @@ class MeetingControllerValidationTest {
       assertThat(validator.validate(requestAt(validStart, 4, 61))).isNotEmpty();
       assertThat(validator.validate(requestAt(validStart, 4, 32))).isNotEmpty();
       assertThat(validator.validate(requestAt(ServiceTime.now().plusHours(6), 4, 30))).isNotEmpty();
+    }
+  }
+
+  @Test
+  void validatesSevenHourBoundaryAtMinutePrecision() {
+    LocalDateTime earliestStart =
+        ServiceTime.now().truncatedTo(ChronoUnit.MINUTES).plusHours(Meeting.MIN_HOURS_BEFORE_START);
+
+    try (ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
+      Validator validator = validatorFactory.getValidator();
+
+      assertThat(validator.validate(requestAt(earliestStart, 4, 30))).isEmpty();
+      assertThat(validator.validate(requestAt(earliestStart.minusMinutes(1), 4, 30))).isNotEmpty();
     }
   }
 
