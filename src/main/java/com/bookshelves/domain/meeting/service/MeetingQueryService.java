@@ -44,7 +44,7 @@ public class MeetingQueryService {
             .findByMeetingId(meetingId)
             .map(chatRoom -> chatRoom.getId())
             .orElse(null);
-    // 요약은 완료된 모임에서만 응답에 실린다. 그 전에는 조회 자체를 건너뛴다.
+    // 완료된 모임에서만 요약을 조회한다.
     List<MeetingSummary> summaries =
         meeting.getStatus() == MeetingStatus.COMPLETED
             ? meetingSummaryRepository.findAllByMeetingId(meetingId).stream()

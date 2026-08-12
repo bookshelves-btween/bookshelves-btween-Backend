@@ -12,11 +12,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient;
 import com.bookshelves.domain.book.client.Data4LibraryBookDetailClient.KdcInfo;
-import com.bookshelves.domain.book.client.KakaoBookSearchClient;
 import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookItem;
-import com.bookshelves.domain.book.client.KakaoBookSearchClient.KakaoBookSearchResult;
 import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.entity.Book;
 import com.bookshelves.domain.book.entity.MemberBook;
@@ -24,6 +21,7 @@ import com.bookshelves.domain.book.entity.MemberBookHistory;
 import com.bookshelves.domain.book.exception.BookException;
 import com.bookshelves.domain.book.exception.code.BookErrorCode;
 import com.bookshelves.domain.book.repository.BookRepository;
+import com.bookshelves.domain.book.repository.ExternalBookCacheRepository.CachedBookDetail;
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
@@ -62,8 +60,7 @@ class BookCommandServiceTest {
   @Mock private MemberRepository memberRepository;
   @Mock private RecentBookSearchRepository recentBookSearchRepository;
   @Mock private AuthenticationFacade authenticationFacade;
-  @Mock private KakaoBookSearchClient kakaoBookSearchClient;
-  @Mock private Data4LibraryBookDetailClient data4LibraryBookDetailClient;
+  @Mock private ExternalBookLookupService externalBookLookupService;
   @Mock private TransactionTemplate transactionTemplate;
   @InjectMocks private BookCommandService bookCommandService;
 
@@ -123,8 +120,7 @@ class BookCommandServiceTest {
     Book result = bookCommandService.getOrCreateByIsbn(ISBN);
 
     assertThat(result).isSameAs(savedBook);
-    verify(kakaoBookSearchClient, never()).searchByIsbn(ISBN);
-    verify(data4LibraryBookDetailClient, never()).findKdcByIsbn(ISBN);
+    verifyNoInteractions(externalBookLookupService);
   }
 
   @Test
@@ -139,9 +135,8 @@ class BookCommandServiceTest {
             "책 소개",
             "https://image.example.com/almond.jpg");
     given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.empty());
-    given(kakaoBookSearchClient.searchByIsbn(ISBN))
-        .willReturn(new KakaoBookSearchResult(List.of(item), true));
-    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(new KdcInfo("813", "문학"));
+    given(externalBookLookupService.findByIsbn(ISBN, ISBN))
+        .willReturn(new CachedBookDetail(item, ISBN, new KdcInfo("813", "문학")));
     Book savedBook =
         Book.builder()
             .isbn(ISBN)
@@ -189,9 +184,8 @@ class BookCommandServiceTest {
     Member member = Member.createSocialMember(null, "provider-id");
 
     given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.empty());
-    given(kakaoBookSearchClient.searchByIsbn(ISBN))
-        .willReturn(new KakaoBookSearchResult(List.of(item), true));
-    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(KdcInfo.unavailable());
+    given(externalBookLookupService.findByIsbn(ISBN, ISBN))
+        .willReturn(new CachedBookDetail(item, ISBN, KdcInfo.unavailable()));
     given(bookRepository.findByIsbnForUpdate(ISBN)).willReturn(Optional.of(savedBook));
     given(authenticationFacade.getCurrentMemberId()).willReturn(1L);
     given(memberRepository.findByIdForUpdate(1L)).willReturn(Optional.of(member));
@@ -203,15 +197,9 @@ class BookCommandServiceTest {
         bookCommandService.upsertMemberBook(ISBN, new MemberBookUpsertReqDTO(0, null, "읽을 예정"));
 
     InOrder order =
-        inOrder(
-            bookRepository,
-            kakaoBookSearchClient,
-            data4LibraryBookDetailClient,
-            transactionTemplate,
-            memberRepository);
+        inOrder(bookRepository, externalBookLookupService, transactionTemplate, memberRepository);
     order.verify(bookRepository).findByIsbn(ISBN);
-    order.verify(kakaoBookSearchClient).searchByIsbn(ISBN);
-    order.verify(data4LibraryBookDetailClient).findKdcByIsbn(ISBN);
+    order.verify(externalBookLookupService).findByIsbn(ISBN, ISBN);
     order.verify(transactionTemplate).execute(any());
     order.verify(bookRepository).upsert(ISBN, "아몬드", "손원평", "창비", null, null, null, null, null);
     order.verify(bookRepository).findByIsbnForUpdate(ISBN);
@@ -222,8 +210,8 @@ class BookCommandServiceTest {
   @Test
   void throwsBookNotFoundWhenKakaoApiReturnsNoBook() {
     given(bookRepository.findByIsbn(ISBN)).willReturn(Optional.empty());
-    given(kakaoBookSearchClient.searchByIsbn(ISBN))
-        .willReturn(new KakaoBookSearchResult(List.of(), true));
+    given(externalBookLookupService.findByIsbn(ISBN, ISBN))
+        .willThrow(new BookException(BookErrorCode.BOOK_NOT_FOUND));
 
     assertThatThrownBy(() -> bookCommandService.getOrCreateByIsbn(ISBN))
         .isInstanceOf(BookException.class)
@@ -241,7 +229,6 @@ class BookCommandServiceTest {
             org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any());
-    verify(data4LibraryBookDetailClient, never()).findKdcByIsbn(ISBN);
   }
 
   @Test
@@ -258,9 +245,8 @@ class BookCommandServiceTest {
               releaseLookup.await(3, TimeUnit.SECONDS);
               return Optional.empty();
             });
-    given(kakaoBookSearchClient.searchByIsbn(ISBN))
-        .willReturn(new KakaoBookSearchResult(List.of(item), true));
-    given(data4LibraryBookDetailClient.findKdcByIsbn(ISBN)).willReturn(KdcInfo.unavailable());
+    given(externalBookLookupService.findByIsbn(ISBN, ISBN))
+        .willReturn(new CachedBookDetail(item, ISBN, KdcInfo.unavailable()));
     given(bookRepository.findByIsbnForUpdate(ISBN)).willReturn(Optional.of(winningBook));
 
     CompletableFuture<Book> first =

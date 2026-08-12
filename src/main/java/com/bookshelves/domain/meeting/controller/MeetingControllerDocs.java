@@ -337,7 +337,8 @@ public interface MeetingControllerDocs {
 
   @Operation(
       summary = "독서 모임 생성",
-      description = "ISBN으로 도서를 조회한 뒤 시작 일시, 최대 인원, 진행 시간을 설정해 독서 모임을 생성합니다.")
+      description =
+          "ISBN으로 도서를 조회한 뒤 독서 모임을 생성합니다. 시작 일시는 현재 시각으로부터 7시간 이후, 최대 인원은 3~6명, 진행 시간은 5분 단위로 5~60분이어야 합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(

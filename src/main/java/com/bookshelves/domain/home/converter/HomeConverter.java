@@ -69,7 +69,7 @@ public class HomeConverter {
         book.getKdcName());
   }
 
-  // 모임 카드의 제목은 책 제목이다. 모임 자체에는 이름 필드가 없다.
+  // 별도 모임명 대신 책 제목을 카드 제목으로 사용한다.
   private static MeetingInfo toMeetingInfo(Meeting meeting) {
     Book book = meeting.getBook();
     return new MeetingInfo(

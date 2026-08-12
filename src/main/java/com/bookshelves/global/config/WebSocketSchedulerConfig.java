@@ -4,9 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
-// WebSocket 전용 TaskScheduler.
-// STOMP SimpleBroker의 heart-beat 발신과 presence LEFT 유예 타이머에 함께 쓴다.
-// @EnableScheduling이 등록하는 기본 taskScheduler와 구분하기 위해 전용 빈으로 둔다.
+// 기본 스케줄러와 WebSocket·모임 시작 작업의 스케줄러를 분리한다.
 @Configuration
 public class WebSocketSchedulerConfig {
 
@@ -24,6 +22,15 @@ public class WebSocketSchedulerConfig {
     ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
     scheduler.setPoolSize(2);
     scheduler.setThreadNamePrefix("ws-scheduler-");
+    scheduler.initialize();
+    return scheduler;
+  }
+
+  @Bean
+  public ThreadPoolTaskScheduler meetingStartTaskScheduler() {
+    ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+    scheduler.setPoolSize(4);
+    scheduler.setThreadNamePrefix("meeting-start-");
     scheduler.initialize();
     return scheduler;
   }

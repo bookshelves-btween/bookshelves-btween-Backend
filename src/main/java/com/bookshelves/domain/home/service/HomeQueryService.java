@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class HomeQueryService {
 
-  // 홈에 모임 카드를 세 장까지 그린다.
   private static final int JOINABLE_MEETING_LIMIT = 3;
 
   private final MemberRepository memberRepository;
@@ -45,8 +44,7 @@ public class HomeQueryService {
 
     MemberBook recentBook =
         memberBookRepository.findFirstByMemberIdOrderByUpdatedAtDescIdDesc(memberId).orElse(null);
-    // 모집 마감을 넘긴 모임은 상태가 아직 RECRUITING이어도 참여가 거절된다. 홈은 카드마다
-    // 참여하기 버튼을 그리므로 그 구간을 미리 걷어낸다.
+    // 배치 전 상태가 갱신되지 않았어도 모집 기한이 지난 모임은 제외한다.
     List<Meeting> meetings =
         meetingRepository.findJoinableMeetings(
             MeetingStatus.RECRUITING,
@@ -58,11 +56,7 @@ public class HomeQueryService {
         member, findRecommendation(ServiceTime.today()), recentBook, meetings);
   }
 
-  // 오늘치가 없으면 가장 최근 것으로 내려간다.
-  //
-  // 23시 스케줄러가 서버 정지나 LLM 장애로 건너뛰면 오늘 행이 빈다. 그때 추천 영역을 통째로 지우는
-  // 것보다 어제 책을 하루 더 두는 편이 낫다. 노출 날짜를 함께 내려보내므로 클라이언트가 언제 것인지
-  // 구분할 수 있다. 책을 아직 한 권도 안 넣었을 때만 null이 된다.
+  // 오늘 추천이 없으면 가장 최근 추천으로 대체한다.
   private AIRecommendation findRecommendation(LocalDate today) {
     return aiRecommendationRepository
         .findByRecommendedDate(today)

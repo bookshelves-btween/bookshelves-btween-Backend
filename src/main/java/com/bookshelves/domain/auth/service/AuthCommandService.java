@@ -4,7 +4,7 @@ import com.bookshelves.domain.auth.client.ProviderTokenVerifier;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
 import com.bookshelves.domain.auth.converter.AuthConverter;
-import com.bookshelves.domain.auth.dto.request.FakeSignUpRequest;
+import com.bookshelves.domain.auth.dto.request.FakeLoginRequest;
 import com.bookshelves.domain.auth.dto.request.ReissueRequest;
 import com.bookshelves.domain.auth.dto.request.RestoreRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
@@ -14,8 +14,9 @@ import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.auth.exception.AuthException;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
-import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
+import com.bookshelves.domain.member.exception.MemberErrorCode;
+import com.bookshelves.domain.member.exception.MemberException;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.service.MemberCommandService;
 import com.bookshelves.global.security.JwtTokenProvider;
@@ -38,17 +39,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AuthCommandService {
 
-  // 테스트 회원은 provider_id에 접두사를 붙여 만든다. 카카오 실제 provider_id는 숫자라
-  // 이 접두사가 붙은 값과 겹치지 않으므로, 이 경로로 실제 회원의 토큰이 나가지는 않는다.
-  private static final Provider FAKE_PROVIDER = Provider.KAKAO;
-  private static final String FAKE_PROVIDER_ID_PREFIX = "fake-";
-
   private final ProviderTokenVerifierResolver providerTokenVerifierResolver;
   private final MemberRepository memberRepository;
   private final MemberCommandService memberCommandService;
   private final JwtTokenProvider jwtTokenProvider;
   private final RedisTokenRepository redisTokenRepository;
-  private final String fakeSignUpSecret;
+  private final String fakeLoginSecret;
 
   public AuthCommandService(
       ProviderTokenVerifierResolver providerTokenVerifierResolver,
@@ -56,13 +52,13 @@ public class AuthCommandService {
       MemberCommandService memberCommandService,
       JwtTokenProvider jwtTokenProvider,
       RedisTokenRepository redisTokenRepository,
-      @Value("${auth.fake-sign-up-secret:}") String fakeSignUpSecret) {
+      @Value("${auth.fake-sign-up-secret:}") String fakeLoginSecret) {
     this.providerTokenVerifierResolver = providerTokenVerifierResolver;
     this.memberRepository = memberRepository;
     this.memberCommandService = memberCommandService;
     this.jwtTokenProvider = jwtTokenProvider;
     this.redisTokenRepository = redisTokenRepository;
-    this.fakeSignUpSecret = fakeSignUpSecret;
+    this.fakeLoginSecret = fakeLoginSecret;
   }
 
   public SocialLoginResponse socialLogin(SocialLoginRequest request) {
@@ -82,41 +78,31 @@ public class AuthCommandService {
     return issueLoginTokens(member);
   }
 
-  // 테스트용 토큰 발급이다. 소셜 인증 대신 서버에만 있는 비밀값으로 호출을 통제한다.
-  // Swagger에서 직접 호출해 받은 토큰을 시뮬레이터에 넣어 쓰는 용도이며, 앱은 이 API를 부르지 않는다.
-  //
-  // 임시 경로다. 앱 공개 전에 이 메서드와 엔드포인트, permitAll 등록을 모두 제거한다.
-  public SocialLoginResponse fakeSignUp(FakeSignUpRequest request) {
-    validateFakeSignUpSecret(request.getSecret());
-
-    String providerId = FAKE_PROVIDER_ID_PREFIX + request.getKey();
+  // 서버 비밀값으로 보호되는 테스트 토큰 발급 경로. 소셜 로그인 없이 기존 회원의 토큰을 발급한다.
+  // 회원 상태는 검사하지 않으며, 실제 사용 시점의 차단은 AccessTokenGuard가 담당한다.
+  public SocialLoginResponse fakeLogin(FakeLoginRequest request) {
+    validateFakeLoginSecret(request.getSecret());
 
     Member member =
         memberRepository
-            .findByProviderAndProviderId(FAKE_PROVIDER, providerId)
-            .orElseGet(() -> createFakeMember(providerId, request.getKey()));
+            .findById(request.getMemberId())
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     return issueLoginTokens(member);
   }
 
-  // 비밀값이 설정되지 않은 환경에서는 전부 거부한다. 설정을 빠뜨렸을 때 열린 채로 남지 않게 한다.
-  private void validateFakeSignUpSecret(String secret) {
-    if (fakeSignUpSecret == null || fakeSignUpSecret.isBlank()) {
-      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+  // 비밀값이 설정되지 않은 환경에서는 모든 요청을 거부한다.
+  private void validateFakeLoginSecret(String secret) {
+    if (fakeLoginSecret == null || fakeLoginSecret.isBlank()) {
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_LOGIN_SECRET);
     }
 
-    // 길이 비교로 값이 새어 나가지 않도록 상수 시간 비교를 쓴다.
+    // 상수 시간 비교로 비밀값 추측을 어렵게 한다.
     if (!MessageDigest.isEqual(
-        fakeSignUpSecret.getBytes(StandardCharsets.UTF_8),
+        fakeLoginSecret.getBytes(StandardCharsets.UTF_8),
         secret.getBytes(StandardCharsets.UTF_8))) {
-      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_LOGIN_SECRET);
     }
-  }
-
-  // 온보딩을 건너뛰고 바로 쓸 수 있도록 닉네임까지 채운 뒤 ACTIVE로 만든다.
-  private Member createFakeMember(String providerId, String key) {
-    return memberCommandService.createAndOnboardFakeMember(
-        FAKE_PROVIDER, providerId, key, ProfileBackgroundColor.GREEN);
   }
 
   public void logout(Long memberId) {
@@ -168,8 +154,7 @@ public class AuthCommandService {
       throw new AuthException(AuthErrorCode.AUTH_RESTORE_PERIOD_EXPIRED);
     }
 
-    // 검증(matches)과 소모(delete) 사이 TOCTOU를 없애기 위해 Redis에서 원자적으로 비교 후 삭제한다.
-    // 동시에 같은 restore token으로 복구가 들어오면 하나만 성공하고 나머지는 거부된다.
+    // Redis에서 복구 토큰을 원자적으로 검증하고 소모한다.
     if (!redisTokenRepository.consumeRestoreToken(memberId, restoreToken)) {
       throw new AuthException(AuthErrorCode.AUTH_INVALID_RESTORE_TOKEN);
     }
@@ -191,11 +176,7 @@ public class AuthCommandService {
   private ReissueResponse issueReissuedTokens(Member member, String oldRefreshToken) {
     TokenPair tokens = generateTokenPair(member.getId());
 
-    // 검증(matches)과 회전(save) 사이 TOCTOU를 없애기 위해 Redis에서 원자적으로 비교 후 교체한다.
-    // accessToken 만료 순간 같은 refreshToken으로 여러 요청이 동시에 들어오면 CAS엔 하나만
-    // 성공하는데, 나머지("진" 요청)는 rotateRefreshToken이 grace에 남겨둔, 방금 발급된
-    // 동일한 토큰을 findRotationGracePayload로 그대로 돌려받는다. 그렇지 않으면 정상
-    // 사용자가 타이밍 때문에 무작위로 강제 로그아웃된다.
+    // refresh token을 원자적으로 회전하고 동시 요청에는 짧은 grace 결과를 공유한다.
     boolean rotated =
         redisTokenRepository.rotateRefreshToken(
             member.getId(),
@@ -211,9 +192,7 @@ public class AuthCommandService {
         return parseGracePayload(gracePayload.get());
       }
 
-      // grace 유예 시간(8초) 안도 아니고 현재 값도 아닌 refreshToken이 들어왔다 — 정상적인 동시
-      // 요청이라면 절대 벌어질 수 없는 지연이다. 이미 탈취된 구 토큰의 재사용 시도로 간주하고,
-      // 공격자가 현재 유효한 토큰까지 확보했을 가능성에 대비해 현재 세션을 함께 무효화한다.
+      // grace에 없는 구 토큰의 재사용은 탈취로 간주해 현재 세션도 무효화한다.
       log.warn("회전된 refresh token 재사용 의심으로 세션을 무효화합니다. memberId={}", member.getId());
       redisTokenRepository.deleteRefreshToken(member.getId());
       throw new AuthException(AuthErrorCode.AUTH_INVALID_REFRESH_TOKEN);

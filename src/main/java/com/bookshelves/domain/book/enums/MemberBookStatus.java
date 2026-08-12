@@ -6,8 +6,7 @@ public enum MemberBookStatus {
   READING,
   FINISHED;
 
-  // member_book에는 status 컬럼이 없다. 진행률이 유일한 원본이고 상태는 거기서 파생한다.
-  // 서재 목록과 홈이 같은 규칙을 써야 하므로 파생을 enum에 둔다.
+  // 상태는 별도 저장하지 않고 진행률에서 파생한다.
   public static MemberBookStatus from(int progress) {
     if (progress == 0) {
       return BEFORE_READING;

@@ -29,14 +29,8 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
         )
       """;
 
-  // 홈의 모집중 모임. 목록 조회와 달리 지금 참여하기를 누를 수 있는 것만 남긴다.
-  //
-  // 상태만 보면 정원이 찼거나 모집이 끝난 모임까지 섞인다. 홈은 카드마다 참여하기 버튼을 그리므로
-  // 눌렀을 때 거절될 모임을 애초에 내려보내지 않는다.
-  //
-  // earliestStartDate에는 현재 시각이 아니라 모집 마감 기준을 넘긴다. 참여는 시작 6시간 전부터
-  // 거절되는데(MeetingCommandService.participateInMeeting), 상태를 바꾸는 배치가 15초 주기라
-  // 그 사이 모임은 RECRUITING인 채로 남는다. 시작 시각만 보면 이 구간이 그대로 새어 나온다.
+  // 홈에는 정원과 모집 기한 조건까지 충족해 즉시 참여할 수 있는 모임만 노출한다.
+  // 배치 전 상태 지연을 보완하기 위해 earliestStartDate에는 모집 마감 기준을 전달한다.
   String JOINABLE_MEETINGS_FROM_WHERE =
       """
       from Meeting meeting
@@ -67,14 +61,16 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
   @Query("select meeting from Meeting meeting where meeting.id = :id")
   Optional<Meeting> findByIdForUpdate(@Param("id") Long id);
 
-  // 종료 배치 대상 후보 — 종료 시각(startDate+duration분)은 DB 종속 함수를 피해 Java에서 필터한다.
-  // 진행 중 모임은 "현재 열려 있는 것"뿐이라 수가 적어 전량 로딩해도 부담이 없다.
+  // DB 종속 날짜 함수를 피하기 위해 종료 시각은 서비스에서 계산한다.
   List<Meeting> findAllByStatus(MeetingStatus status);
 
   List<Meeting> findAllByStatusAndStartDateLessThanEqual(
       MeetingStatus status, LocalDateTime startDate);
 
   List<Meeting> findAllByStatusInAndStartDateLessThanEqual(
+      List<MeetingStatus> statuses, LocalDateTime startDate);
+
+  List<Meeting> findAllByStatusInAndStartDateAfter(
       List<MeetingStatus> statuses, LocalDateTime startDate);
 
   @EntityGraph(attributePaths = "book")

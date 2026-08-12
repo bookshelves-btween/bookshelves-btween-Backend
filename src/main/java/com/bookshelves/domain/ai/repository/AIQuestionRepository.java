@@ -7,8 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AIQuestionRepository extends JpaRepository<AIQuestion, Long> {
 
-  // 현재 공개된 질문은 Meeting.currentQuestionOrder로 지정된다 —
-  // 질문 5개가 모임 시작 전에 미리 저장되므로 "가장 큰 order = 현재 질문"이 성립하지 않는다.
+  // 모임과 질문 순서로 저장된 질문을 조회한다.
   Optional<AIQuestion> findByMeetingIdAndQuestionOrder(Long meetingId, Integer questionOrder);
 
   List<AIQuestion> findAllByMeetingIdOrderByQuestionOrderAsc(Long meetingId);

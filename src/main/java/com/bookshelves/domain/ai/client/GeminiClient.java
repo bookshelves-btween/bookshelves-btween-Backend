@@ -8,32 +8,19 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-// Gemini generateContent 호출 규약.
-//
-// 프롬프트를 쓰는 일과 응답을 검증하는 일은 용도별 클라이언트가 맡는다. 여기는 요청 형식, 응답 껍질
-// 벗기기, 세대별 설정만 다룬다. 질문 생성과 요약이 이 코드를 각자 복제하고 있었고, 그 사이에 로그
-// 정책 같은 차이가 조용히 벌어졌다.
-//
-// 응답 본문은 어떤 경우에도 로그로 남기지 않는다. 요약 응답에는 참여자가 꺼낸 개인 경험이 그대로
-// 담기는데, 호출부마다 판단하게 두면 한 곳만 실수해도 새어나간다. 전송 계층이 애초에 못 하게 막는다.
-// 무엇이 왜 검증에서 떨어졌는지는 각 클라이언트의 validate가 항목 단위로 남긴다.
+// Gemini generateContent의 요청·응답 형식과 모델별 생성 설정을 관리한다.
+// 응답에는 개인적인 대화가 포함될 수 있으므로 본문을 로그로 남기지 않는다.
 @Slf4j
 public class GeminiClient {
 
   static final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
-  // 모델명은 반드시 경로 변수로 넘긴다. gemini-2.0-flash:generateContent를 uri()에 문자열로 그대로 주면
-  // 콜론 앞이 URI 스킴으로 파싱돼 baseUrl이 통째로 무시된다(unknown protocol). 템플릿을 /로 시작시키고
-  // 확장 후에 콜론이 들어가게 해야 상대 경로로 결합된다.
+  // 모델명을 경로 변수로 주입해 generateContent 호출 경로를 구성한다.
   static final String GENERATE_CONTENT_PATH = "/models/{model}:generateContent";
   static final String DEFAULT_MODEL = "gemini-3.6-flash";
   private static final String API_KEY_HEADER = "x-goog-api-key";
 
-  // 2.x 이하는 thinking이 없어 낮은 temperature로 변형 폭을 좁힌다.
-  //
-  // 3.x부터는 반대다. 추론이 기본 temperature(1.0)에 맞춰 조정돼 있어 낮추면 논리가 오히려 흐트러지고
-  // 사고 루프에 빠질 수 있다고 구글이 명시한다. 그래서 3.x에서는 temperature를 아예 보내지 않고
-  // thinkingLevel로 사고량을 올린다.
+  // 2.x 이하는 temperature를, 3.x 이상은 thinkingLevel을 사용한다.
   private static final double LEGACY_TEMPERATURE = 0.2;
   private static final String THINKING_LEVEL = "high";
 
@@ -83,7 +70,7 @@ public class GeminiClient {
     }
   }
 
-  // responseMimeType을 JSON으로 지정해도 모델이 ```json 펜스를 덧붙이는 경우가 있어 방어적으로 제거한다
+  // JSON 응답에 코드 펜스가 붙는 경우를 허용한다.
   private String stripCodeFence(String json) {
     String trimmed = json.strip();
     if (!trimmed.startsWith("```")) {
@@ -109,14 +96,13 @@ public class GeminiClient {
     return response.candidates().get(0).content().parts().get(0).text();
   }
 
-  // JSON 강제는 세대 공통, 변형 폭을 좁히는 수단만 세대별로 다르다.
   private GenerationConfig generationConfig() {
     return supportsThinkingLevel()
         ? new GenerationConfig("application/json", null, new ThinkingConfig(THINKING_LEVEL))
         : new GenerationConfig("application/json", LEGACY_TEMPERATURE, null);
   }
 
-  // 3.x 이후를 thinking 계열로 본다. 아는 구세대만 제외해야 새 모델이 조용히 구설정으로 떨어지지 않는다.
+  // 새 모델이 레거시 설정으로 분류되지 않도록 알려진 구세대만 제외한다.
   private boolean supportsThinkingLevel() {
     return !model.startsWith("gemini-1.") && !model.startsWith("gemini-2.");
   }
@@ -129,7 +115,7 @@ public class GeminiClient {
     }
   }
 
-  // 세대별로 안 쓰는 필드는 아예 보내지 않는다. null이 그대로 직렬화되면 API가 400으로 거절한다.
+  // 모델 세대에 사용하지 않는 필드는 요청에서 제외한다.
   @JsonInclude(JsonInclude.Include.NON_NULL)
   private record GenerationConfig(
       String responseMimeType, Double temperature, ThinkingConfig thinkingConfig) {}

@@ -44,12 +44,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
   @Query("select book from Book book where book.isbn = :isbn")
   Optional<Book> findByIsbnForUpdate(@Param("isbn") String isbn);
 
-  // 오늘의 추천 후보를 고르기 위한 조회. 엔티티가 아니라 ID만 읽어 하루 한 번 도는 스케줄러가
-  // 책 전체를 메모리에 올리지 않게 한다.
-  //
-  // 후보는 문학(KDC 800)과 철학(KDC 100) 두 대분류로 한정한다. kdc_code는 813, 199처럼 세 자리로
-  // 저장되므로 첫 자리로 대분류를 가른다. 정보나루에서 KDC를 못 받아온 책은 kdc_code가 null이라
-  // like 비교에서 자연히 빠진다.
+  // 문학·철학 KDC 도서의 ID만 추천 후보로 조회한다.
   @Query("select book.id from Book book where book.kdcCode like '1%' or book.kdcCode like '8%'")
   List<Long> findRecommendableIds();
 }
