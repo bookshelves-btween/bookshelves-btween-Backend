@@ -5,7 +5,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.bookshelves.domain.meeting.entity.Meeting;
@@ -39,7 +41,10 @@ class MeetingStartTaskRegistrarTest {
   void setUp() {
     registrar =
         new MeetingStartTaskRegistrar(meetingRepository, meetingCommandService, taskScheduler);
-    doReturn(scheduledFuture).when(taskScheduler).schedule(any(Runnable.class), any(Instant.class));
+    lenient()
+        .doReturn(scheduledFuture)
+        .when(taskScheduler)
+        .schedule(any(Runnable.class), any(Instant.class));
   }
 
   @Test
@@ -82,5 +87,46 @@ class MeetingStartTaskRegistrarTest {
     taskCaptor.getValue().run();
 
     verify(meetingCommandService).startMeeting(eq(3L), any(LocalDateTime.class));
+  }
+
+  @Test
+  void removesTaskThatCompletesBeforeItIsRegistered() {
+    TaskScheduler immediateScheduler = mock(TaskScheduler.class);
+    ScheduledFuture<?> completedFuture = mock(ScheduledFuture.class);
+    MeetingStartTaskRegistrar immediateRegistrar =
+        new MeetingStartTaskRegistrar(meetingRepository, meetingCommandService, immediateScheduler);
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              invocation.<Runnable>getArgument(0).run();
+              return completedFuture;
+            })
+        .when(immediateScheduler)
+        .schedule(any(Runnable.class), any(Instant.class));
+
+    immediateRegistrar.schedule(4L, ServiceTime.now().minusSeconds(1));
+    immediateRegistrar.schedule(4L, ServiceTime.now().minusSeconds(1));
+
+    verify(completedFuture, never()).cancel(false);
+  }
+
+  @Test
+  void oldTaskCannotRemoveNewRegistrationForSameMeeting() {
+    ScheduledFuture<?> firstFuture = mock(ScheduledFuture.class);
+    ScheduledFuture<?> secondFuture = mock(ScheduledFuture.class);
+    ScheduledFuture<?> thirdFuture = mock(ScheduledFuture.class);
+    doReturn(firstFuture, secondFuture, thirdFuture)
+        .when(taskScheduler)
+        .schedule(any(Runnable.class), any(Instant.class));
+    ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
+
+    registrar.schedule(5L, ServiceTime.now().plusMinutes(1));
+    registrar.schedule(5L, ServiceTime.now().plusMinutes(2));
+    verify(taskScheduler, org.mockito.Mockito.times(2))
+        .schedule(taskCaptor.capture(), any(Instant.class));
+
+    taskCaptor.getAllValues().getFirst().run();
+    registrar.schedule(5L, ServiceTime.now().plusMinutes(3));
+
+    verify(secondFuture).cancel(false);
   }
 }

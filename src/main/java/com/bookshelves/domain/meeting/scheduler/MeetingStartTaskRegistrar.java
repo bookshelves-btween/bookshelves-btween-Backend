@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -31,7 +32,7 @@ public class MeetingStartTaskRegistrar {
   private final MeetingRepository meetingRepository;
   private final MeetingCommandService meetingCommandService;
   private final TaskScheduler meetingStartTaskScheduler;
-  private final Map<Long, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
+  private final Map<Long, ScheduledTaskRegistration> scheduledTasks = new ConcurrentHashMap<>();
 
   public MeetingStartTaskRegistrar(
       MeetingRepository meetingRepository,
@@ -64,9 +65,12 @@ public class MeetingStartTaskRegistrar {
 
   void schedule(Long meetingId, LocalDateTime startDate) {
     Instant startInstant = startDate.atZone(ServiceTime.ZONE).toInstant();
+    ScheduledTaskRegistration registration = new ScheduledTaskRegistration();
     ScheduledFuture<?> newTask;
     try {
-      newTask = meetingStartTaskScheduler.schedule(() -> startMeeting(meetingId), startInstant);
+      newTask =
+          meetingStartTaskScheduler.schedule(
+              () -> startMeeting(meetingId, registration), startInstant);
     } catch (RuntimeException e) {
       log.error("모임 시작 예약 등록 실패: meetingId={}, startDate={}", meetingId, startDate, e);
       return;
@@ -76,20 +80,52 @@ public class MeetingStartTaskRegistrar {
       return;
     }
 
-    ScheduledFuture<?> previousTask = scheduledTasks.put(meetingId, newTask);
-    if (previousTask != null) {
-      previousTask.cancel(false);
+    registration.setFuture(newTask);
+    ScheduledTaskRegistration previousRegistration = scheduledTasks.put(meetingId, registration);
+    if (previousRegistration != null) {
+      previousRegistration.cancel();
+    }
+
+    // 과거 시각 예약은 schedule() 호출 안에서 즉시 완료될 수 있으므로 등록 후 다시 정리한다.
+    if (registration.isCompleted()) {
+      scheduledTasks.remove(meetingId, registration);
     }
   }
 
-  private void startMeeting(Long meetingId) {
+  private void startMeeting(Long meetingId, ScheduledTaskRegistration registration) {
     try {
       meetingCommandService.startMeeting(meetingId, ServiceTime.now());
     } catch (Exception e) {
       // 실패하거나 서버가 실행 직후 종료돼도 기존 폴링 스케줄러가 다시 처리
       log.error("예약된 모임 시작 처리 실패: meetingId={}", meetingId, e);
     } finally {
-      scheduledTasks.remove(meetingId);
+      registration.complete();
+      scheduledTasks.remove(meetingId, registration);
+    }
+  }
+
+  private static final class ScheduledTaskRegistration {
+
+    private final AtomicBoolean completed = new AtomicBoolean();
+    private volatile ScheduledFuture<?> future;
+
+    void setFuture(ScheduledFuture<?> future) {
+      this.future = future;
+    }
+
+    void complete() {
+      completed.set(true);
+    }
+
+    boolean isCompleted() {
+      return completed.get();
+    }
+
+    void cancel() {
+      ScheduledFuture<?> scheduledFuture = future;
+      if (scheduledFuture != null) {
+        scheduledFuture.cancel(false);
+      }
     }
   }
 }
