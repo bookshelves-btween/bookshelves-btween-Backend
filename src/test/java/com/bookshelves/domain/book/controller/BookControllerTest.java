@@ -38,11 +38,11 @@ class BookControllerTest {
   }
 
   @Test
-  void getBookDetailChecksDetailRateLimit() {
+  void getBookDetailDelegatesWithoutCheckingDetailRateLimit() {
     bookController.getBookDetail(ISBN);
 
-    verify(externalBookRateLimitService).check(RequestType.DETAIL);
     verify(bookQueryService).getBookDetail(ISBN);
+    verifyNoInteractions(externalBookRateLimitService);
   }
 
   @Test

@@ -57,7 +57,6 @@ public class BookController implements BookControllerDocs {
   @Override
   @GetMapping("/api/v1/books/{isbn}")
   public ResponseEntity<ApiResponse<BookDetailResDTO>> getBookDetail(@PathVariable String isbn) {
-    externalBookRateLimitService.check(RequestType.DETAIL);
     BookDetailResDTO response = bookQueryService.getBookDetail(isbn);
     return ResponseEntity.ok(ApiResponse.onSuccess(BookSuccessCode.BOOK_DETAIL_FOUND, response));
   }
