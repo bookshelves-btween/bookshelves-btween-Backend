@@ -12,6 +12,24 @@ import org.junit.jupiter.api.Test;
 class NotificationTest {
 
   @Test
+  void markAsReadIsIdempotent() {
+    Book book = Book.builder().isbn("9788936434595").title("아몬드").build();
+    Meeting meeting =
+        Meeting.builder()
+            .book(book)
+            .startDate(LocalDateTime.of(2026, 8, 6, 20, 0))
+            .duration(60)
+            .maxParticipants(4)
+            .build();
+    Notification notification = Notification.meetingStarted(mock(Member.class), meeting);
+
+    notification.markAsRead();
+    notification.markAsRead();
+
+    assertThat(notification.getIsRead()).isTrue();
+  }
+
+  @Test
   void preservesSuffixWhenBookTitleExceedsNotificationTitleLimit() {
     Book book = Book.builder().isbn("9788936434595").title("😀".repeat(255)).build();
     Meeting meeting =

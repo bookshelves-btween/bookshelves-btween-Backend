@@ -5,7 +5,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -18,6 +18,7 @@ import com.bookshelves.global.security.AuthenticationFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -104,31 +105,35 @@ class NotificationControllerValidationTest {
   }
 
   @Test
-  void readNotificationReturnsBadRequestWhenNotificationIdIsLessThanOne() throws Exception {
+  void registerFcmTokenReturnsKoreanValidationMessageWhenTokenIsBlank() throws Exception {
     mockMvc
-        .perform(patch("/api/v1/notifications/0/read"))
+        .perform(
+            post("/api/v1/notifications/fcm/tokens")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"fcmToken\":\"\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.isSuccess").value(false))
         .andExpect(jsonPath("$.code").value("COMMON400_1"))
         .andExpect(jsonPath("$.message").value("잘못된 요청입니다."))
-        .andExpect(jsonPath("$.result").isMap());
+        .andExpect(jsonPath("$.result.fcmToken").value("FCM 토큰은 필수입니다."));
 
     verifyNoInteractions(notificationCommandService);
   }
 
   @Test
-  void readNotificationReturnsNotFoundWhenNotificationIsMissingOrNotOwned() throws Exception {
-    when(authenticationFacade.getCurrentMemberId()).thenReturn(1L);
-    when(notificationCommandService.readNotification(101L, 1L))
-        .thenThrow(new NotificationException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
-
+  void registerFcmTokenReturnsKoreanValidationMessageWhenTokenIsTooLong() throws Exception {
     mockMvc
-        .perform(patch("/api/v1/notifications/101/read"))
-        .andExpect(status().isNotFound())
+        .perform(
+            post("/api/v1/notifications/fcm/tokens")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"fcmToken\":\"" + "a".repeat(256) + "\"}"))
+        .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.isSuccess").value(false))
-        .andExpect(jsonPath("$.code").value("NOTI404_1"))
-        .andExpect(jsonPath("$.message").value("존재하지 않는 알림입니다."))
-        .andExpect(jsonPath("$.result").isMap());
+        .andExpect(jsonPath("$.code").value("COMMON400_1"))
+        .andExpect(jsonPath("$.message").value("잘못된 요청입니다."))
+        .andExpect(jsonPath("$.result.fcmToken").value("FCM 토큰은 255자 이하여야 합니다."));
+
+    verifyNoInteractions(notificationCommandService);
   }
 
   @Test
