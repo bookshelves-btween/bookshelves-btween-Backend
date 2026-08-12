@@ -73,10 +73,10 @@ public class SecurityConfig {
                         "/api/v1/auth/social-login",
                         "/api/v1/auth/reissue",
                         "/api/v1/auth/restore",
-                        // 테스트용 로그인 — 인증 없이 토큰을 발급한다. 테스트가 끝나면 제거한다.
+                        // 테스트 종료 후 제거할 인증 없는 로그인 경로.
                         "/api/v1/auth/fake-signup",
                         "/api/v1/onboarding/terms",
-                        // WebSocket 핸드셰이크 — 인증은 STOMP CONNECT 단계에서 수행
+                        // WebSocket 인증은 STOMP CONNECT 단계에서 수행한다.
                         "/ws-stomp")
                     .permitAll()
                     .anyRequest()

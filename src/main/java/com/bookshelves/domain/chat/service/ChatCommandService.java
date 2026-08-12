@@ -27,8 +27,7 @@ public class ChatCommandService {
   private final MemberRepository memberRepository;
   private final MeetingParticipantRepository meetingParticipantRepository;
 
-  // 저장 성공 시 broadcast용 payload 반환. 모임이 진행 중(IN_PROGRESS)이 아니면
-  // 명세에 따라 저장·broadcast 없이 무시한다 (빈 Optional).
+  // 진행 중인 모임에만 메시지를 저장하고 전송용 payload를 반환한다.
   public Optional<ChatMessagePayload> saveMessage(Long chatroomId, Long senderId, String content) {
     ChatRoom chatRoom =
         chatRoomRepository

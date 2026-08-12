@@ -17,7 +17,6 @@ public record HomeResDTO(
   @Schema(description = "회원 정보")
   public record MemberInfo(String nickname) {}
 
-  // 엔티티별로 객체를 나눈다. 각 객체의 PK 필드명은 id로 통일한다.
   @Schema(description = "책 정보")
   public record BookInfo(
       Long id,
@@ -38,9 +37,7 @@ public record HomeResDTO(
   @Schema(description = "최근 본 책")
   public record RecentBookInfo(MemberBookRecord memberBook, BookInfo book) {}
 
-  // status는 member_book에 컬럼이 없고 진행률에서 파생한다. 서재 목록과 같은 규칙을 쓰기 위해
-  // MemberBookStatus.from을 거친다.
-  // updatedAt은 최근 본 책을 고른 기준값이다. 어떤 기록이 언제 갱신돼 이 책이 뽑혔는지 드러낸다.
+  // status는 진행률에서 파생하며 updatedAt은 최근 본 책의 선정 기준이다.
   @Schema(description = "내 서재 기록")
   public record MemberBookRecord(
       Long id,
@@ -49,7 +46,7 @@ public record HomeResDTO(
       @Schema(description = "내가 기록한 별점. 기록 전이면 null", example = "4.5") BigDecimal rating,
       @Schema(description = "기록을 마지막으로 수정한 시각") LocalDateTime updatedAt) {}
 
-  // 요일은 startDate에서 클라이언트가 만든다. 서버가 문자열로 내려보내면 로케일 처리가 둘로 갈린다.
+  // 요일 표시는 클라이언트가 startDate와 로케일로 구성한다.
   @Schema(description = "모집중 모임")
   public record MeetingInfo(MeetingSummary meeting, MeetingBookInfo book) {}
 
@@ -62,7 +59,7 @@ public record HomeResDTO(
       Integer maxParticipants,
       @Schema(description = "진행 시간(분)", example = "30") Integer duration) {}
 
-  // 모임 카드는 모임 상세로만 이동하므로 책 식별자가 필요 없다. isbn을 담지 않는다.
+  // 모임 카드는 모임 상세로 이동하므로 ISBN을 포함하지 않는다.
   @Schema(description = "모임 대상 책")
   public record MeetingBookInfo(
       Long id, String title, String author, String publisher, String coverImageUrl) {}

@@ -19,15 +19,14 @@ public interface MeetingParticipantRepository extends JpaRepository<MeetingParti
       "select mp from MeetingParticipant mp join fetch mp.member where mp.meeting.id = :meetingId")
   List<MeetingParticipant> findAllWithMemberByMeetingId(@Param("meetingId") Long meetingId);
 
-  // 노쇼 확정 대상 — 출석하지 않은(attended가 true가 아닌) 참여자. member를 함께 로딩한다.
+  // 노쇼 확정 대상을 회원과 함께 조회한다.
   @Query(
       "select mp from MeetingParticipant mp join fetch mp.member "
           + "where mp.meeting.id = :meetingId "
           + "and (mp.attended is null or mp.attended = false)")
   List<MeetingParticipant> findNotAttendedByMeetingId(@Param("meetingId") Long meetingId);
 
-  // 채팅방 최초 유효 구독 = 출석. 이미 true면 갱신하지 않아 멱등하며, 한번 true가 되면
-  // 재접속·해제로 되돌리지 않는다. chatroomId로 대상 모임을 특정한다.
+  // 최초 유효 구독을 출석으로 기록하며 이미 출석한 경우 갱신하지 않는다.
   @Modifying(clearAutomatically = true)
   @Query(
       "update MeetingParticipant mp set mp.attended = true "

@@ -23,8 +23,7 @@ public class ChatStompController {
   private final ChatCommandService chatCommandService;
   private final SimpMessagingTemplate messagingTemplate;
 
-  // 저장 먼저, broadcast 나중 — 프레임의 messageId·createdAt은 DB가 만든 값이어야
-  // 입장 API의 전체 조회와 실시간 프레임의 id가 일치한다
+  // DB에서 생성된 ID와 시각을 사용하도록 저장 후 전송한다.
   @MessageMapping("/chatrooms/{chatroomId}")
   public void sendMessage(
       @DestinationVariable Long chatroomId,
