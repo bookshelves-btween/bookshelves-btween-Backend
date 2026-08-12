@@ -27,4 +27,13 @@ public class WebSocketSchedulerConfig {
     scheduler.initialize();
     return scheduler;
   }
+
+  @Bean
+  public ThreadPoolTaskScheduler meetingStartTaskScheduler() {
+    ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+    scheduler.setPoolSize(4);
+    scheduler.setThreadNamePrefix("meeting-start-");
+    scheduler.initialize();
+    return scheduler;
+  }
 }
