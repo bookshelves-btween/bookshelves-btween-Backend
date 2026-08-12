@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifier;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
-import com.bookshelves.domain.auth.dto.request.FakeSignUpRequest;
+import com.bookshelves.domain.auth.dto.request.FakeLoginRequest;
 import com.bookshelves.domain.auth.dto.request.ReissueRequest;
 import com.bookshelves.domain.auth.dto.request.RestoreRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
@@ -22,8 +22,8 @@ import com.bookshelves.domain.auth.dto.response.SocialLoginResponse;
 import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
-import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
+import com.bookshelves.domain.member.exception.MemberErrorCode;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.service.MemberCommandService;
 import com.bookshelves.global.config.JwtProperties;
@@ -89,83 +89,55 @@ class AuthCommandServiceTest {
   }
 
   @Test
-  void fakeSignUpCreatesActiveMemberAndIssuesTokens() {
-    when(memberRepository.findByProviderAndProviderId(Provider.KAKAO, "fake-tester-1"))
-        .thenReturn(Optional.empty());
-    Member createdMember = mock(Member.class);
-    when(createdMember.getId()).thenReturn(7L);
-    when(createdMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
-    when(memberCommandService.createAndOnboardFakeMember(
-            Provider.KAKAO, "fake-tester-1", "tester-1", ProfileBackgroundColor.GREEN))
-        .thenReturn(createdMember);
+  void fakeLoginIssuesTokensForExistingMemberRegardlessOfStatus() {
+    // 상태와 무관하게 발급한다 — 실제 사용 시점의 차단은 AccessTokenGuard가 담당한다.
+    Member member = mock(Member.class);
+    when(member.getId()).thenReturn(10L);
+    when(member.getStatus()).thenReturn(MemberStatus.PENDING_ONBOARDING);
+    when(memberRepository.findById(10L)).thenReturn(Optional.of(member));
 
     SocialLoginResponse response =
-        authCommandService.fakeSignUp(
-            FakeSignUpRequest.builder().key("tester-1").secret(FAKE_SECRET).build());
+        authCommandService.fakeLogin(
+            FakeLoginRequest.builder().memberId(10L).secret(FAKE_SECRET).build());
 
-    // 온보딩을 건너뛰고 바로 쓸 수 있어야 한다
-    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
+    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.PENDING_ONBOARDING);
     assertThat(response.getAccessToken()).isNotNull();
     assertThat(response.getRefreshToken()).isNotNull();
-    verify(memberCommandService)
-        .createAndOnboardFakeMember(
-            Provider.KAKAO, "fake-tester-1", "tester-1", ProfileBackgroundColor.GREEN);
-    verify(redisTokenRepository).saveRefreshToken(eq(7L), any(), eq(Duration.ofSeconds(1209600)));
+    // 회원을 새로 만들지 않는다 — 이미 존재하는 memberId로만 동작한다.
+    verify(memberCommandService, never()).createSocialMember(any(), any());
+    verify(redisTokenRepository).saveRefreshToken(eq(10L), any(), eq(Duration.ofSeconds(1209600)));
   }
 
   @Test
-  void fakeSignUpWithSameKeyLogsInAsTheSameMember() {
-    Member existingMember = mock(Member.class);
-    when(existingMember.getId()).thenReturn(7L);
-    when(existingMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
-    when(memberRepository.findByProviderAndProviderId(Provider.KAKAO, "fake-tester-1"))
-        .thenReturn(Optional.of(existingMember));
+  void fakeLoginThrowsMemberNotFoundForUnknownMemberId() {
+    when(memberRepository.findById(999L)).thenReturn(Optional.empty());
 
-    SocialLoginResponse response =
-        authCommandService.fakeSignUp(
-            FakeSignUpRequest.builder().key("tester-1").secret(FAKE_SECRET).build());
-
-    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
-    // 같은 key는 회원을 새로 만들지 않는다 — 재로그인해도 참여한 모임이 유지되어야 한다
-    verify(memberCommandService, never()).createAndOnboardFakeMember(any(), any(), any(), any());
-    verify(redisTokenRepository).saveRefreshToken(eq(7L), any(), eq(Duration.ofSeconds(1209600)));
-  }
-
-  @Test
-  void fakeSignUpNeverReachesRealSocialMembers() {
-    // provider_id에 fake- 접두사가 붙으므로 실제 카카오 회원(숫자 provider_id)과 겹치지 않는다
-    when(memberRepository.findByProviderAndProviderId(Provider.KAKAO, "fake-tester-2"))
-        .thenReturn(Optional.empty());
-    Member createdMember = mock(Member.class);
-    when(createdMember.getId()).thenReturn(8L);
-    when(createdMember.getStatus()).thenReturn(MemberStatus.ACTIVE);
-    when(memberCommandService.createAndOnboardFakeMember(
-            Provider.KAKAO, "fake-tester-2", "tester-2", ProfileBackgroundColor.GREEN))
-        .thenReturn(createdMember);
-
-    authCommandService.fakeSignUp(
-        FakeSignUpRequest.builder().key("tester-2").secret(FAKE_SECRET).build());
-
-    verify(memberRepository).findByProviderAndProviderId(Provider.KAKAO, "fake-tester-2");
-    verify(memberRepository, never()).findByProviderAndProviderId(Provider.KAKAO, "tester-2");
-  }
-
-  @Test
-  void fakeSignUpRejectsWrongSecretWithoutTouchingMembers() {
     assertThatThrownBy(
             () ->
-                authCommandService.fakeSignUp(
-                    FakeSignUpRequest.builder().key("tester-1").secret("wrong-secret").build()))
+                authCommandService.fakeLogin(
+                    FakeLoginRequest.builder().memberId(999L).secret(FAKE_SECRET).build()))
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+        .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
 
-    verify(memberRepository, never()).findByProviderAndProviderId(any(), any());
-    verify(memberCommandService, never()).createSocialMember(any(), any());
+    verify(redisTokenRepository, never()).saveRefreshToken(any(), any(), any());
   }
 
   @Test
-  void fakeSignUpIsClosedWhenServerHasNoSecretConfigured() {
+  void fakeLoginRejectsWrongSecretWithoutTouchingMembers() {
+    assertThatThrownBy(
+            () ->
+                authCommandService.fakeLogin(
+                    FakeLoginRequest.builder().memberId(10L).secret("wrong-secret").build()))
+        .isInstanceOf(ProjectException.class)
+        .extracting(e -> ((ProjectException) e).getErrorCode())
+        .isEqualTo(AuthErrorCode.AUTH_INVALID_FAKE_LOGIN_SECRET);
+
+    verify(memberRepository, never()).findById(any());
+  }
+
+  @Test
+  void fakeLoginIsClosedWhenServerHasNoSecretConfigured() {
     // 설정을 빠뜨린 환경에서 열린 채로 남지 않아야 한다
     AuthCommandService serviceWithoutSecret =
         new AuthCommandService(
@@ -178,13 +150,13 @@ class AuthCommandServiceTest {
 
     assertThatThrownBy(
             () ->
-                serviceWithoutSecret.fakeSignUp(
-                    FakeSignUpRequest.builder().key("tester-1").secret("anything").build()))
+                serviceWithoutSecret.fakeLogin(
+                    FakeLoginRequest.builder().memberId(10L).secret("anything").build()))
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+        .isEqualTo(AuthErrorCode.AUTH_INVALID_FAKE_LOGIN_SECRET);
 
-    verify(memberRepository, never()).findByProviderAndProviderId(any(), any());
+    verify(memberRepository, never()).findById(any());
   }
 
   @Test

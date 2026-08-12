@@ -80,7 +80,7 @@ public class GeneralExceptionAdvice {
   }
 
   // 매핑된 컨트롤러도, 정적 리소스도 없는 경로 요청. 프로파일에 따라 등록되지 않는
-  // 컨트롤러(예: prod의 fake-signup)로 오는 요청도 여기로 떨어진다.
+  // 컨트롤러로 오는 요청도 여기로 떨어진다.
   @ExceptionHandler(NoResourceFoundException.class)
   public ResponseEntity<ApiResponse<Map<String, Object>>> handleNoResourceFoundException(
       NoResourceFoundException e) {

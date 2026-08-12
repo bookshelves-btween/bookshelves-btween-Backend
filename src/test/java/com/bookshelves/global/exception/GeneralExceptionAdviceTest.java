@@ -80,7 +80,7 @@ class GeneralExceptionAdviceTest {
   void handleNoResourceFoundExceptionReturnsNotFound() {
     NoResourceFoundException exception =
         new NoResourceFoundException(
-            HttpMethod.POST, "api/v1/auth/fake-signup", "/api/v1/auth/fake-signup");
+            HttpMethod.POST, "api/v1/does-not-exist", "/api/v1/does-not-exist");
 
     ResponseEntity<ApiResponse<Map<String, Object>>> response =
         generalExceptionAdvice.handleNoResourceFoundException(exception);
