@@ -33,6 +33,7 @@ import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository.CumulativeStatistics;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
+import com.bookshelves.domain.book.service.ExternalBookRateLimitService.RequestType;
 import com.bookshelves.global.security.AuthenticationFacade;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -61,6 +62,7 @@ class BookQueryServiceTest {
   @Mock private MemberBookRepository memberBookRepository;
   @Mock private MemberBookHistoryRepository memberBookHistoryRepository;
   @Mock private ExternalBookLookupService externalBookLookupService;
+  @Mock private ExternalBookRateLimitService externalBookRateLimitService;
   @Mock private RecentBookSearchRepository recentBookSearchRepository;
   @Mock private AuthenticationFacade authenticationFacade;
   @InjectMocks private BookQueryService bookQueryService;
@@ -278,7 +280,7 @@ class BookQueryServiceTest {
     assertThat(result.book().description()).isEqualTo("a".repeat(127));
     assertThat(result.memberBook().progress()).isEqualTo(70);
     assertThat(result.memberBook().rating()).isEqualByComparingTo("4.5");
-    verifyNoInteractions(externalBookLookupService);
+    verifyNoInteractions(externalBookLookupService, externalBookRateLimitService);
   }
 
   @Test
@@ -348,6 +350,7 @@ class BookQueryServiceTest {
     assertThat(result.book().description()).isEqualTo("a".repeat(127));
     assertThat(result.memberBook()).isNull();
     verifyNoInteractions(memberBookRepository);
+    verify(externalBookRateLimitService).check(RequestType.DETAIL);
   }
 
   @Test

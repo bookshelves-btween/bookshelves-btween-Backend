@@ -3,12 +3,15 @@ package com.bookshelves.domain.book.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bookshelves.domain.book.dto.request.MemberBookUpsertReqDTO;
 import com.bookshelves.domain.book.dto.response.MemberBookUpsertResDTO;
 import com.bookshelves.domain.book.service.BookCommandService;
 import com.bookshelves.domain.book.service.BookQueryService;
+import com.bookshelves.domain.book.service.ExternalBookRateLimitService;
+import com.bookshelves.domain.book.service.ExternalBookRateLimitService.RequestType;
 import com.bookshelves.global.apiPayload.ApiResponse;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
@@ -21,8 +24,26 @@ class BookControllerTest {
 
   private final BookQueryService bookQueryService = mock(BookQueryService.class);
   private final BookCommandService bookCommandService = mock(BookCommandService.class);
+  private final ExternalBookRateLimitService externalBookRateLimitService =
+      mock(ExternalBookRateLimitService.class);
   private final BookController bookController =
-      new BookController(bookQueryService, bookCommandService);
+      new BookController(bookQueryService, bookCommandService, externalBookRateLimitService);
+
+  @Test
+  void searchExternalBooksChecksSearchRateLimit() {
+    bookController.searchExternalBooks("혼모노", "1", "15", true);
+
+    verify(externalBookRateLimitService).check(RequestType.SEARCH);
+    verify(bookQueryService).searchExternalBooks("혼모노", "1", "15", true);
+  }
+
+  @Test
+  void getBookDetailDelegatesWithoutCheckingDetailRateLimit() {
+    bookController.getBookDetail(ISBN);
+
+    verify(bookQueryService).getBookDetail(ISBN);
+    verifyNoInteractions(externalBookRateLimitService);
+  }
 
   @Test
   void deleteRecentBookSearchReturnsOk() {
@@ -49,6 +70,7 @@ class BookControllerTest {
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().getCode()).isEqualTo("BOOK201_1");
     assertThat(response.getBody().getResult()).isSameAs(result);
+    verifyNoInteractions(externalBookRateLimitService);
   }
 
   @Test

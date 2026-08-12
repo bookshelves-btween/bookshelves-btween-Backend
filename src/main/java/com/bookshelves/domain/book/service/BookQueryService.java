@@ -31,6 +31,7 @@ import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository.CumulativeStatistics;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
+import com.bookshelves.domain.book.service.ExternalBookRateLimitService.RequestType;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
 import com.bookshelves.global.security.AuthenticationFacade;
 import com.bookshelves.global.util.ServiceTime;
@@ -69,6 +70,7 @@ public class BookQueryService {
   private final MemberBookRepository memberBookRepository;
   private final MemberBookHistoryRepository memberBookHistoryRepository;
   private final ExternalBookLookupService externalBookLookupService;
+  private final ExternalBookRateLimitService externalBookRateLimitService;
   private final RecentBookSearchRepository recentBookSearchRepository;
   private final AuthenticationFacade authenticationFacade;
 
@@ -370,6 +372,7 @@ public class BookQueryService {
       return new BookDetailResDTO(toSavedBookDetailInfo(savedBook), toMemberBookInfo(memberBook));
     }
 
+    externalBookRateLimitService.check(RequestType.DETAIL);
     CachedBookDetail externalBook =
         externalBookLookupService.findByIsbn(requestedIsbn, canonicalIsbn);
 
