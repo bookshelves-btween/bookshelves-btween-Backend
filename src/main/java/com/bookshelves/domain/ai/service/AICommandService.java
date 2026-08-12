@@ -26,9 +26,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 질문 공개 투표. 클라이언트 계약은 그대로 "새 질문 생성 요청"이지만,
-// 서버는 이미 저장된 다음 질문의 커서를 올릴 뿐이라 모임 진행 중 LLM 호출이 없다.
-// 덕분에 생성권 선점·실패 라운드 복구·동시 생성 충돌 같은 경합이 구조적으로 사라졌다.
+// 질문 공개 투표를 집계하고, 정족수 도달 시 미리 저장된 다음 질문을 공개한다.
 @Slf4j
 @Service
 @Transactional
@@ -43,11 +41,9 @@ public class AICommandService {
   private final QuestionRevealService questionRevealService;
   private final SimpMessagingTemplate messagingTemplate;
 
-  // 채팅방별 투표 직렬화 락 — 표 반영·카운트·VOTE_COUNT 전송을 하나의 구간으로 묶어
-  // 동시 투표 시 "2표 프레임 뒤에 1표 프레임"처럼 카운트가 역행하는 전송을 막는다
+  // 투표 반영과 현황 전송을 직렬화해 VOTE_COUNT 프레임의 역행을 막는다.
   private final Map<Long, Object> voteLocksByChatroom = new ConcurrentHashMap<>();
 
-  // 투표(내 액션)는 HTTP로 받고, 현황·새 질문은 SUB 프레임으로 전파한다 — 명세 구조.
   public QuestionVoteResponse voteForNewQuestion(Long meetingId, Long memberId) {
     Meeting meeting =
         meetingRepository
@@ -60,7 +56,6 @@ public class AICommandService {
     if (meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
       throw new AIException(AIErrorCode.MEETING_NOT_IN_PROGRESS);
     }
-    // 마지막 질문까지 공개된 뒤에는 더 올릴 커서가 없다
     if (meeting.getCurrentQuestionOrder() >= SeedQuestion.count()) {
       throw new AIException(AIErrorCode.QUESTION_LIMIT_REACHED);
     }
@@ -79,12 +74,12 @@ public class AICommandService {
         throw new AIException(AIErrorCode.ALREADY_VOTED);
       }
 
-      // 표 수와 라운드는 같은 스냅샷에서 읽어야 한다 — 따로 읽으면 이전 라운드의 표 수로 새 라운드를 소비한다
+      // 표 수와 라운드를 같은 스냅샷에서 읽어 이전 판정이 새 라운드에 적용되지 않게 한다.
       QuestionVoteStore.VoteRound voteRound = questionVoteStore.snapshot(chatroomId);
       currentVotes = voteRound.votes();
       requiredVotes = chatPresenceService.requiredVotes(chatroomId);
 
-      // 실시간 현황 전파는 best-effort — 전송 실패가 이미 반영된 투표를 실패로 둔갑시키면 안 된다
+      // 현황 전송 실패는 이미 반영된 투표를 되돌리지 않는다.
       try {
         messagingTemplate.convertAndSend(
             ChatFrame.CHATROOM_SUB_DESTINATION + chatroomId,
@@ -96,7 +91,7 @@ public class AICommandService {
         log.warn("VOTE_COUNT broadcast 실패: chatroomId={}", chatroomId, e);
       }
 
-      // 접속자가 0명이면 requiredVotes=0 — 이때는 정족수 판정 자체가 무의미하므로 공개하지 않는다
+      // 접속자가 없을 때는 질문을 공개하지 않는다.
       triggered =
           requiredVotes >= 1
               && currentVotes >= requiredVotes

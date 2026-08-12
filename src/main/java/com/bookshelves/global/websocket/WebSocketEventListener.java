@@ -23,9 +23,7 @@ public class WebSocketEventListener {
   private final ChatPresenceService chatPresenceService;
   private final MeetingCommandService meetingCommandService;
 
-  // presence 등록은 브로커에 구독이 등록된 뒤(SessionSubscribeEvent)에 수행 —
-  // 인터셉터 시점에 등록하면 입장자 본인이 자신의 JOINED 프레임을 받지 못한다.
-  // 권한 검증은 인터셉터가 담당하며, 거부된 구독은 이 이벤트가 발행되지 않는다.
+  // 입장자가 JOINED 프레임을 받을 수 있도록 구독 등록 후 presence에 반영한다.
   @EventListener
   public void handleSessionSubscribe(SessionSubscribeEvent event) {
     StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
@@ -39,7 +37,7 @@ public class WebSocketEventListener {
     chatPresenceService.join(
         chatroomId, memberId, accessor.getSessionId(), accessor.getSubscriptionId());
 
-    // 출석 처리는 presence(인메모리)와 독립 — DB 실패가 구독/presence를 깨지 않도록 격리한다
+    // 출석 저장 실패가 인메모리 presence를 되돌리지 않게 격리한다.
     try {
       meetingCommandService.markAttended(chatroomId, memberId);
     } catch (Exception e) {

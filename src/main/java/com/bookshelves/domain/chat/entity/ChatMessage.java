@@ -34,8 +34,7 @@ public class ChatMessage extends BaseEntity {
   @JoinColumn(name = "sender_member_id", nullable = false)
   private Member senderMember;
 
-  // 길이는 ChatMessageRequest의 @Size(max = 500)와 같은 값이다. 한쪽만 바꾸면 ddl-auto=validate가
-  // 잡지 못하는 구간이 생긴다.
+  // 요청 DTO의 최대 길이와 동일하게 유지한다.
   @Column(name = "message", nullable = false, length = MAX_MESSAGE_LENGTH)
   private String message;
 

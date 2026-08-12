@@ -16,19 +16,18 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-  // presence 판단용 heart-beat 주기(ms) — 클라이언트와 10초 간격으로 주고받는다
+  // presence 판단을 위해 10초 간격으로 주고받는다.
   private static final long[] HEARTBEAT = {10000, 10000};
 
   private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
   private final StompErrorFrameHandler stompErrorFrameHandler;
-  // 필드명이 빈 이름(webSocketTaskScheduler)과 일치 → 브로커 자체 스케줄러와 구분해 주입
+  // 브로커용 스케줄러를 다른 TaskScheduler와 구분해 주입한다.
   private final ThreadPoolTaskScheduler webSocketTaskScheduler;
 
   @Override
   public void registerStompEndpoints(StompEndpointRegistry registry) {
     registry.addEndpoint("/ws-stomp").setAllowedOriginPatterns("*");
-    // CONNECT·SUBSCRIBE 실패를 ERROR 프레임에 ApiResponse envelope로 실어 보낸다.
-    // 기본 핸들러는 예외 메시지 원문을 그대로 내보내 HTTP 응답과 형식이 어긋난다.
+    // CONNECT·SUBSCRIBE 오류도 HTTP와 같은 ApiResponse 형식으로 전달한다.
     registry.setErrorHandler(stompErrorFrameHandler);
   }
 

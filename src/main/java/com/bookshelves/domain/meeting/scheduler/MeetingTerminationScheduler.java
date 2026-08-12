@@ -12,9 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-// 종료 시각이 지난 진행 중 모임을 주기적으로 종료 처리한다(폴링).
-// 개별 예약 대신 폴링을 쓰는 이유: 서버 재시작에도 복구가 필요 없고 상태 관리가 단순하다.
-// 최대 15초 지연은 허용 범위(프론트는 로컬 타이머로 이미 표시상 종료, 실제 종료는 이 배치가 확정).
+// 종료 시각이 지난 모임을 폴링해 서버 재시작 후에도 별도 예약 복구 없이 처리한다.
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -30,9 +28,9 @@ public class MeetingTerminationScheduler {
     List<Meeting> candidates = meetingRepository.findAllByStatus(MeetingStatus.IN_PROGRESS);
     for (Meeting meeting : candidates) {
       if (meeting.getEndDate().isAfter(now)) {
-        continue; // 아직 종료 시각 전
+        continue;
       }
-      // 모임 단위로 격리 — 한 건 실패가 나머지 종료 처리를 막지 않도록 한다
+      // 한 모임의 실패가 나머지 종료 처리를 막지 않게 한다.
       try {
         meetingTerminationService.terminate(meeting.getId());
       } catch (Exception e) {

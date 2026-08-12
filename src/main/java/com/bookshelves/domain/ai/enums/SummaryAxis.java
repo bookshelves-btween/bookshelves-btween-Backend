@@ -4,13 +4,8 @@ import java.util.Arrays;
 import java.util.List;
 import lombok.Getter;
 
-// 모임 요약의 분석 축. 요약은 이 세 축을 하나씩 반영한 주제 3개로 구성된다.
-//
-// 축은 서버 내부 개념이다. 응답에는 싣지 않는다 — 화면이 제목과 본문만 보여주므로 프론트가 축을
-// 구분할 필요가 없다. 대신 두 가지 역할을 한다. (meeting_id, axis) unique 제약이 모임당 3행을
-// 보장하는 근거이고, displayOrder가 항상 같은 순서로 내보내는 정렬 기준이다.
-//
-// description은 프롬프트에 그대로 들어간다. 모델이 각 축에서 무엇을 뽑아야 하는지 알려주는 설명이다.
+// 모임 요약을 구성하는 세 가지 분석 축.
+// description은 생성 프롬프트에, displayOrder는 응답 정렬에 사용한다.
 @Getter
 public enum SummaryAxis {
   KEY_ARGUMENT(
@@ -28,14 +23,14 @@ public enum SummaryAxis {
     this.description = description;
   }
 
-  /** displayOrder 오름차순 목록. enum 선언 순서에 의존하지 않도록 명시 정렬한다. */
+  /** displayOrder 오름차순 목록. */
   public static List<SummaryAxis> ordered() {
     return Arrays.stream(values())
         .sorted((left, right) -> Integer.compare(left.displayOrder, right.displayOrder))
         .toList();
   }
 
-  /** 모임당 저장되어야 하는 요약 행 수. */
+  /** 모임당 요약 행 수. */
   public static int count() {
     return values().length;
   }

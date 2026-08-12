@@ -38,11 +38,10 @@ public class ChatQueryService {
             .orElseThrow(() -> new ChatException(ChatErrorCode.CHATROOM_NOT_FOUND));
     Meeting meeting = chatRoom.getMeeting();
 
-    // 접근 검증 기준(403·410)은 SUBSCRIBE 검증과 동일해야 한다 — validator로 단일화
+    // 입장 API와 STOMP 구독에 같은 접근 조건을 적용한다.
     chatSubscriptionValidator.validate(chatRoom, memberId);
 
-    // 질문 5개는 모임 시작 전에 미리 저장되므로 "가장 큰 order"가 아니라 커서로 현재 질문을 찾는다.
-    // 시작 시 커서가 1로 올라가고 안전망이 질문을 보장하므로 IN_PROGRESS에서는 항상 존재, 시작 전이면 null
+    // 미리 저장된 질문 중 모임 커서가 가리키는 항목을 조회한다.
     AIQuestion currentQuestion =
         meeting.getStatus() == MeetingStatus.IN_PROGRESS
             ? aiQuestionRepository

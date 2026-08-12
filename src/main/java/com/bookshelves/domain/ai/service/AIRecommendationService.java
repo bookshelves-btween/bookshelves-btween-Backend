@@ -17,33 +17,23 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
-// 오늘의 추천 도서를 하루 한 권 준비한다. 후보는 문학(KDC 800)과 철학(KDC 100)으로 분류된 책뿐이다.
-//
-// 이 클래스에는 트랜잭션 경계가 없다. 멘트 생성이 수십 초 걸리는 LLM 호출이라 전체를 트랜잭션으로
-// 감싸면 그동안 커넥션을 붙잡게 된다. 조회 두 번과 INSERT 한 번뿐이고 서로 원자적일 이유가 없어
-// 각 리포지토리 호출의 자체 트랜잭션에 맡긴다.
+// 문학과 철학 도서 중 하루 한 권의 추천을 준비한다.
+// LLM 호출 중 커넥션을 점유하지 않도록 전체 작업을 트랜잭션으로 묶지 않는다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AIRecommendationService {
 
-  // 최근 이 기간에 추천된 책은 후보에서 뺀다. 같은 책이 며칠 간격으로 다시 나오면 추천이 고장 난 것처럼 보인다.
-  //
-  // 추천 대상 책이 이 기간보다 적으면 후보가 통째로 비는데, 그때는 제외를 포기하고 전체에서 고른다.
-  // 책 11권에 10일 제외면 순환하지만 어제와 다른 책이 나오고, 5권이면 제외를 포기해야 아예 멈추지 않는다.
-  // 대상을 문학과 철학으로 좁힌 뒤로는 이 경로에 더 자주 걸린다.
+  // 최근 추천을 제외하되 후보가 없으면 전체 대상에서 선택한다.
   static final int EXCLUSION_WINDOW_DAYS = 10;
 
-  // 멘트 생성이 실패했을 때 쓰는 폴백. 책 소개의 첫 문장이 1순위다. 그 책에 대한 실제 설명이라
-  // 어떤 기본 문구보다 낫다. 소개조차 없을 때만 이 문구로 내려간다.
+  // 책 소개도 없을 때 사용하는 기본 문구.
   static final String DEFAULT_MESSAGE = "오늘의 책으로 골라봤어요";
 
-  // 폴백 문장이 길면 홈 카드 한 줄을 넘긴다. 상세 조회의 소개 미리보기와 같은 규칙으로 자른다.
   private static final int FALLBACK_MAX_LENGTH = 126;
   private static final String TRUNCATION_SUFFIX = "...";
 
-  // 문장 끝만 찾는다. 마침표 뒤에 공백이나 문자열 끝이 와야 문장 경계로 본다.
-  // 소수점이나 3.6처럼 숫자 사이에 낀 마침표에서 잘리지 않게 하려는 조건이다.
+  // 숫자 사이의 마침표를 제외한 첫 문장 경계를 찾는다.
   private static final Pattern FIRST_SENTENCE =
       Pattern.compile("^.*?[.!?](?=\\s|$)", Pattern.DOTALL);
 
@@ -51,11 +41,7 @@ public class AIRecommendationService {
   private final AIRecommendationRepository aiRecommendationRepository;
   private final GeminiRecommendationClient geminiRecommendationClient;
 
-  /**
-   * 해당 날짜의 추천 도서를 준비한다.
-   *
-   * <p>이미 있으면 아무것도 하지 않는다. 스케줄러가 두 번 돌거나 배포로 애플리케이션이 다시 떠도 하루에 두 권이 쌓이지 않아야 한다.
-   */
+  /** 해당 날짜의 추천이 이미 있으면 건너뛴다. */
   public void prepare(LocalDate recommendedDate) {
     if (aiRecommendationRepository.existsByRecommendedDate(recommendedDate)) {
       return;
@@ -63,14 +49,12 @@ public class AIRecommendationService {
 
     Long bookId = pickBookId(recommendedDate);
     if (bookId == null) {
-      // 문학이나 철학으로 분류된 책이 아직 한 권도 없는 상태다. 추천할 대상이 없는 것이지 실패가 아니다.
       log.warn("추천 대상 책이 없어 오늘의 추천을 건너뛴다: recommendedDate={}", recommendedDate);
       return;
     }
 
     Book book = bookRepository.findById(bookId).orElse(null);
     if (book == null) {
-      // 후보를 고른 뒤 저장 전에 지워진 경우. 다음 실행이 다시 고른다.
       log.warn("추천 후보 책이 사라져 건너뛴다: bookId={}", bookId);
       return;
     }
@@ -125,8 +109,7 @@ public class AIRecommendationService {
         : sentence.substring(0, FALLBACK_MAX_LENGTH) + TRUNCATION_SUFFIX;
   }
 
-  // 트랜잭션을 따로 열지 않는다. 저장이 INSERT 한 건이라 리포지토리 자체 트랜잭션으로 충분하고,
-  // 같은 빈 안에서 부르는 메서드에 @Transactional을 붙여봐야 프록시를 타지 않아 아무 경계도 생기지 않는다.
+  // 단일 INSERT는 리포지토리 트랜잭션에 맡긴다.
   private void save(Book book, String message, LocalDate recommendedDate) {
     try {
       aiRecommendationRepository.save(
@@ -136,7 +119,7 @@ public class AIRecommendationService {
               .recommendedDate(recommendedDate)
               .build());
     } catch (DataIntegrityViolationException e) {
-      // 두 실행이 동시에 없다고 읽은 경합. unique 제약이 막았고 한쪽은 이미 저장했으므로 정상이다.
+      // 동시 실행의 중복 저장은 날짜 unique 제약으로 막는다.
       log.info("같은 날짜의 추천이 이미 저장돼 건너뛴다: recommendedDate={}", recommendedDate);
     }
   }
