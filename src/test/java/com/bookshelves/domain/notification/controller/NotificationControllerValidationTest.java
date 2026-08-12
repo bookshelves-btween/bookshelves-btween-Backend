@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -134,6 +135,34 @@ class NotificationControllerValidationTest {
         .andExpect(jsonPath("$.result.fcmToken").value("FCM 토큰은 255자 이하여야 합니다."));
 
     verifyNoInteractions(notificationCommandService);
+  }
+
+  @Test
+  void readNotificationReturnsBadRequestWhenNotificationIdIsLessThanOne() throws Exception {
+    mockMvc
+        .perform(patch("/api/v1/notifications/0/read"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.isSuccess").value(false))
+        .andExpect(jsonPath("$.code").value("COMMON400_1"))
+        .andExpect(jsonPath("$.message").value("잘못된 요청입니다."))
+        .andExpect(jsonPath("$.result").isMap());
+
+    verifyNoInteractions(notificationCommandService);
+  }
+
+  @Test
+  void readNotificationReturnsNotFoundWhenNotificationIsMissingOrNotOwned() throws Exception {
+    when(authenticationFacade.getCurrentMemberId()).thenReturn(1L);
+    when(notificationCommandService.readNotification(101L, 1L))
+        .thenThrow(new NotificationException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
+
+    mockMvc
+        .perform(patch("/api/v1/notifications/101/read"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.isSuccess").value(false))
+        .andExpect(jsonPath("$.code").value("NOTI404_1"))
+        .andExpect(jsonPath("$.message").value("존재하지 않는 알림입니다."))
+        .andExpect(jsonPath("$.result").isMap());
   }
 
   @Test
