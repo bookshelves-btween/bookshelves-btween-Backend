@@ -1,8 +1,10 @@
 package com.bookshelves.global.config;
 
+import java.util.concurrent.ThreadPoolExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 // AI 질문 생성(LLM 호출) 전용 실행기.
 // Boot 기본 applicationTaskExecutor는 WebSocket 브로커가 채널용 executor를 등록하면
@@ -25,7 +27,25 @@ public class TaskExecutorConfig {
   // FCM 네트워크 지연이 모임 시작·취소 트랜잭션을 호출한 스케줄러를 붙잡지 않게 한다.
   @Bean
   public ThreadPoolTaskExecutor notificationPushTaskExecutor() {
-    return buildExecutor("notification-push-");
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    // 한 모임의 참여자 알림이 앞선 회원의 FCM 응답을 기다리지 않도록 동시에 전송한다.
+    executor.setCorePoolSize(8);
+    executor.setMaxPoolSize(8);
+    executor.setQueueCapacity(500);
+    // 호출자 스레드의 FCM 실행을 피한다. 거부된 작업은 NotificationPushListener가 별도로 재시도한다.
+    executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+    executor.setThreadNamePrefix("notification-push-");
+    executor.initialize();
+    return executor;
+  }
+
+  @Bean
+  public ThreadPoolTaskScheduler notificationPushRetryScheduler() {
+    ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+    scheduler.setPoolSize(1);
+    scheduler.setThreadNamePrefix("notification-push-retry-");
+    scheduler.initialize();
+    return scheduler;
   }
 
   // 추천 도서 준비 전용. 여기만 스레드가 하나다.

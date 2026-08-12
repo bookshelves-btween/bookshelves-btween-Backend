@@ -23,6 +23,7 @@ import com.bookshelves.domain.meeting.dto.response.MeetingParticipationResDTO;
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.entity.MeetingParticipant;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
+import com.bookshelves.domain.meeting.event.MeetingCreatedEvent;
 import com.bookshelves.domain.meeting.event.MeetingRecruitClosedEvent;
 import com.bookshelves.domain.meeting.exception.MeetingException;
 import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
@@ -99,6 +100,7 @@ class MeetingCommandServiceTest {
     given(bookCommandService.persistPreparedBook(preparedBook)).willReturn(book);
     given(meetingRepository.save(any(Meeting.class))).willReturn(savedMeeting);
     given(savedMeeting.getId()).willReturn(1L);
+    given(savedMeeting.getStartDate()).willReturn(LocalDateTime.of(2026, 8, 1, 20, 0));
     given(authenticationFacade.getCurrentMemberId()).willReturn(10L);
     given(memberRepository.getReferenceById(10L)).willReturn(leader);
 
@@ -123,6 +125,8 @@ class MeetingCommandServiceTest {
     assertThat(participantCaptor.getValue().getMember()).isSameAs(leader);
     assertThat(participantCaptor.getValue().getIsLeader()).isTrue();
     verify(savedMeeting).addParticipant();
+    verify(eventPublisher)
+        .publishEvent(new MeetingCreatedEvent(1L, LocalDateTime.of(2026, 8, 1, 20, 0)));
   }
 
   @Test

@@ -17,6 +17,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MeetingStartScheduler {
 
+  // 모임 시작의 주 경로는 MeetingStartTaskRegistrar의 개별 정각 예약이다.
+  // 이 폴링은 서버 중단이나 일시적 실행 실패로 누락된 모임을 복구한다.
+
   // 시작 전 상태인 모임만 스케줄링 대상으로 조회한다.
   private static final List<MeetingStatus> BEFORE_START_STATUSES =
       List.of(MeetingStatus.RECRUITING, MeetingStatus.RECRUIT_CLOSED);

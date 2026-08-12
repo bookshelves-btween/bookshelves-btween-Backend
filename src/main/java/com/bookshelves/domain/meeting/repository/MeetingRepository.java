@@ -77,6 +77,9 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
   List<Meeting> findAllByStatusInAndStartDateLessThanEqual(
       List<MeetingStatus> statuses, LocalDateTime startDate);
 
+  List<Meeting> findAllByStatusInAndStartDateAfter(
+      List<MeetingStatus> statuses, LocalDateTime startDate);
+
   @EntityGraph(attributePaths = "book")
   @Query(
       value = "select meeting\n" + SEARCHABLE_MEETINGS_FROM_WHERE,

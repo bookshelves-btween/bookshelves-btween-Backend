@@ -14,6 +14,7 @@ import com.bookshelves.domain.meeting.dto.response.MeetingParticipationResDTO;
 import com.bookshelves.domain.meeting.entity.Meeting;
 import com.bookshelves.domain.meeting.entity.MeetingParticipant;
 import com.bookshelves.domain.meeting.enums.MeetingStatus;
+import com.bookshelves.domain.meeting.event.MeetingCreatedEvent;
 import com.bookshelves.domain.meeting.event.MeetingRecruitClosedEvent;
 import com.bookshelves.domain.meeting.exception.MeetingException;
 import com.bookshelves.domain.meeting.exception.code.MeetingErrorCode;
@@ -73,6 +74,9 @@ public class MeetingCommandService {
     Member leader = memberRepository.getReferenceById(memberId);
     meetingParticipantRepository.save(MeetingParticipant.createLeader(savedMeeting, leader));
     savedMeeting.addParticipant();
+
+    eventPublisher.publishEvent(
+        new MeetingCreatedEvent(savedMeeting.getId(), savedMeeting.getStartDate()));
 
     return MeetingCreateResDTO.from(savedMeeting);
   }
