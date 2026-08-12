@@ -4,7 +4,7 @@ import com.bookshelves.domain.auth.client.ProviderTokenVerifier;
 import com.bookshelves.domain.auth.client.ProviderTokenVerifierResolver;
 import com.bookshelves.domain.auth.client.ProviderUserInfo;
 import com.bookshelves.domain.auth.converter.AuthConverter;
-import com.bookshelves.domain.auth.dto.request.FakeSignUpRequest;
+import com.bookshelves.domain.auth.dto.request.FakeLoginRequest;
 import com.bookshelves.domain.auth.dto.request.ReissueRequest;
 import com.bookshelves.domain.auth.dto.request.RestoreRequest;
 import com.bookshelves.domain.auth.dto.request.SocialLoginRequest;
@@ -14,8 +14,9 @@ import com.bookshelves.domain.auth.exception.AuthErrorCode;
 import com.bookshelves.domain.auth.exception.AuthException;
 import com.bookshelves.domain.member.entity.Member;
 import com.bookshelves.domain.member.enums.MemberStatus;
-import com.bookshelves.domain.member.enums.ProfileBackgroundColor;
 import com.bookshelves.domain.member.enums.Provider;
+import com.bookshelves.domain.member.exception.MemberErrorCode;
+import com.bookshelves.domain.member.exception.MemberException;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.service.MemberCommandService;
 import com.bookshelves.global.security.JwtTokenProvider;
@@ -38,16 +39,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AuthCommandService {
 
-  // 실제 카카오 provider ID와 겹치지 않도록 테스트 회원에 접두사를 붙인다.
-  private static final Provider FAKE_PROVIDER = Provider.KAKAO;
-  private static final String FAKE_PROVIDER_ID_PREFIX = "fake-";
-
   private final ProviderTokenVerifierResolver providerTokenVerifierResolver;
   private final MemberRepository memberRepository;
   private final MemberCommandService memberCommandService;
   private final JwtTokenProvider jwtTokenProvider;
   private final RedisTokenRepository redisTokenRepository;
-  private final String fakeSignUpSecret;
+  private final String fakeLoginSecret;
 
   public AuthCommandService(
       ProviderTokenVerifierResolver providerTokenVerifierResolver,
@@ -55,13 +52,13 @@ public class AuthCommandService {
       MemberCommandService memberCommandService,
       JwtTokenProvider jwtTokenProvider,
       RedisTokenRepository redisTokenRepository,
-      @Value("${auth.fake-sign-up-secret:}") String fakeSignUpSecret) {
+      @Value("${auth.fake-sign-up-secret:}") String fakeLoginSecret) {
     this.providerTokenVerifierResolver = providerTokenVerifierResolver;
     this.memberRepository = memberRepository;
     this.memberCommandService = memberCommandService;
     this.jwtTokenProvider = jwtTokenProvider;
     this.redisTokenRepository = redisTokenRepository;
-    this.fakeSignUpSecret = fakeSignUpSecret;
+    this.fakeLoginSecret = fakeLoginSecret;
   }
 
   public SocialLoginResponse socialLogin(SocialLoginRequest request) {
@@ -81,38 +78,31 @@ public class AuthCommandService {
     return issueLoginTokens(member);
   }
 
-  // 서버 비밀값으로 보호되는 임시 테스트 토큰 발급 경로이며 앱 공개 전에 제거한다.
-  public SocialLoginResponse fakeSignUp(FakeSignUpRequest request) {
-    validateFakeSignUpSecret(request.getSecret());
-
-    String providerId = FAKE_PROVIDER_ID_PREFIX + request.getKey();
+  // 서버 비밀값으로 보호되는 테스트 토큰 발급 경로. 소셜 로그인 없이 기존 회원의 토큰을 발급한다.
+  // 회원 상태는 검사하지 않으며, 실제 사용 시점의 차단은 AccessTokenGuard가 담당한다.
+  public SocialLoginResponse fakeLogin(FakeLoginRequest request) {
+    validateFakeLoginSecret(request.getSecret());
 
     Member member =
         memberRepository
-            .findByProviderAndProviderId(FAKE_PROVIDER, providerId)
-            .orElseGet(() -> createFakeMember(providerId, request.getKey()));
+            .findById(request.getMemberId())
+            .orElseThrow(() -> new MemberException(MemberErrorCode.MEMBER_NOT_FOUND));
 
     return issueLoginTokens(member);
   }
 
   // 비밀값이 설정되지 않은 환경에서는 모든 요청을 거부한다.
-  private void validateFakeSignUpSecret(String secret) {
-    if (fakeSignUpSecret == null || fakeSignUpSecret.isBlank()) {
-      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+  private void validateFakeLoginSecret(String secret) {
+    if (fakeLoginSecret == null || fakeLoginSecret.isBlank()) {
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_LOGIN_SECRET);
     }
 
     // 상수 시간 비교로 비밀값 추측을 어렵게 한다.
     if (!MessageDigest.isEqual(
-        fakeSignUpSecret.getBytes(StandardCharsets.UTF_8),
+        fakeLoginSecret.getBytes(StandardCharsets.UTF_8),
         secret.getBytes(StandardCharsets.UTF_8))) {
-      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_SIGN_UP_SECRET);
+      throw new AuthException(AuthErrorCode.AUTH_INVALID_FAKE_LOGIN_SECRET);
     }
-  }
-
-  // 테스트 회원은 온보딩을 마친 ACTIVE 상태로 생성한다.
-  private Member createFakeMember(String providerId, String key) {
-    return memberCommandService.createAndOnboardFakeMember(
-        FAKE_PROVIDER, providerId, key, ProfileBackgroundColor.GREEN);
   }
 
   public void logout(Long memberId) {
