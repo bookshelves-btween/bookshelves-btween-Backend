@@ -364,9 +364,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsOnlyKeys("nicknameNoun");
+            });
   }
 
   @Test
@@ -385,9 +388,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsOnlyKeys("categoryIds");
+            });
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
 
@@ -493,9 +499,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsOnlyKeys("agreedTermsIds");
+            });
     verify(memberTermsRepository, never()).saveAll(any());
   }
 
@@ -678,9 +687,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsOnlyKeys("nicknameNoun");
+            });
   }
 
   @Test
@@ -697,9 +709,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsOnlyKeys("nicknameModifier");
+            });
   }
 
   @Test
@@ -716,9 +731,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsOnlyKeys("nicknameAnimal");
+            });
   }
 
   @Test
