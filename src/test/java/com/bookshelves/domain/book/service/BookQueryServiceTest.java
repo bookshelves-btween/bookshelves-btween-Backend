@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -31,6 +30,7 @@ import com.bookshelves.domain.book.repository.ExternalBookCacheRepository.Cached
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository.CumulativeStatistics;
+import com.bookshelves.domain.book.repository.MemberBookRepository.MonthlyCategoryCount;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
 import com.bookshelves.domain.book.service.ExternalBookRateLimitService.RequestType;
@@ -574,30 +574,18 @@ class BookQueryServiceTest {
 
   @Test
   void getMemberBookStatisticsReturnsCumulativeSummaryAndMonthlyTopThreeCategories() {
-    MemberBook koreanLiteratureOne = memberBook("한국 문학", BigDecimal.valueOf(4.1), "memo");
-    MemberBook koreanLiteratureTwo = memberBook("한국 문학", BigDecimal.valueOf(4.2), " ");
-    MemberBook englishLiterature = memberBook("영미문학", null, null);
-    MemberBook psychology = memberBook("심리학", null, "memo");
-    MemberBook history = memberBook("역사", null, null);
-    MemberBook unclassified = memberBook(null, null, null);
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
     given(memberBookRepository.findCumulativeStatistics(7L, 100))
         .willReturn(cumulativeStatistics(2L, 1L, 4.15));
     given(
-            memberBookRepository
-                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
-                    7L,
-                    100,
-                    LocalDateTime.of(2026, 6, 1, 0, 0),
-                    LocalDateTime.of(2026, 7, 1, 0, 0)))
+            memberBookRepository.findMonthlyCategoryCounts(
+                7L, 100, LocalDateTime.of(2026, 6, 1, 0, 0), LocalDateTime.of(2026, 7, 1, 0, 0)))
         .willReturn(
             List.of(
-                koreanLiteratureOne,
-                koreanLiteratureTwo,
-                englishLiterature,
-                psychology,
-                history,
-                unclassified));
+                monthlyCategoryCount("한국 문학", 2L),
+                monthlyCategoryCount("영미문학", 1L),
+                monthlyCategoryCount("심리학", 1L),
+                monthlyCategoryCount("역사", 1L)));
 
     MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics("2026", "6");
 
@@ -618,21 +606,14 @@ class BookQueryServiceTest {
   }
 
   @Test
-  void getMemberBookStatisticsExcludesUnclassifiedBookFromCategories() {
-    MemberBook literature = memberBook("문학", null, null);
-    MemberBook psychology = memberBook("심리학", null, null);
-    MemberBook unclassified = memberBook(null, null, null);
+  void getMemberBookStatisticsCalculatesPercentagesFromClassifiedBookCount() {
     given(authenticationFacade.getCurrentMemberId()).willReturn(7L);
     given(memberBookRepository.findCumulativeStatistics(7L, 100))
         .willReturn(cumulativeStatistics(3L, 0L, null));
     given(
-            memberBookRepository
-                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
-                    7L,
-                    100,
-                    LocalDateTime.of(2026, 6, 1, 0, 0),
-                    LocalDateTime.of(2026, 7, 1, 0, 0)))
-        .willReturn(List.of(literature, psychology, unclassified));
+            memberBookRepository.findMonthlyCategoryCounts(
+                7L, 100, LocalDateTime.of(2026, 6, 1, 0, 0), LocalDateTime.of(2026, 7, 1, 0, 0)))
+        .willReturn(List.of(monthlyCategoryCount("문학", 1L), monthlyCategoryCount("심리학", 1L)));
 
     MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics("2026", "6");
 
@@ -652,12 +633,11 @@ class BookQueryServiceTest {
     given(memberBookRepository.findCumulativeStatistics(7L, 100))
         .willReturn(cumulativeStatistics(0L, 0L, null));
     given(
-            memberBookRepository
-                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
-                    7L,
-                    100,
-                    currentYearMonth.atDay(1).atStartOfDay(),
-                    currentYearMonth.plusMonths(1).atDay(1).atStartOfDay()))
+            memberBookRepository.findMonthlyCategoryCounts(
+                7L,
+                100,
+                currentYearMonth.atDay(1).atStartOfDay(),
+                currentYearMonth.plusMonths(1).atDay(1).atStartOfDay()))
         .willReturn(List.of());
 
     MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics(null, null);
@@ -674,12 +654,11 @@ class BookQueryServiceTest {
     given(memberBookRepository.findCumulativeStatistics(7L, 100))
         .willReturn(cumulativeStatistics(0L, 0L, null));
     given(
-            memberBookRepository
-                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
-                    7L,
-                    100,
-                    LocalDateTime.of(currentYearMonth.getYear(), 6, 1, 0, 0),
-                    LocalDateTime.of(currentYearMonth.getYear(), 7, 1, 0, 0)))
+            memberBookRepository.findMonthlyCategoryCounts(
+                7L,
+                100,
+                LocalDateTime.of(currentYearMonth.getYear(), 6, 1, 0, 0),
+                LocalDateTime.of(currentYearMonth.getYear(), 7, 1, 0, 0)))
         .willReturn(List.of());
 
     MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics(null, "6");
@@ -695,13 +674,11 @@ class BookQueryServiceTest {
     given(memberBookRepository.findCumulativeStatistics(7L, 100))
         .willReturn(cumulativeStatistics(0L, 0L, null));
     given(
-            memberBookRepository
-                .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
-                    7L,
-                    100,
-                    LocalDateTime.of(2026, currentYearMonth.getMonthValue(), 1, 0, 0),
-                    LocalDateTime.of(2026, currentYearMonth.getMonthValue(), 1, 0, 0)
-                        .plusMonths(1)))
+            memberBookRepository.findMonthlyCategoryCounts(
+                7L,
+                100,
+                LocalDateTime.of(2026, currentYearMonth.getMonthValue(), 1, 0, 0),
+                LocalDateTime.of(2026, currentYearMonth.getMonthValue(), 1, 0, 0).plusMonths(1)))
         .willReturn(List.of());
 
     MemberBookStatisticsResDTO result = bookQueryService.getMemberBookStatistics("2026", null);
@@ -757,17 +734,6 @@ class BookQueryServiceTest {
     verifyNoInteractions(authenticationFacade, memberBookRepository);
   }
 
-  private MemberBook memberBook(String kdcName, BigDecimal rating, String memo) {
-    MemberBook memberBook = mock(MemberBook.class);
-    Book book = mock(Book.class);
-    given(memberBook.getBook()).willReturn(book);
-    lenient().when(memberBook.getRating()).thenReturn(rating);
-    lenient().when(memberBook.getMemo()).thenReturn(memo);
-    given(book.getKdcCode()).willReturn(kdcName == null ? null : "800");
-    given(book.getKdcName()).willReturn(kdcName);
-    return memberBook;
-  }
-
   private CumulativeStatistics cumulativeStatistics(
       long completedBookCount, long reviewCount, Double averageRating) {
     return new CumulativeStatistics() {
@@ -784,6 +750,20 @@ class BookQueryServiceTest {
       @Override
       public Double getAverageRating() {
         return averageRating;
+      }
+    };
+  }
+
+  private MonthlyCategoryCount monthlyCategoryCount(String categoryName, long bookCount) {
+    return new MonthlyCategoryCount() {
+      @Override
+      public String getCategoryName() {
+        return categoryName;
+      }
+
+      @Override
+      public long getBookCount() {
+        return bookCount;
       }
     };
   }
