@@ -152,7 +152,7 @@ public interface MemberControllerDocs {
               }
               """),
                   @ExampleObject(
-                      name = "잘못된 요청(닉네임 일부만 전달/닉네임 길이 초과/허용되지 않은 닉네임 구성 요소/존재하지 않는 카테고리 등)",
+                      name = "닉네임 일부만 전달",
                       value =
                           """
               {
@@ -160,6 +160,45 @@ public interface MemberControllerDocs {
                 "code": "MEMBER400_1",
                 "message": "유효하지 않은 요청입니다.",
                 "result": {}
+              }
+              """),
+                  @ExampleObject(
+                      name = "닉네임 글자수 초과",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "MEMBER400_1",
+                "message": "유효하지 않은 요청입니다.",
+                "result": {
+                  "nicknameNoun": "30자를 초과했습니다."
+                }
+              }
+              """),
+                  @ExampleObject(
+                      name = "허용되지 않는 닉네임 구성 요소",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "MEMBER400_1",
+                "message": "유효하지 않은 요청입니다.",
+                "result": {
+                  "nicknameAnimal": "허용되지 않는 값입니다."
+                }
+              }
+              """),
+                  @ExampleObject(
+                      name = "존재하지 않는 카테고리 ID",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "MEMBER400_1",
+                "message": "유효하지 않은 요청입니다.",
+                "result": {
+                  "categoryIds": "존재하지 않는 카테고리 ID가 포함되어 있습니다."
+                }
               }
               """)
                 })),
@@ -346,14 +385,55 @@ public interface MemberControllerDocs {
               }
               """),
                   @ExampleObject(
-                      name = "잘못된 요청(닉네임 길이 초과/허용되지 않은 닉네임 구성 요소/존재하지 않는 카테고리·약관 ID 등)",
+                      name = "닉네임 글자수 초과",
                       value =
                           """
               {
                 "isSuccess": false,
                 "code": "MEMBER400_1",
                 "message": "유효하지 않은 요청입니다.",
-                "result": {}
+                "result": {
+                  "nicknameNoun": "30자를 초과했습니다."
+                }
+              }
+              """),
+                  @ExampleObject(
+                      name = "허용되지 않는 닉네임 구성 요소",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "MEMBER400_1",
+                "message": "유효하지 않은 요청입니다.",
+                "result": {
+                  "nicknameAnimal": "허용되지 않는 값입니다."
+                }
+              }
+              """),
+                  @ExampleObject(
+                      name = "존재하지 않는 카테고리 ID",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "MEMBER400_1",
+                "message": "유효하지 않은 요청입니다.",
+                "result": {
+                  "categoryIds": "존재하지 않는 카테고리 ID가 포함되어 있습니다."
+                }
+              }
+              """),
+                  @ExampleObject(
+                      name = "존재하지 않는 약관 ID",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "MEMBER400_1",
+                "message": "유효하지 않은 요청입니다.",
+                "result": {
+                  "agreedTermsIds": "존재하지 않는 약관 ID가 포함되어 있습니다."
+                }
               }
               """),
                   @ExampleObject(
