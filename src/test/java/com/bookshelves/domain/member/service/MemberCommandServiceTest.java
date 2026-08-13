@@ -715,7 +715,7 @@ class MemberCommandServiceTest {
   }
 
   @Test
-  void completeOnboardingThrowsInvalidRequestWhenAnimalColorMismatch() {
+  void completeOnboardingThrowsAnimalColorMismatchWhenAnimalColorMismatch() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
     when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
@@ -730,7 +730,7 @@ class MemberCommandServiceTest {
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isEqualTo(MemberErrorCode.MEMBER_ANIMAL_COLOR_MISMATCH);
   }
 
   @Test

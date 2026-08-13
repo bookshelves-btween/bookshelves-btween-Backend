@@ -276,7 +276,7 @@ public class MemberCommandService {
 
   private void validateAnimalColorMapping(String animal, ProfileBackgroundColor color) {
     if (NicknameAnimalColors.DEFAULT_COLORS.get(animal) != color) {
-      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(MemberErrorCode.MEMBER_ANIMAL_COLOR_MISMATCH);
     }
   }
 
