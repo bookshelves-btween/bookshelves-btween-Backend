@@ -25,4 +25,10 @@ public interface DeviceTokenRepository extends JpaRepository<DeviceToken, Long> 
           """,
       nativeQuery = true)
   void upsertFcmToken(@Param("memberId") Long memberId, @Param("fcmToken") String fcmToken);
+
+  // 벌크 delete로 즉시 실행되어야 한다. member_category와 동일한 이유로, derived delete는
+  // 같은 트랜잭션에서 뒤이은 쓰기와 flush 순서가 어긋날 수 있다.
+  @Modifying
+  @Query("DELETE FROM DeviceToken dt WHERE dt.member.id = :memberId")
+  void deleteByMember_Id(@Param("memberId") Long memberId);
 }
