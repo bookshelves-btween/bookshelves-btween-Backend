@@ -555,7 +555,7 @@ public interface BookControllerDocs {
                               "isSuccess": false,
                               "code": "BOOK400_2",
                               "message": "ISBN 형식이 올바르지 않습니다.",
-                              "result": {}
+                              "result": null
                             }
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -575,7 +575,7 @@ public interface BookControllerDocs {
                               "isSuccess": false,
                               "code": "BOOK404_1",
                               "message": "해당 책을 찾을 수 없습니다.",
-                              "result": {}
+                              "result": null
                             }
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -609,7 +609,7 @@ public interface BookControllerDocs {
                               "isSuccess": false,
                               "code": "BOOK502_1",
                               "message": "외부 도서 API 호출에 실패했습니다.",
-                              "result": {}
+                              "result": null
                             }
                             """)))
   })
