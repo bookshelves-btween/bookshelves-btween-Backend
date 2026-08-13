@@ -26,6 +26,7 @@ import com.bookshelves.domain.member.repository.MemberCategoryRepository;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.repository.MemberTermsRepository;
 import com.bookshelves.domain.member.repository.TermsRepository;
+import com.bookshelves.domain.notification.repository.DeviceTokenRepository;
 import com.bookshelves.global.exception.ProjectException;
 import com.bookshelves.global.security.RedisTokenRepository;
 import java.time.LocalDateTime;
@@ -48,6 +49,7 @@ class MemberCommandServiceTest {
   private final TermsRepository termsRepository = mock(TermsRepository.class);
   private final MemberTermsRepository memberTermsRepository = mock(MemberTermsRepository.class);
   private final RedisTokenRepository redisTokenRepository = mock(RedisTokenRepository.class);
+  private final DeviceTokenRepository deviceTokenRepository = mock(DeviceTokenRepository.class);
   private final MemberCommandService memberCommandService =
       new MemberCommandService(
           memberRepository,
@@ -55,7 +57,8 @@ class MemberCommandServiceTest {
           categoryRepository,
           termsRepository,
           memberTermsRepository,
-          redisTokenRepository);
+          redisTokenRepository,
+          deviceTokenRepository);
 
   @Test
   void updateMyInfoCombinesNicknamePartsAndSavesColor() {
@@ -564,6 +567,8 @@ class MemberCommandServiceTest {
     assertThat(member.getProviderId()).isNull();
     // 관심 장르는 개인정보처리방침상 파기 대상이라, 익명화 시 member_category도 함께 삭제되어야 한다.
     verify(memberCategoryRepository).deleteByMember_Id(1L);
+    // FCM 토큰도 같은 이유로 파기 대상이다.
+    verify(deviceTokenRepository).deleteByMember_Id(1L);
   }
 
   @Test
@@ -590,6 +595,7 @@ class MemberCommandServiceTest {
     assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
     assertThat(member.getProviderId()).isEqualTo("kakao-id");
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
+    verify(deviceTokenRepository, never()).deleteByMember_Id(any());
   }
 
   @Test
@@ -607,6 +613,7 @@ class MemberCommandServiceTest {
     assertThat(member.getProvider()).isEqualTo(Provider.KAKAO);
     assertThat(member.getProviderId()).isEqualTo("kakao-id");
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
+    verify(deviceTokenRepository, never()).deleteByMember_Id(any());
   }
 
   @Test
@@ -715,7 +722,7 @@ class MemberCommandServiceTest {
   }
 
   @Test
-  void completeOnboardingThrowsInvalidRequestWhenAnimalColorMismatch() {
+  void completeOnboardingThrowsAnimalColorMismatchWhenAnimalColorMismatch() {
     Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
     when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
 
@@ -730,7 +737,7 @@ class MemberCommandServiceTest {
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isEqualTo(MemberErrorCode.MEMBER_ANIMAL_COLOR_MISMATCH);
   }
 
   @Test

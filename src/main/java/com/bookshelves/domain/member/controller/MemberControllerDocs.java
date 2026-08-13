@@ -287,6 +287,8 @@ public interface MemberControllerDocs {
       summary = "온보딩 완료",
       description =
           "닉네임(noun/modifier/animal 3조각 모두)과 프로필 배경색은 필수이며, 관심 카테고리·약관 동의는 선택이다. "
+              + "프로필 배경색은 BROWN/PURPLE/BLUE/GREEN/RED/YELLOW 6가지 중 하나이며, nicknameAnimal과 정해진 조합이어야 한다"
+              + "(예: 토끼는 RED, 곰은 BROWN). 조합이 어긋나면 MEMBER400_3이 반환된다. "
               + "단 GET /api/v1/onboarding/terms에서 isRequired=true인 약관은 agreedTermsIds에 모두 포함돼야 한다. "
               + "PENDING_ONBOARDING 상태 회원만 호출할 수 있고, 성공 시 ACTIVE로 전환된다.")
   @SecurityRequirement(name = "JWT TOKEN")
@@ -324,7 +326,8 @@ public interface MemberControllerDocs {
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
         description =
-            "요청 값 검증 실패(닉네임 누락/길이 초과 등), 허용되지 않은 닉네임 구성 요소 또는 존재하지 않는 카테고리/약관 ID를 포함, 또는 필수 약관 미동의",
+            "요청 값 검증 실패(닉네임 누락/길이 초과 등), 허용되지 않은 닉네임 구성 요소 또는 존재하지 않는 카테고리/약관 ID를 포함, "
+                + "동물-배경색 조합 불일치, 또는 필수 약관 미동의",
         content =
             @Content(
                 mediaType = "application/json",
@@ -350,6 +353,17 @@ public interface MemberControllerDocs {
                 "isSuccess": false,
                 "code": "MEMBER400_1",
                 "message": "유효하지 않은 요청입니다.",
+                "result": {}
+              }
+              """),
+                  @ExampleObject(
+                      name = "동물-배경색 조합 불일치",
+                      value =
+                          """
+              {
+                "isSuccess": false,
+                "code": "MEMBER400_3",
+                "message": "동물과 배경색 조합이 올바르지 않습니다.",
                 "result": {}
               }
               """),

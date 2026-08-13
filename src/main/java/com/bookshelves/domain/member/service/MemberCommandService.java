@@ -21,6 +21,7 @@ import com.bookshelves.domain.member.repository.MemberCategoryRepository;
 import com.bookshelves.domain.member.repository.MemberRepository;
 import com.bookshelves.domain.member.repository.MemberTermsRepository;
 import com.bookshelves.domain.member.repository.TermsRepository;
+import com.bookshelves.domain.notification.repository.DeviceTokenRepository;
 import com.bookshelves.global.security.RedisTokenRepository;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -46,6 +47,7 @@ public class MemberCommandService {
   private final TermsRepository termsRepository;
   private final MemberTermsRepository memberTermsRepository;
   private final RedisTokenRepository redisTokenRepository;
+  private final DeviceTokenRepository deviceTokenRepository;
 
   public MemberCommandService(
       MemberRepository memberRepository,
@@ -53,13 +55,15 @@ public class MemberCommandService {
       CategoryRepository categoryRepository,
       TermsRepository termsRepository,
       MemberTermsRepository memberTermsRepository,
-      RedisTokenRepository redisTokenRepository) {
+      RedisTokenRepository redisTokenRepository,
+      DeviceTokenRepository deviceTokenRepository) {
     this.memberRepository = memberRepository;
     this.memberCategoryRepository = memberCategoryRepository;
     this.categoryRepository = categoryRepository;
     this.termsRepository = termsRepository;
     this.memberTermsRepository = memberTermsRepository;
     this.redisTokenRepository = redisTokenRepository;
+    this.deviceTokenRepository = deviceTokenRepository;
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -145,6 +149,10 @@ public class MemberCommandService {
     // 관심 장르는 개인정보처리방침상 탈퇴 완료 시 파기 대상인 개인정보다. category_id가
     // NOT NULL이라 값을 비울 수 없어, 이 데이터의 익명화는 곧 row 삭제를 의미한다.
     memberCategoryRepository.deleteByMember_Id(memberId);
+    // FCM 토큰도 같은 이유로 파기 대상이다. 익명화된 회원은 로그인 자체가 막혀 다시는 이
+    // 회원에게 알림을 보낼 이유가 없고, FcmNotificationSender는 토큰이 없으면 조용히
+    // 건너뛰도록 이미 돼있어 삭제해도 다른 API에 영향이 없다.
+    deviceTokenRepository.deleteByMember_Id(memberId);
   }
 
   public MemberWithdrawResponse withdraw(Long memberId) {
@@ -276,7 +284,7 @@ public class MemberCommandService {
 
   private void validateAnimalColorMapping(String animal, ProfileBackgroundColor color) {
     if (NicknameAnimalColors.DEFAULT_COLORS.get(animal) != color) {
-      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(MemberErrorCode.MEMBER_ANIMAL_COLOR_MISMATCH);
     }
   }
 
