@@ -664,7 +664,7 @@ class MemberCommandServiceTest {
         MemberUpdateRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("고양이")
             .build();
 
     assertThatThrownBy(() -> memberCommandService.updateMyInfo(1L, request))
@@ -727,7 +727,7 @@ class MemberCommandServiceTest {
         OnboardingRequest.builder()
             .nicknameNoun("책")
             .nicknameModifier("먹는")
-            .nicknameAnimal("여우")
+            .nicknameAnimal("고양이")
             .profileBackgroundColor(ProfileBackgroundColor.GREEN)
             .build();
 
@@ -757,6 +757,27 @@ class MemberCommandServiceTest {
         .isInstanceOf(ProjectException.class)
         .extracting(e -> ((ProjectException) e).getErrorCode())
         .isEqualTo(MemberErrorCode.MEMBER_ANIMAL_COLOR_MISMATCH);
+  }
+
+  @Test
+  void completeOnboardingSucceedsWhenAnimalIsFoxWithBrownColor() {
+    Member member = Member.createSocialMember(Provider.KAKAO, "kakao-id");
+    when(memberRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(member));
+    when(memberCategoryRepository.findCategoriesByMemberId(1L)).thenReturn(List.of());
+
+    OnboardingRequest request =
+        OnboardingRequest.builder()
+            .nicknameNoun("책")
+            .nicknameModifier("먹는")
+            .nicknameAnimal("여우")
+            .profileBackgroundColor(ProfileBackgroundColor.BROWN)
+            .build();
+
+    MemberInfoResponse response = memberCommandService.completeOnboarding(1L, request);
+
+    assertThat(response.getMemberStatus()).isEqualTo(MemberStatus.ACTIVE);
+    assertThat(response.getNicknameAnimal()).isEqualTo("여우");
+    assertThat(response.getProfileBackgroundColor()).isEqualTo(ProfileBackgroundColor.BROWN);
   }
 
   @Test
