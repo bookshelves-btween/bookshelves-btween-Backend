@@ -17,13 +17,16 @@
 | `docs/*`     | 문서만 변경                | `develop` | `develop` |
 | `release/*`  | 별도 QA가 필요한 배포 준비 | `develop` | `main`    |
 
-**브랜치 이름:** `<타입>/<이슈번호>-<간단설명>` (kebab-case)
+**브랜치 이름:** 일반 작업은 `<타입>/<이슈번호>-<간단설명>` (kebab-case), 배포 준비는
+`release/<yyyy-mm-dd>` 형식을 사용한다.
 
-```
+```text
 feature/12-kakao-book-search
 fix/260-method-not-allowed-500
 refactor/264-book-detail-description-full
 chore/278-improve-swagger-docs
+docs/301-update-api-guide
+release/2026-08-13
 ```
 
 - 설명은 영어 kebab-case로 작성한다.
@@ -35,8 +38,8 @@ chore/278-improve-swagger-docs
 
 ## 2. 커밋 컨벤션 — Conventional Commits
 
-형식: `<type>(<scope>): <description>` — 한국어 또는 영어로 작성한다. 한 커밋 안에서는 한 언어를
-일관되게 사용한다.
+형식: `<type>(<scope>): <description>` — type과 scope는 영어 식별자를 사용한다. description은
+한국어 또는 영어 중 한 언어로 일관되게 작성한다.
 
 ```text
 feat(ai): 오늘의 추천 후보를 KDC 800·100으로 한정
@@ -95,7 +98,8 @@ feat(auth): replace fake-signup with memberId-based fake-login
 ### PR 제목과 본문
 
 - 일반 PR 제목은 연결된 이슈와 같은 prefix를 사용한다.
-- 배포 PR 제목은 `[Deploy] develop -> main 배포`로 작성한다.
+- 배포 PR 제목은 `[Deploy] <source> -> main 배포`로 작성한다. `<source>`에는 `develop` 또는
+  실제 `release/*` 브랜치명을 넣는다.
 - PR 본문에는 개요, 작업 내용, 영향 범위, 관련 이슈, 실제 검증 결과를 작성한다.
 - 배포 PR은 여러 이슈를 포함하므로 `Closes` 대신 포함된 PR·이슈를 나열할 수 있다.
 
