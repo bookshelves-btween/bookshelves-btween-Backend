@@ -25,7 +25,9 @@ import com.bookshelves.domain.notification.repository.DeviceTokenRepository;
 import com.bookshelves.global.security.RedisTokenRepository;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -195,13 +197,17 @@ public class MemberCommandService {
 
     // List.of(...) 등 일부 불변 리스트 구현은 contains(null) 자체가 NPE를 던지므로 스트림으로 검사한다.
     if (agreedTermsIds.stream().anyMatch(Objects::isNull)) {
-      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(
+          MemberErrorCode.MEMBER_INVALID_REQUEST,
+          Map.of("agreedTermsIds", "약관 ID 목록에 null 값을 포함할 수 없습니다."));
     }
 
     Set<Long> distinctTermsIds = Set.copyOf(agreedTermsIds);
     List<Terms> terms = termsRepository.findAllById(distinctTermsIds);
     if (terms.size() != distinctTermsIds.size()) {
-      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(
+          MemberErrorCode.MEMBER_INVALID_REQUEST,
+          Map.of("agreedTermsIds", "존재하지 않는 약관 ID가 포함되어 있습니다."));
     }
 
     memberTermsRepository.saveAll(terms.stream().map(t -> MemberTerms.create(member, t)).toList());
@@ -210,13 +216,17 @@ public class MemberCommandService {
   private void updateCategories(Long memberId, Member member, List<Long> categoryIds) {
     // List.of(...) 등 일부 불변 리스트 구현은 contains(null) 자체가 NPE를 던지므로 스트림으로 검사한다.
     if (categoryIds.stream().anyMatch(Objects::isNull)) {
-      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(
+          MemberErrorCode.MEMBER_INVALID_REQUEST,
+          Map.of("categoryIds", "카테고리 ID 목록에 null 값을 포함할 수 없습니다."));
     }
 
     List<Long> distinctCategoryIds = categoryIds.stream().distinct().toList();
     List<Category> categories = categoryRepository.findAllById(distinctCategoryIds);
     if (categories.size() != distinctCategoryIds.size()) {
-      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+      throw new MemberException(
+          MemberErrorCode.MEMBER_INVALID_REQUEST,
+          Map.of("categoryIds", "존재하지 않는 카테고리 ID가 포함되어 있습니다."));
     }
 
     memberCategoryRepository.deleteByMember_Id(memberId);
@@ -259,26 +269,43 @@ public class MemberCommandService {
   }
 
   private void validateNicknameLength(String noun, String modifier, String animal) {
-    boolean anyPartTooLong =
-        noun.length() > NICKNAME_PART_MAX_LENGTH
-            || modifier.length() > NICKNAME_PART_MAX_LENGTH
-            || animal.length() > NICKNAME_PART_MAX_LENGTH;
+    Map<String, String> detail = new LinkedHashMap<>();
+
+    if (noun.length() > NICKNAME_PART_MAX_LENGTH) {
+      detail.put("nicknameNoun", NICKNAME_PART_MAX_LENGTH + "자를 초과했습니다.");
+    }
+    if (modifier.length() > NICKNAME_PART_MAX_LENGTH) {
+      detail.put("nicknameModifier", NICKNAME_PART_MAX_LENGTH + "자를 초과했습니다.");
+    }
+    if (animal.length() > NICKNAME_PART_MAX_LENGTH) {
+      detail.put("nicknameAnimal", NICKNAME_PART_MAX_LENGTH + "자를 초과했습니다.");
+    }
 
     int combinedLength = noun.length() + 1 + modifier.length() + 1 + animal.length();
+    if (combinedLength > NICKNAME_MAX_LENGTH) {
+      detail.put("nickname", "닉네임 전체 길이가 " + NICKNAME_MAX_LENGTH + "자를 초과했습니다.");
+    }
 
-    if (anyPartTooLong || combinedLength > NICKNAME_MAX_LENGTH) {
-      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    if (!detail.isEmpty()) {
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST, detail);
     }
   }
 
   private void validateNicknameWords(String noun, String modifier, String animal) {
-    boolean allowed =
-        NicknameWords.NOUNS.contains(noun)
-            && NicknameWords.MODIFIERS.contains(modifier)
-            && NicknameWords.ANIMALS.contains(animal);
+    Map<String, String> detail = new LinkedHashMap<>();
 
-    if (!allowed) {
-      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST);
+    if (!NicknameWords.NOUNS.contains(noun)) {
+      detail.put("nicknameNoun", "허용되지 않는 값입니다.");
+    }
+    if (!NicknameWords.MODIFIERS.contains(modifier)) {
+      detail.put("nicknameModifier", "허용되지 않는 값입니다.");
+    }
+    if (!NicknameWords.ANIMALS.contains(animal)) {
+      detail.put("nicknameAnimal", "허용되지 않는 값입니다.");
+    }
+
+    if (!detail.isEmpty()) {
+      throw new MemberException(MemberErrorCode.MEMBER_INVALID_REQUEST, detail);
     }
   }
 

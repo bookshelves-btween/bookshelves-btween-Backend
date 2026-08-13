@@ -25,11 +25,12 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 public class GeneralExceptionAdvice {
 
-  // 우리가 만든 예외 처리
+  // 우리가 만든 예외 처리. detail이 없으면 기존과 동일하게 빈 result로 응답한다.
   @ExceptionHandler(ProjectException.class)
-  public ResponseEntity<ApiResponse<Map<String, Object>>> handleProjectException(
+  public ResponseEntity<ApiResponse<Map<String, String>>> handleProjectException(
       ProjectException e) {
-    return failureResponse(e.getErrorCode());
+    BaseErrorCode code = e.getErrorCode();
+    return ResponseEntity.status(code.getStatus()).body(ApiResponse.onFailure(code, e.getDetail()));
   }
 
   // @Valid 요청 검증 실패

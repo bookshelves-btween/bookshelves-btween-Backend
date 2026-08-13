@@ -13,6 +13,7 @@ public class NicknameAnimalColors {
           Map.entry("다람쥐", ProfileBackgroundColor.BROWN),
           Map.entry("고슴도치", ProfileBackgroundColor.BROWN),
           Map.entry("나무늘보", ProfileBackgroundColor.BROWN),
+          Map.entry("여우", ProfileBackgroundColor.BROWN),
           Map.entry("토끼", ProfileBackgroundColor.RED),
           Map.entry("비버", ProfileBackgroundColor.RED),
           Map.entry("수달", ProfileBackgroundColor.RED),
