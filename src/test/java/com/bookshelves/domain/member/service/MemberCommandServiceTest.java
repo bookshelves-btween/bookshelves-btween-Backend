@@ -364,9 +364,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsEntry("nicknameNoun", "30자를 초과했습니다.");
+            });
   }
 
   @Test
@@ -385,9 +388,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsEntry("categoryIds", "존재하지 않는 카테고리 ID가 포함되어 있습니다.");
+            });
     verify(memberCategoryRepository, never()).deleteByMember_Id(any());
   }
 
@@ -493,9 +499,13 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail())
+                  .containsEntry("agreedTermsIds", "존재하지 않는 약관 ID가 포함되어 있습니다.");
+            });
     verify(memberTermsRepository, never()).saveAll(any());
   }
 
@@ -678,9 +688,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsEntry("nicknameNoun", "허용되지 않는 값입니다.");
+            });
   }
 
   @Test
@@ -697,9 +710,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsEntry("nicknameModifier", "허용되지 않는 값입니다.");
+            });
   }
 
   @Test
@@ -716,9 +732,12 @@ class MemberCommandServiceTest {
             .build();
 
     assertThatThrownBy(() -> memberCommandService.completeOnboarding(1L, request))
-        .isInstanceOf(ProjectException.class)
-        .extracting(e -> ((ProjectException) e).getErrorCode())
-        .isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+        .isInstanceOfSatisfying(
+            ProjectException.class,
+            e -> {
+              assertThat(e.getErrorCode()).isEqualTo(MemberErrorCode.MEMBER_INVALID_REQUEST);
+              assertThat(e.getDetail()).containsEntry("nicknameAnimal", "허용되지 않는 값입니다.");
+            });
   }
 
   @Test

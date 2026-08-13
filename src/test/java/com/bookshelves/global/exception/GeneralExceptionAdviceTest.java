@@ -28,12 +28,24 @@ class GeneralExceptionAdviceTest {
   void handleProjectExceptionReturnsEmptyResult() {
     ProjectException exception = new ProjectException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN);
 
-    ResponseEntity<ApiResponse<Map<String, Object>>> response =
+    ResponseEntity<ApiResponse<Map<String, String>>> response =
         generalExceptionAdvice.handleProjectException(exception);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     assertThat(response.getBody().getCode()).isEqualTo("AUTH401_2");
     assertThat(response.getBody().getResult()).isEmpty();
+  }
+
+  @Test
+  void handleProjectExceptionReturnsDetailWhenPresent() {
+    ProjectException exception =
+        new ProjectException(AuthErrorCode.AUTH_INVALID_ACCESS_TOKEN, Map.of("field", "잘못된 값입니다."));
+
+    ResponseEntity<ApiResponse<Map<String, String>>> response =
+        generalExceptionAdvice.handleProjectException(exception);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    assertThat(response.getBody().getResult()).containsEntry("field", "잘못된 값입니다.");
   }
 
   @Test
