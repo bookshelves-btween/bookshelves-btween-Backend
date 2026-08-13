@@ -6,7 +6,7 @@
 
 [![Swift](https://img.shields.io/badge/Java-21+-ED8B00)]()
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F)]()
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
