@@ -63,7 +63,7 @@ public interface BookControllerDocs {
         description = "인증 필요"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "500",
-        description = "독서 통계 조회 실패 (BOOK500_5)")
+        description = "독서 통계 조회 실패")
   })
   ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics(
       @Parameter(description = "조회 연도. 없으면 현재 연도", example = "2026") String year,
@@ -104,7 +104,7 @@ public interface BookControllerDocs {
         description = "인증 필요"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "500",
-        description = "독서 캘린더 조회 실패 (BOOK500_4)")
+        description = "독서 캘린더 조회 실패")
   })
   ResponseEntity<ApiResponse<MemberBookCalendarResDTO>> getMemberBookCalendar(
       @Parameter(description = "조회 연도", example = "2026", required = true) String year,
@@ -229,7 +229,24 @@ public interface BookControllerDocs {
         description = "독서 상태, page 또는 size 값 오류"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
-        description = "인증 필요")
+        description = "인증 필요"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "500",
+        description = "내 서재 목록 조회 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK500_3",
+                              "message": "내 서재 목록 조회에 실패했습니다.",
+                              "result": {}
+                            }
+                            """)))
   })
   ResponseEntity<ApiResponse<MemberBookListResDTO>> getMemberBooks(
       @Parameter(description = "ALL, BEFORE_READING, READING, or FINISHED", example = "ALL")
@@ -240,7 +257,7 @@ public interface BookControllerDocs {
   @Operation(
       summary = "외부 도서 검색",
       description =
-          "카카오 도서 검색 API를 정확도순으로 한 번 호출합니다. ISBN13을 우선해 정규화하고 saveRecent가 true일 때 회원의 최근 검색어를 저장합니다.")
+          "검색 결과 캐시를 먼저 조회하고, 캐시가 없을 때 카카오 도서 검색 API를 정확도순으로 호출합니다. ISBN13을 우선해 정규화하고 saveRecent가 true일 때 회원의 최근 검색어를 저장합니다.")
   @SecurityRequirement(name = "JWT TOKEN")
   @ApiResponses({
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -447,13 +464,13 @@ public interface BookControllerDocs {
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "삭제할 검색어 누락 또는 공백 (BOOK400_7)"),
+        description = "삭제할 검색어 누락 또는 공백"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
         description = "인증 필요"),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "500",
-        description = "최근 검색어 삭제 실패 (BOOK500_6)")
+        description = "최근 검색어 삭제 실패")
   })
   ResponseEntity<ApiResponse<Void>> deleteRecentBookSearch(
       @Parameter(description = "삭제할 최근 검색어", example = "혼모노", required = true) String keyword);
@@ -538,7 +555,7 @@ public interface BookControllerDocs {
                               "isSuccess": false,
                               "code": "BOOK400_2",
                               "message": "ISBN 형식이 올바르지 않습니다.",
-                              "result": null
+                              "result": {}
                             }
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -558,7 +575,7 @@ public interface BookControllerDocs {
                               "isSuccess": false,
                               "code": "BOOK404_1",
                               "message": "해당 책을 찾을 수 없습니다.",
-                              "result": null
+                              "result": {}
                             }
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -592,7 +609,7 @@ public interface BookControllerDocs {
                               "isSuccess": false,
                               "code": "BOOK502_1",
                               "message": "외부 도서 API 호출에 실패했습니다.",
-                              "result": null
+                              "result": {}
                             }
                             """)))
   })
@@ -642,19 +659,97 @@ public interface BookControllerDocs {
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
         description = "유효하지 않은 ISBN 또는 독서 기록 요청",
-        content = @Content(mediaType = "application/json")),
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples = {
+                  @ExampleObject(
+                      name = "ISBN 형식 오류",
+                      value =
+                          """
+                          {
+                            "isSuccess": false,
+                            "code": "BOOK400_2",
+                            "message": "ISBN 형식이 올바르지 않습니다.",
+                            "result": {}
+                          }
+                          """),
+                  @ExampleObject(
+                      name = "기존 평점 삭제 불가",
+                      value =
+                          """
+                          {
+                            "isSuccess": false,
+                            "code": "BOOK400_3",
+                            "message": "등록한 평점은 미평가로 변경할 수 없습니다.",
+                            "result": {}
+                          }
+                          """),
+                  @ExampleObject(
+                      name = "요청 본문 검증 실패",
+                      value =
+                          """
+                          {
+                            "isSuccess": false,
+                            "code": "COMMON400_1",
+                            "message": "잘못된 요청입니다.",
+                            "result": {
+                              "progress": "독서 진행률은 0 이상이어야 합니다."
+                            }
+                          }
+                          """)
+                })),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
         description = "인증 필요",
-        content = @Content(mediaType = "application/json")),
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "AUTH401_2",
+                              "message": "유효하지 않은 Access Token입니다.",
+                              "result": null
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
         description = "책을 찾을 수 없음",
-        content = @Content(mediaType = "application/json")),
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK404_1",
+                              "message": "해당 책을 찾을 수 없습니다.",
+                              "result": {}
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "502",
         description = "외부 도서 API 호출 실패",
-        content = @Content(mediaType = "application/json"))
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK502_1",
+                              "message": "외부 도서 API 호출에 실패했습니다.",
+                              "result": {}
+                            }
+                            """)))
   })
   ResponseEntity<ApiResponse<MemberBookUpsertResDTO>> upsertMemberBook(
       @Parameter(description = "ISBN10 또는 ISBN13", example = "9788936434595", required = true)
