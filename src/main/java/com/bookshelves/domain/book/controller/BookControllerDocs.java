@@ -57,13 +57,55 @@ public interface BookControllerDocs {
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "year 또는 month 값 오류"),
+        description = "year 또는 month 값 오류",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK400_6",
+                              "message": "조회 연도 또는 월이 올바르지 않습니다.",
+                              "result": {}
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
-        description = "인증 필요"),
+        description = "유효하지 않은 Access Token",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "AUTH401_2",
+                              "message": "유효하지 않은 Access Token입니다.",
+                              "result": null
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "500",
-        description = "독서 통계 조회 실패")
+        description = "독서 통계 조회 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK500_5",
+                              "message": "독서 통계 조회에 실패했습니다.",
+                              "result": {}
+                            }
+                            """)))
   })
   ResponseEntity<ApiResponse<MemberBookStatisticsResDTO>> getMemberBookStatistics(
       @Parameter(description = "조회 연도. 없으면 현재 연도", example = "2026") String year,
@@ -98,13 +140,55 @@ public interface BookControllerDocs {
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "year 또는 month 값 오류"),
+        description = "year 또는 month 값 오류",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK400_5",
+                              "message": "조회 연도 또는 월이 올바르지 않습니다.",
+                              "result": {}
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
-        description = "인증 필요"),
+        description = "유효하지 않은 Access Token",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "AUTH401_2",
+                              "message": "유효하지 않은 Access Token입니다.",
+                              "result": null
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "500",
-        description = "독서 캘린더 조회 실패")
+        description = "독서 캘린더 조회 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK500_4",
+                              "message": "독서 캘린더 조회에 실패했습니다.",
+                              "result": {}
+                            }
+                            """)))
   })
   ResponseEntity<ApiResponse<MemberBookCalendarResDTO>> getMemberBookCalendar(
       @Parameter(description = "조회 연도", example = "2026", required = true) String year,
@@ -226,10 +310,38 @@ public interface BookControllerDocs {
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "독서 상태, page 또는 size 값 오류"),
+        description = "독서 상태, page 또는 size 값 오류",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK400_4",
+                              "message": "독서 상태, page 또는 size 값이 올바르지 않습니다.",
+                              "result": {}
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
-        description = "인증 필요"),
+        description = "유효하지 않은 Access Token",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "AUTH401_2",
+                              "message": "유효하지 않은 Access Token입니다.",
+                              "result": null
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "500",
         description = "내 서재 목록 조회 실패",
@@ -464,13 +576,55 @@ public interface BookControllerDocs {
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "삭제할 검색어 누락 또는 공백"),
+        description = "삭제할 검색어 누락 또는 공백",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK400_7",
+                              "message": "삭제할 최근 검색어가 올바르지 않습니다.",
+                              "result": {}
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
-        description = "인증 필요"),
+        description = "유효하지 않은 Access Token",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "AUTH401_2",
+                              "message": "유효하지 않은 Access Token입니다.",
+                              "result": null
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "500",
-        description = "최근 검색어 삭제 실패")
+        description = "최근 검색어 삭제 실패",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK500_6",
+                              "message": "최근 검색어를 삭제하지 못했습니다.",
+                              "result": {}
+                            }
+                            """)))
   })
   ResponseEntity<ApiResponse<Void>> deleteRecentBookSearch(
       @Parameter(description = "삭제할 최근 검색어", example = "혼모노", required = true) String keyword);
@@ -560,7 +714,21 @@ public interface BookControllerDocs {
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
-        description = "인증 필요"),
+        description = "유효하지 않은 Access Token",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "AUTH401_2",
+                              "message": "유효하지 않은 Access Token입니다.",
+                              "result": null
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
         description = "책을 찾을 수 없음",
@@ -780,13 +948,55 @@ public interface BookControllerDocs {
                             """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "400",
-        description = "유효하지 않은 ISBN"),
+        description = "유효하지 않은 ISBN",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK400_2",
+                              "message": "ISBN 형식이 올바르지 않습니다.",
+                              "result": {}
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "401",
-        description = "인증 필요"),
+        description = "유효하지 않은 Access Token",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "AUTH401_2",
+                              "message": "유효하지 않은 Access Token입니다.",
+                              "result": null
+                            }
+                            """))),
     @io.swagger.v3.oas.annotations.responses.ApiResponse(
         responseCode = "404",
-        description = "내 서재 독서 기록을 찾을 수 없음")
+        description = "내 서재 독서 기록을 찾을 수 없음",
+        content =
+            @Content(
+                mediaType = "application/json",
+                examples =
+                    @ExampleObject(
+                        value =
+                            """
+                            {
+                              "isSuccess": false,
+                              "code": "BOOK404_2",
+                              "message": "내 서재 독서 기록을 찾을 수 없습니다.",
+                              "result": {}
+                            }
+                            """)))
   })
   ResponseEntity<ApiResponse<Void>> deleteMemberBook(
       @Parameter(description = "ISBN10 또는 ISBN13", example = "9788936434595", required = true)
