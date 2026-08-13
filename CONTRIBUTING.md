@@ -28,7 +28,7 @@ hotfix/45-oauth-token-refresh
 
 형식: `<type>(<scope>): <description>` — 영어로 작성.
 
-```
+```text
 feat(book): add ISBN normalization on lazy persistence
 fix(auth): handle expired kakao access token
 docs(readme): document required env vars
