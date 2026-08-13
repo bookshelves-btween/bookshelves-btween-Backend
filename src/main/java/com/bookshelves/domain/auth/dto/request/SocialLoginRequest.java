@@ -18,5 +18,7 @@ public class SocialLoginRequest {
   @Schema(allowableValues = {"KAKAO", "GOOGLE", "APPLE"})
   private String provider;
 
-  @NotBlank private String providerToken;
+  @NotBlank
+  @Schema(example = "token")
+  private String providerToken;
 }
