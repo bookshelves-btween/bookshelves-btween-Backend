@@ -29,8 +29,10 @@ import com.bookshelves.domain.book.repository.ExternalBookCacheRepository.Cached
 import com.bookshelves.domain.book.repository.MemberBookHistoryRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository;
 import com.bookshelves.domain.book.repository.MemberBookRepository.CumulativeStatistics;
+import com.bookshelves.domain.book.repository.MemberBookRepository.MonthlyCategoryCount;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository;
 import com.bookshelves.domain.book.repository.RecentBookSearchRepository.RecentSearch;
+import com.bookshelves.domain.book.service.ExternalBookRateLimitService.RequestType;
 import com.bookshelves.domain.book.util.IsbnNormalizer;
 import com.bookshelves.global.security.AuthenticationFacade;
 import com.bookshelves.global.util.ServiceTime;
@@ -69,6 +71,7 @@ public class BookQueryService {
   private final MemberBookRepository memberBookRepository;
   private final MemberBookHistoryRepository memberBookHistoryRepository;
   private final ExternalBookLookupService externalBookLookupService;
+  private final ExternalBookRateLimitService externalBookRateLimitService;
   private final RecentBookSearchRepository recentBookSearchRepository;
   private final AuthenticationFacade authenticationFacade;
 
@@ -175,17 +178,15 @@ public class BookQueryService {
     try {
       CumulativeStatistics cumulativeStatistics =
           memberBookRepository.findCumulativeStatistics(memberId, 100);
-      List<MemberBook> monthlyCompletedMemberBooks =
-          memberBookRepository
-              .findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
-                  memberId, 100, startAt, endAt);
+      List<MonthlyCategoryCount> monthlyCategoryCounts =
+          memberBookRepository.findMonthlyCategoryCounts(memberId, 100, startAt, endAt);
       return new MemberBookStatisticsResDTO(
           yearMonth.getYear(),
           yearMonth.getMonthValue(),
           cumulativeStatistics.getCompletedBookCount(),
           cumulativeStatistics.getReviewCount(),
           toAverageRating(cumulativeStatistics.getAverageRating()),
-          calculateCategoryStatistics(monthlyCompletedMemberBooks));
+          calculateCategoryStatistics(monthlyCategoryCounts));
     } catch (DataAccessException exception) {
       throw new BookException(BookErrorCode.MEMBER_BOOK_STATISTICS_FAILED);
     }
@@ -213,36 +214,24 @@ public class BookQueryService {
   }
 
   private List<MemberBookStatisticsResDTO.CategoryStatistic> calculateCategoryStatistics(
-      List<MemberBook> monthlyCompletedMemberBooks) {
-    if (monthlyCompletedMemberBooks.isEmpty()) {
+      List<MonthlyCategoryCount> monthlyCategoryCounts) {
+    if (monthlyCategoryCounts.isEmpty()) {
       return List.of();
     }
 
-    Map<String, Long> categoryCounts = new LinkedHashMap<>();
-    for (MemberBook memberBook : monthlyCompletedMemberBooks) {
-      Book book = memberBook.getBook();
-      String kdcCode = book.getKdcCode();
-      String kdcName = book.getKdcName();
-      if (kdcCode == null
-          || !kdcCode.matches("\\d{3}")
-          || kdcName == null
-          || kdcName.isBlank()
-          || kdcName.equals("미분류")) {
-        continue;
-      }
-      categoryCounts.merge(kdcName, 1L, Long::sum);
-    }
-    int classifiedBookCount = categoryCounts.values().stream().mapToInt(Long::intValue).sum();
+    List<MonthlyCategoryCount> sortedCategories =
+        monthlyCategoryCounts.stream()
+            .sorted(
+                Comparator.comparingLong(MonthlyCategoryCount::getBookCount)
+                    .reversed()
+                    .thenComparing(MonthlyCategoryCount::getCategoryName))
+            .toList();
+    long classifiedBookCount =
+        sortedCategories.stream().mapToLong(MonthlyCategoryCount::getBookCount).sum();
     if (classifiedBookCount == 0) {
       return List.of();
     }
 
-    List<Map.Entry<String, Long>> sortedCategories =
-        categoryCounts.entrySet().stream()
-            .sorted(
-                Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
-                    .thenComparing(Map.Entry.comparingByKey()))
-            .toList();
     boolean hasMoreThanThreeCategories = sortedCategories.size() >= 4;
     List<MemberBookStatisticsResDTO.CategoryStatistic> statistics = new ArrayList<>();
     sortedCategories.stream()
@@ -251,11 +240,11 @@ public class BookQueryService {
             category ->
                 statistics.add(
                     toCategoryStatistic(
-                        category.getKey(), category.getValue(), classifiedBookCount)));
+                        category.getCategoryName(), category.getBookCount(), classifiedBookCount)));
 
     long otherCount =
         hasMoreThanThreeCategories
-            ? sortedCategories.stream().skip(3).mapToLong(Map.Entry::getValue).sum()
+            ? sortedCategories.stream().skip(3).mapToLong(MonthlyCategoryCount::getBookCount).sum()
             : 0;
     if (otherCount > 0) {
       statistics.add(toCategoryStatistic("기타", otherCount, classifiedBookCount));
@@ -264,7 +253,7 @@ public class BookQueryService {
   }
 
   private MemberBookStatisticsResDTO.CategoryStatistic toCategoryStatistic(
-      String name, long count, int totalCount) {
+      String name, long count, long totalCount) {
     int percentage = (int) Math.round((double) count * 100 / totalCount);
     return new MemberBookStatisticsResDTO.CategoryStatistic(name, count, percentage);
   }
@@ -370,6 +359,7 @@ public class BookQueryService {
       return new BookDetailResDTO(toSavedBookDetailInfo(savedBook), toMemberBookInfo(memberBook));
     }
 
+    externalBookRateLimitService.check(RequestType.DETAIL);
     CachedBookDetail externalBook =
         externalBookLookupService.findByIsbn(requestedIsbn, canonicalIsbn);
 

@@ -65,16 +65,18 @@ class NotificationCommandServiceTest {
   }
 
   @Test
-  void readNotificationMarksOwnedNotificationAsRead() {
+  void readNotificationReturnsSameSuccessForRepeatedRequests() {
     Notification notification = mock(Notification.class);
     when(notification.getId()).thenReturn(101L);
     when(notificationRepository.findByIdAndMember_IdAndIsDeletedFalse(101L, 1L))
         .thenReturn(Optional.of(notification));
 
-    NotificationReadResponse response = notificationCommandService.readNotification(101L, 1L);
+    NotificationReadResponse first = notificationCommandService.readNotification(101L, 1L);
+    NotificationReadResponse second = notificationCommandService.readNotification(101L, 1L);
 
-    assertThat(response.id()).isEqualTo(101L);
-    verify(notification).markAsRead();
+    assertThat(first).isEqualTo(new NotificationReadResponse(101L));
+    assertThat(second).isEqualTo(first);
+    verify(notification, org.mockito.Mockito.times(2)).markAsRead();
   }
 
   @Test

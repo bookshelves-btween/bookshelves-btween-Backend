@@ -1,8 +1,11 @@
 package com.bookshelves.domain.book.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -71,6 +74,33 @@ class MemberBookRepositoryIntegrationTest {
     assertThat(result.getAverageRating()).isNull();
   }
 
+  @Test
+  void aggregatesOnlyClassifiedCompletedBooksFinishedWithinRequestedMonth() {
+    insertMember(3L);
+    insertMember(4L);
+    LocalDateTime juneStart = LocalDateTime.of(2026, 6, 1, 0, 0);
+    LocalDateTime julyStart = LocalDateTime.of(2026, 7, 1, 0, 0);
+
+    insertMonthlyMemberBook(3L, 301L, 100, "800", "문학", juneStart);
+    insertMonthlyMemberBook(3L, 302L, 100, "800", "문학", juneStart.plusDays(10));
+    insertMonthlyMemberBook(3L, 303L, 100, "100", "철학", juneStart.plusDays(20));
+    insertMonthlyMemberBook(3L, 304L, 50, "800", "문학", juneStart.plusDays(1));
+    insertMonthlyMemberBook(3L, 305L, 100, "80", "잘못된 코드", juneStart.plusDays(1));
+    insertMonthlyMemberBook(3L, 306L, 100, null, null, juneStart.plusDays(1));
+    insertMonthlyMemberBook(3L, 307L, 100, "000", "미분류", juneStart.plusDays(1));
+    insertMonthlyMemberBook(3L, 308L, 100, "800", "문학", julyStart);
+    insertMonthlyMemberBook(4L, 401L, 100, "800", "문학", juneStart.plusDays(1));
+
+    List<MemberBookRepository.MonthlyCategoryCount> result =
+        memberBookRepository.findMonthlyCategoryCounts(3L, 100, juneStart, julyStart);
+
+    assertThat(result)
+        .extracting(
+            MemberBookRepository.MonthlyCategoryCount::getCategoryName,
+            MemberBookRepository.MonthlyCategoryCount::getBookCount)
+        .containsExactly(tuple("문학", 2L), tuple("철학", 1L));
+  }
+
   private void insertMember(long memberId) {
     jdbcTemplate.update(
         """
@@ -101,5 +131,34 @@ class MemberBookRepositoryIntegrationTest {
         bookId,
         memberId,
         memo);
+  }
+
+  private void insertMonthlyMemberBook(
+      long memberId,
+      long bookId,
+      int progress,
+      String kdcCode,
+      String kdcName,
+      LocalDateTime finishedAt) {
+    jdbcTemplate.update(
+        """
+        insert into book (id, isbn, title, kdc_code, kdc_name, created_at, updated_at)
+        values (?, ?, ?, ?, ?, now(6), now(6))
+        """,
+        bookId,
+        "978000000" + bookId,
+        "Book " + bookId,
+        kdcCode,
+        kdcName);
+    jdbcTemplate.update(
+        """
+        insert into member_book
+          (progress, book_id, member_id, finished_at, created_at, updated_at)
+        values (?, ?, ?, ?, now(6), now(6))
+        """,
+        progress,
+        bookId,
+        memberId,
+        finishedAt);
   }
 }

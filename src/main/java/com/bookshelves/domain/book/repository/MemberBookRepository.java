@@ -50,9 +50,29 @@ public interface MemberBookRepository extends JpaRepository<MemberBook, Long> {
   Page<MemberBook> findByMemberIdAndProgressBetween(
       Long memberId, Integer startProgress, Integer endProgress, Pageable pageable);
 
-  @EntityGraph(attributePaths = "book")
-  List<MemberBook> findByMemberIdAndProgressAndFinishedAtGreaterThanEqualAndFinishedAtLessThan(
-      Long memberId, Integer progress, LocalDateTime startAt, LocalDateTime endAt);
+  @Query(
+      value =
+          """
+          select b.kdc_name as categoryName,
+                 count(*) as bookCount
+          from member_book mb
+          join book b on b.id = mb.book_id
+          where mb.member_id = :memberId
+            and mb.progress = :progress
+            and mb.finished_at >= :startAt
+            and mb.finished_at < :endAt
+            and regexp_like(b.kdc_code, '^[0-9]{3}$')
+            and regexp_like(b.kdc_name, '[^[:space:]]')
+            and b.kdc_name <> '미분류'
+          group by b.kdc_name
+          order by bookCount desc, categoryName asc
+          """,
+      nativeQuery = true)
+  List<MonthlyCategoryCount> findMonthlyCategoryCounts(
+      @Param("memberId") Long memberId,
+      @Param("progress") Integer progress,
+      @Param("startAt") LocalDateTime startAt,
+      @Param("endAt") LocalDateTime endAt);
 
   interface CumulativeStatistics {
 
@@ -61,5 +81,12 @@ public interface MemberBookRepository extends JpaRepository<MemberBook, Long> {
     long getReviewCount();
 
     Double getAverageRating();
+  }
+
+  interface MonthlyCategoryCount {
+
+    String getCategoryName();
+
+    long getBookCount();
   }
 }
