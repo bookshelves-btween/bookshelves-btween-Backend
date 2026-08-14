@@ -104,8 +104,7 @@ REDIS_PORT=6379
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 APPLE_CLIENT_ID=
-KAKAO_CLIENT_ID=
-KAKAO_CLIENT_SECRET=
+KAKAO_APP_ID=
 
 # External API
 KAKAO_REST_API_KEY=
@@ -138,10 +137,8 @@ GOOGLE_APPLICATION_CREDENTIALS=
 | `REDIS_HOST`                     | Redis 서버 호스트                    |
 | `REDIS_PORT`                     | Redis 서버 포트                     |
 | `GOOGLE_CLIENT_ID`               | Google 로그인 Client ID            |
-| `GOOGLE_CLIENT_SECRET`           | Google 로그인 Client Secret        |
 | `APPLE_CLIENT_ID`                | Apple ID Token의 Audience 검증값    |
-| `KAKAO_CLIENT_ID`                | Kakao 로그인 Client ID             |
-| `KAKAO_CLIENT_SECRET`            | Kakao 로그인 Client Secret         |
+| `KAKAO_APP_ID`                   | Kakao 로그인 App ID                |
 | `KAKAO_REST_API_KEY`             | Kakao 도서 검색 API 키               |
 | `DATA4LIBRARY_AUTH_KEY`          | 도서관 정보나루 API 인증 키               |
 | `GEMINI_API_KEY`                 | Google Gemini API 키             |
