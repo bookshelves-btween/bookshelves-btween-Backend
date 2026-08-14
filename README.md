@@ -4,18 +4,19 @@
 
 > 책을 좋아하지만 독서모임이 부담스러웠던 사람들을 위해, 익명으로 가볍게 참여하고 책 이야기만 남길 수 있는 서비스
 
-[![Swift](https://img.shields.io/badge/Java-21+-ED8B00)]()
+[![Java](https://img.shields.io/badge/Java-21+-ED8B00)]()
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.0-6DB33F)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
 ## 👥 멤버
+
 <br>
 
 | <img src="https://github.com/YoungJJun.png" width="150" height="150"/> | <img src="https://github.com/wldmsdl7.png" width="150" height="150"/> | <img src="https://github.com/merakyb.png" width="150" height="150"/> | <img src="https://github.com/Eda3399.png" width="150" height="150"/> |
-| :---: | :---: | :---: | :---: |
-| [박영준](https://github.com/YoungJJun) | [임지은](https://github.com/wldmsdl7) | [윤여빈](https://github.com/merakyb) | [김보영](https://github.com/Eda3399) |
+|:----------------------------------------------------------------------:|:---------------------------------------------------------------------:|:--------------------------------------------------------------------:|:--------------------------------------------------------------------:|
+|                  [박영준](https://github.com/YoungJJun)                   |                  [임지은](https://github.com/wldmsdl7)                   |                  [윤여빈](https://github.com/merakyb)                   |                  [김보영](https://github.com/Eda3399)                   |
 
 ## 📱 소개
 
@@ -28,13 +29,14 @@
 
 하지만 기존 독서모임은 정기적으로 참여해야 하거나, 새로운 사람들과 관계를 만들어야 한다는 부담이 있습니다.
 
-책장사이는 사람을 오래 알아가야 하는 모임보다,**한 권의 책에 집중해 짧고 깊게 이야기할 수 있는 공간**이 있으면 어떨까? 라는 질문에서 출발한 서비스입니다. 
+책장사이는 사람을 오래 알아가야 하는 모임보다,**한 권의 책에 집중해 짧고 깊게 이야기할 수 있는 공간**이 있으면 어떨까? 라는 질문에서 출발한 서비스입니다.
 
 책을 좋아하지만 독서모임이 부담스러웠던 사람들을 위해, **익명으로 가볍게 참여하고 책 이야기만 남길 수 있는 서비스**를 만들고자 합니다.
 
 <br>
 
 ## 📆 프로젝트 기간
+
 - 전체 기간: `2026.06.22 - 2026.08.20`
 - 개발 기간: `2026.06.22 - 2026.08.13`
 
@@ -68,15 +70,14 @@
 
 프로젝트를 로컬에서 실행하려면 다음 환경이 필요합니다.
 
-| 항목 | 버전 및 요구사항 |
-| :--- | :--- |
-| Java | JDK 21 |
-| MySQL | 로컬 또는 원격 MySQL 인스턴스 |
-| Redis | 로컬 또는 원격 Redis 인스턴스 |
+| 항목     | 버전 및 요구사항                       |
+|:-------|:--------------------------------|
+| Java   | JDK 21                          |
+| MySQL  | 로컬 또는 원격 MySQL 인스턴스             |
+| Redis  | 로컬 또는 원격 Redis 인스턴스             |
 | Gradle | Gradle Wrapper를 사용하므로 별도 설치 불필요 |
 
 <br>
-
 
 ## 🏁 로컬에서 시작하기
 
@@ -127,28 +128,28 @@ GOOGLE_APPLICATION_CREDENTIALS=
 <summary><b>환경 변수 설명 보기</b></summary>
 <br>
 
-| 변수 | 설명 |
-| :--- | :--- |
-| `DB_HOST` | MySQL 서버 호스트 |
-| `DB_PORT` | MySQL 서버 포트 |
-| `DB_NAME` | 사용할 데이터베이스 이름 |
-| `DB_USERNAME` | MySQL 사용자 이름 |
-| `DB_PASSWORD` | MySQL 비밀번호 |
-| `REDIS_HOST` | Redis 서버 호스트 |
-| `REDIS_PORT` | Redis 서버 포트 |
-| `GOOGLE_CLIENT_ID` | Google 로그인 Client ID |
-| `GOOGLE_CLIENT_SECRET` | Google 로그인 Client Secret |
-| `APPLE_CLIENT_ID` | Apple ID Token의 Audience 검증값 |
-| `KAKAO_CLIENT_ID` | Kakao 로그인 Client ID |
-| `KAKAO_CLIENT_SECRET` | Kakao 로그인 Client Secret |
-| `KAKAO_REST_API_KEY` | Kakao 도서 검색 API 키 |
-| `DATA4LIBRARY_AUTH_KEY` | 도서관 정보나루 API 인증 키 |
-| `GEMINI_API_KEY` | Google Gemini API 키 |
-| `JWT_SECRET` | JWT 서명 키—32바이트 이상의 안전한 임의 문자열 |
-| `CORS_ALLOWED_ORIGINS` | 허용할 Origin—여러 개일 경우 쉼표로 구분 |
-| `FIREBASE_ENABLED` | Firebase Cloud Messaging 활성화 여부 |
-| `FIREBASE_PROJECT_ID` | Firebase 프로젝트 ID |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Firebase 서비스 계정 JSON 파일 경로 |
+| 변수                               | 설명                              |
+|:---------------------------------|:--------------------------------|
+| `DB_HOST`                        | MySQL 서버 호스트                    |
+| `DB_PORT`                        | MySQL 서버 포트                     |
+| `DB_NAME`                        | 사용할 데이터베이스 이름                   |
+| `DB_USERNAME`                    | MySQL 사용자 이름                    |
+| `DB_PASSWORD`                    | MySQL 비밀번호                      |
+| `REDIS_HOST`                     | Redis 서버 호스트                    |
+| `REDIS_PORT`                     | Redis 서버 포트                     |
+| `GOOGLE_CLIENT_ID`               | Google 로그인 Client ID            |
+| `GOOGLE_CLIENT_SECRET`           | Google 로그인 Client Secret        |
+| `APPLE_CLIENT_ID`                | Apple ID Token의 Audience 검증값    |
+| `KAKAO_CLIENT_ID`                | Kakao 로그인 Client ID             |
+| `KAKAO_CLIENT_SECRET`            | Kakao 로그인 Client Secret         |
+| `KAKAO_REST_API_KEY`             | Kakao 도서 검색 API 키               |
+| `DATA4LIBRARY_AUTH_KEY`          | 도서관 정보나루 API 인증 키               |
+| `GEMINI_API_KEY`                 | Google Gemini API 키             |
+| `JWT_SECRET`                     | JWT 서명 키—32바이트 이상의 안전한 임의 문자열   |
+| `CORS_ALLOWED_ORIGINS`           | 허용할 Origin—여러 개일 경우 쉼표로 구분      |
+| `FIREBASE_ENABLED`               | Firebase Cloud Messaging 활성화 여부 |
+| `FIREBASE_PROJECT_ID`            | Firebase 프로젝트 ID                |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Firebase 서비스 계정 JSON 파일 경로      |
 
 </details>
 
